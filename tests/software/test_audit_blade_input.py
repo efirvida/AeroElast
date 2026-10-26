@@ -258,3 +258,46 @@ def test_bay_mean_thickness_and_deck_triangle_indices():
         "inertia_matrix": {"grid": [0.0, 1.0], "values": vals}}}
     m11, k11, k33 = ab.YamlBlade.from_dict(data).deck_m11_k11_k33(0.5)
     assert (m11, k11, k33) == (pytest.approx(0.0 * 1.5), pytest.approx(0.0), pytest.approx(11 * 1.5))
+
+
+# --- partial-span layers (IEA-3.4: caps and webs on 0.1-0.94, fillers on 0.1-0.8) ------------
+def partial_span_yaml():
+    """mini_yaml with the cap and the web skin defined on a span grid of 0.2-0.6 only."""
+    data = mini_yaml()
+    lin = lambda g, v: {"grid": list(g), "values": list(v)}  # noqa: E731
+    layers = {x["name"]: x for x in data["components"]["blade"]["internal_structure_2d_fem"]["layers"]}
+    layers["cap"]["thickness"] = lin([0.2, 0.6], [0.02, 0.01])
+    layers["web0_skin"]["thickness"] = lin([0.2, 0.6], [0.003, 0.001])
+    return data
+
+
+def test_partial_span_layer_is_zero_outside_its_grid_and_linear_inside():
+    yb = ab.YamlBlade.from_dict(partial_span_yaml())
+    t = lambda r: yb.layer_state("cap", r)["thickness"]  # noqa: E731
+    assert t(0.1) == 0.0 and t(0.7) == 0.0 and t(1.0) == 0.0
+    assert t(0.2) == pytest.approx(0.02, abs=1e-15) and t(0.6) == pytest.approx(0.01, abs=1e-15)
+    assert t(0.4) == pytest.approx(0.015, abs=1e-15)
+    # the arcs of the layer keep their own (full-span) grid
+    assert yb.layer_state("cap", 0.7)["start"] == pytest.approx(0.27, abs=1e-15)
+
+
+def test_partial_span_layer_is_inactive_outside_its_grid():
+    yb = ab.YamlBlade.from_dict(partial_span_yaml())
+    names = lambda r, a: [x["name"] for x in yb.active_layers(r, a, 10.0)]  # noqa: E731
+    assert names(0.1, 0.3) == ["skin"]
+    assert names(0.4, 0.3) == ["skin", "cap"]
+    assert names(0.7, 0.35) == ["skin"]
+    assert 0.2 not in yb.all_bounds(0.1, 10.0)
+
+
+def test_web_is_absent_outside_its_layer_grid():
+    yb = ab.YamlBlade.from_dict(partial_span_yaml())
+    assert yb.web_layers(0, 0.1) == [] and yb.web_layers(0, 0.7) == []
+    assert yb.web_layers(0, 0.4)[0]["thickness"] == pytest.approx(0.002, abs=1e-15)
+
+
+def test_bay_mean_thickness_counts_zero_outside_the_grid():
+    yb = ab.YamlBlade.from_dict(partial_span_yaml())
+    # bay 50-70 m: 0.0125 -> 0.01 linear over 50-60 m, zero over 60-70 m
+    assert yb.bay_mean_thickness("cap", 50.0, 70.0) == pytest.approx(0.5 * 0.01125, rel=1e-2)
+    assert yb.bay_mean_thickness("cap", 0.0, 15.0) == 0.0

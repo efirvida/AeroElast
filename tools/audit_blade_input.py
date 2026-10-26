@@ -8,7 +8,7 @@ Two sides, kept apart on purpose:
 
 * the **yaml side** is ``YamlBlade`` and the pure helpers around it. They need only PyYAML and
   numpy and import nothing from ``aeroelast`` (S2); spans are interpolated linearly on the yaml's
-  own grids;
+  own grids, and a layer's thickness is zero outside its own grid (``layer_thickness``);
 * the **mesh side** (``build_mesh`` onward) builds the production ``Blade`` mesh and reads what the
   solver is given: node coordinates, the element sets, and the laminates from
   ``Blade.get_element_properties()``.
@@ -70,6 +70,18 @@ CONVENTION_NOTE = (
 def interp(grid, values, x) -> float:
     """Linear interpolation on the quantity's own grid, clamped at the ends."""
     return float(np.interp(x, np.asarray(grid, float), np.asarray(values, float)))
+
+
+def layer_thickness(thickness: dict, frac):
+    """Layer thickness on its own grid, linear inside and zero outside it.
+
+    A layer exists only over its ``thickness.grid`` (WISDEM convention, and what the mesh does when it
+    resamples the layer onto the reference-axis grid); clamping the end value would carry partial-span
+    layers (IEA-3.4 caps, webs and fillers) past their ends.
+    """
+    out = np.interp(frac, np.asarray(thickness["grid"], float), np.asarray(thickness["values"], float),
+                    left=0.0, right=0.0)
+    return float(out) if np.ndim(out) == 0 else out
 
 
 def _poly_length(pts: np.ndarray) -> float:
@@ -176,7 +188,7 @@ class YamlBlade:
         return {
             "name": name,
             "material": layer["material"],
-            "thickness": at("thickness"),
+            "thickness": layer_thickness(layer["thickness"], frac),
             "start": at("start_nd_arc"),
             "end": at("end_nd_arc"),
             "width": at("width"),
@@ -202,8 +214,7 @@ class YamlBlade:
         Context only: the mesh holds one laminate per spanwise bay, the yaml a point value.
         """
         fr = np.linspace(z0, z1, 201) / self.length
-        layer = self._layers[name]["thickness"]
-        return float(np.mean(np.interp(fr, layer["grid"], layer["values"])))
+        return float(np.mean(layer_thickness(self._layers[name]["thickness"], fr)))
 
     def _skin_layers(self):
         return [name for name, layer in self._layers.items() if "web" not in layer]
