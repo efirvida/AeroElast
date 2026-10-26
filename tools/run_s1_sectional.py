@@ -156,6 +156,7 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     from aeroelast.postprocess.sectional import (
         SectionalExtractor,
         _local_quadratic,
+        rigid_rotation_fit,
         select_stations,
     )
 
@@ -204,39 +205,40 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     eps_z = sp_u.derivative(1)(zs)
     ea_static = np.where(np.abs(eps_z) > 1e-12, load_ax / np.abs(eps_z), np.nan)
 
-    # GJ: tip torque about the LOCAL (pre-bent) span tangent, applied as the Saint-Venant wall shear
-    # flow of the end ring (multi-cell Bredt on the walls' own G t).  A global-z couple on the swept
-    # blade carries a bending component that contaminates the twist rate, and the couple
-    # a (t x r_perp) is the shear flow only on a circle: on any other section it excites distortion
-    # that the rigid-fit twist reads as rotation (blade-input-audit T39/T40).  The end ring is the
-    # last station's nodes not shared with the station before it in the whole mesh.
+    # GJ: the tip torque is applied as the Saint-Venant wall shear flow of the end ring (multi-cell
+    # Bredt on the walls' own G t; blade-input-audit T39/T40) about the ring's OWN plane normal, so
+    # the delivered moment is the requested one whatever the tilt of the pre-bent tangent (T40b).
+    # Twist is read as the EI path reads curvature: the 6-DOF rigid-fit rotation vector of each
+    # station projected on the station tangent, differentiated by the local quadratic and taken per
+    # arc length (x t_z); GJ_i = (M_delivered . t_i) / theta'_s,i.  The end ring is the last
+    # station's nodes not shared with the station before it in the whole mesh.
     from aeroelast.solvers.bem.force_projection import section_torque_wall_forces
 
     all_sts = sorted(membership)
     prev_nodes = set(membership[all_sts[all_sts.index(sts[-1]) - 1]]["nodes"].tolist())
     end_ring = np.array([n for n in tip_nodes.tolist() if n not in prev_nodes], dtype=np.intp)
-    ring, f_ring = section_torque_wall_forces(
-        mesh, end_ring, tangs[-1], props, torque, coords=coords
-    )
+    ring_xyz = coords[end_ring]
+    ring_c = ring_xyz.mean(axis=0)
+    normal = np.linalg.svd(ring_xyz - ring_c)[2][-1]
+    if normal @ tangs[-1] < 0.0:
+        normal = -normal
+    ring, f_ring = section_torque_wall_forces(mesh, end_ring, normal, props, torque, coords=coords)
+    m_delivered = np.cross(coords[ring] - ring_c, f_ring).sum(axis=0)
     tip_f = {int(t): [float(f[0]), float(f[1]), float(f[2])] for t, f in zip(ring, f_ring, strict=True)}
     u_t = solve_case(tip_f)
     theta = []
     for i, st in enumerate(sts):
         nodes = membership[st]["nodes"]
-        xyz = coords[nodes]
-        r = xyz - xyz.mean(axis=0)
-        t_s = tangs[i]
-        r_p = r - np.outer(r @ t_s, t_s)
-        u_s = np.array([[u_t[n * dpn + d] for d in range(3)] for n in nodes])
-        u_p = u_s - np.outer(u_s @ t_s, t_s)
-        num = float(np.sum(np.cross(r_p, u_p) @ t_s))
-        den = float(np.sum(r_p**2))
-        theta.append(num / max(den, 1e-12))
+        u_s = u_t.reshape(-1, dpn)[nodes, :3]
+        rot = rigid_rotation_fit(coords[nodes], coords[nodes].mean(axis=0), u_s)
+        theta.append(float(rot @ tangs[i]))
     theta = np.asarray(theta)
-    # Twist rate from the EI tangent-frame local quadratic fit (half window 2 x median station
-    # spacing), signed: the torque is positive about the tangent, so a non-positive rate has no GJ.
-    twist_rate = _local_quadratic(zs, theta, 2.0 * float(np.median(np.diff(zs))), True)
-    gj_static = np.where(twist_rate > 1e-12, torque / np.maximum(twist_rate, 1e-12), np.nan)
+    # Signed: a non-positive rate about the applied torque has no GJ.
+    twist_rate = _local_quadratic(zs, theta, 2.0 * float(np.median(np.diff(zs))), True) * tangs[:, 2]
+    m_t = tangs @ m_delivered
+    gj_static = np.where(
+        twist_rate * m_t > 1e-12, m_t / np.where(twist_rate == 0.0, np.nan, twist_rate), np.nan
+    )
 
     # EA via the direct CLT section integral (immune to the pre-bend
     # bending contamination that biases the global-response extraction):

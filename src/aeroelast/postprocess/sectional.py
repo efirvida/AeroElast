@@ -351,14 +351,7 @@ class SectionalExtractor:
             u = solutions[name].reshape(-1, dpn)[:, :3]
             theta = np.zeros((n_st, 3))
             for i, nodes in enumerate(station_nodes):
-                d = self.coords[nodes] - cen[i]
-                # u_k = u0 + theta x d_k  ->  (I | -[d_k]x) (u0, theta) = u_k
-                A = np.zeros((3 * nodes.size, 6))
-                A[:, :3] = np.tile(np.eye(3), (nodes.size, 1))
-                A[0::3, 4], A[0::3, 5] = d[:, 2], -d[:, 1]
-                A[1::3, 3], A[1::3, 5] = -d[:, 2], d[:, 0]
-                A[2::3, 3], A[2::3, 4] = d[:, 1], -d[:, 0]
-                theta[i] = np.linalg.lstsq(A, u[nodes].ravel(), rcond=None)[0][3:]
+                theta[i] = rigid_rotation_fit(self.coords[nodes], cen[i], u[nodes])
             kappa = np.column_stack([local_fit(zs, theta[:, k], True)
                                      for k in range(3)]) * t[:, 2:3]
             force = np.zeros(3)
@@ -533,6 +526,23 @@ def select_stations(zs, ref_z=None):
         return np.arange(zs.size)
     ref = np.asarray(ref_z, dtype=float)
     return np.unique(np.abs(zs[:, None] - ref[None, :]).argmin(axis=0))
+
+
+def rigid_rotation_fit(xyz, centre, u):
+    """Rotation vector of the least-squares rigid motion of a node set.
+
+    Fits ``u_k = u0 + theta x d_k`` (``d_k = xyz_k - centre``) to the nodal translations ``u`` (n, 3) by
+    ``lstsq`` on the 6 unknowns ``(u0, theta)`` and returns ``theta``.
+    """
+    d = np.asarray(xyz) - centre
+    n = d.shape[0]
+    # u_k = u0 + theta x d_k  ->  (I | -[d_k]x) (u0, theta) = u_k
+    A = np.zeros((3 * n, 6))
+    A[:, :3] = np.tile(np.eye(3), (n, 1))
+    A[0::3, 4], A[0::3, 5] = d[:, 2], -d[:, 1]
+    A[1::3, 3], A[1::3, 5] = -d[:, 2], d[:, 0]
+    A[2::3, 3], A[2::3, 4] = d[:, 1], -d[:, 0]
+    return np.linalg.lstsq(A, np.asarray(u).ravel(), rcond=None)[0][3:]
 
 
 def _local_quadratic(zs, y, half, deriv):

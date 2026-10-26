@@ -20,6 +20,9 @@ extractor; ``test_uniform_rectangle_root_layer_diagnostic`` prints it without as
 * (b) circle of the same perimeter, GJ(z) falling ~10x: S-1 GJ mid-span mean |err| < 1 %;
 * (c) the S-7 construction (``run_torsion_case`` + ``section_twists_deg``) on the rectangle:
   per-slice twist ratio to the exact ``T int dz/GJ`` within 1 % over its 0.3-0.9 band;
+* (e) oblique circular tube (axis 20 deg off z in xz, rings cut by z-planes: ellipses): S-1 GJ
+  within 1 % of ``G t 2 pi R^3`` at every mid-span station. Needs the end-ring-normal load and the
+  6-DOF tangent-frame twist (blade-input-audit T40b);
 * (d) the load helper: delivered torque exact, zero net force, geometric-only refused.
 """
 
@@ -90,6 +93,62 @@ def test_c_s7_construction_twist_ratio_per_slice():
     band = (zs >= 0.3 * LENGTH) & (zs <= 0.9 * LENGTH)
     assert band.sum() >= 10
     assert np.max(np.abs(ratio[band] - 1.0)) < BOUND, f"ratio min/max {ratio[band].min():.4f}/{ratio[band].max():.4f}"
+
+
+BETA = np.deg2rad(20.0)
+
+
+def _build_oblique():
+    """Circular tube of radius R whose axis is tilted BETA from z in the xz-plane; rings in z-planes."""
+    from aeroelast.core.material import IsotropicMaterial
+    from aeroelast.core.mesh import ElementSet, MeshElement, MeshModel, Node, NodeSet
+    from aeroelast.core.mesh.entities import ElementType
+    from aeroelast.core.properties import ShellProperty
+
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    rad = 2.0 * (tube.B_MID + tube.H_MID) / (2.0 * np.pi)
+    nr = int(round(2.0 * (tube.B_MID + tube.H_MID) / tube.ES))
+    phi = 2.0 * np.pi * np.arange(nr) / nr
+    nz = _layers()
+    mesh = MeshModel()
+    rings = []
+    for z in np.linspace(0.0, LENGTH, nz + 1):
+        s_ax = (z + rad * np.cos(phi) * np.sin(BETA)) / np.cos(BETA)
+        x = s_ax * np.sin(BETA) + rad * np.cos(phi) * np.cos(BETA)
+        row = []
+        for xi, yi in zip(x, rad * np.sin(phi), strict=True):
+            n = Node([float(xi), float(yi), float(z)], geometric_node=False)
+            mesh.add_node(n)
+            row.append(n)
+        rings.append(row)
+    g = tube.G_UNIFORM
+    props = {}
+    for k in range(nz):
+        els = set()
+        for i in range(nr):
+            j = (i + 1) % nr
+            e = MeshElement(nodes=[rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]],
+                            element_type=ElementType.quad)
+            mesh.add_element(e)
+            els.add(e)
+        name = f"00_{k:03d}_tube"
+        mesh.add_element_set(ElementSet(name, els))
+        props[name] = ShellProperty(
+            material=IsotropicMaterial(name=f"m{k}", E=2.0 * (1.0 + tube.NU) * g, nu=tube.NU, rho=1000.0),
+            thickness=tube.T_WALL)
+    mesh.add_node_set(NodeSet("RootNodes", set(rings[0])))
+    mesh.coords_array = np.asarray([n.coords for n in mesh.nodes], dtype=float)
+    return mesh, props, g * tube.T_WALL * 2.0 * np.pi * rad**3
+
+
+def test_e_oblique_circular_tube_gj_within_bredt():
+    mesh, props, gj_ref = _build_oblique()
+    zs, _ea, gj, _ = s1.ea_gj_from_static_response(mesh, props, torque=TORQUE, stations=STATIONS)
+    mid = (zs > 0.2 * zs.max()) & (zs < 0.85 * zs.max())
+    err = gj[mid] / gj_ref - 1.0
+    assert np.all(np.isfinite(err))
+    assert np.max(np.abs(err)) < BOUND, f"max |err| {np.max(np.abs(err)):.4%} (per station {np.round(err, 5)})"
 
 
 def test_uniform_rectangle_root_layer_diagnostic(capsys):
