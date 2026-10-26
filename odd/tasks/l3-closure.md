@@ -10,6 +10,7 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S3 (thesis plan step 2 acceptance): 5 %; every remaining red gets its torque/power sensitivity measured and is declared as a limitation (EA: no torque path, declared).
 - S4 (repository physics discipline): no pass band widened; a moved anchor is a finding; `regression --write` never over a moved residual without reporting it.
 - S6 (user L4, verbatim): "si hay opcion de mejorar el modelo hay que mejorarlo. Las formas modales son muy importantes porque luego voy a necesitar hacer analisis de frecuencias en rotacion para ver como esas viraciones modifican o no la se~nal de torque. una pala 10% mas blanda (no se contra que referencia) hace que sus oscilaciones sean diferente 10% diferentes a la respuesta fisica"
+- S7 (user L5/L6): second blade from the official repositories to tell model defects from solver-core defects; option chosen verbatim: "1. IEA-3.4 antes de T6 (recomendado)".
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -29,6 +30,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T2 | S2 S4 | parent | pending | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
 - T3 | S5 | parent | pending | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
 - T4 | S2 S3 | parent | done: twist +0.34 %, flap -0.34 %, edge 0.005 % torque | Sensitivity tool: rigid BEM at rated with the twist distribution perturbed by each red's effect; torque/power deltas.
+- T9 | S7 S4 | parent/worker | pending | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
@@ -77,7 +79,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 **Decision taken (user L4): improve the model (T6, T7) and add mode shapes (T8); declaration only for what stays red after them.** Superseded: threshold for "small" sensitivity. Parent recommendation: declare both reds (S-7 torsion,
 S-2 flap) with no model work: each moves rated torque by 0.34 % (one order below the 5 % acceptance) and they
 cancel; the 7.4 % share of the flexible-minus-rigid delta is stated in the declaration so L5 can carry it.
-**Next, in order.** 0. Session 11: T6 (prediction before the run), then T7, then T8; items 1-3 below can run alongside. 1. Restamp the stale rows whose values did not move (S-1 mass/EI_flap, S-4 x2, V-03, V-05,
+**Next, in order.** 0. Session 11: T9 (IEA-3.4: pre-registered biases first), then T6, T7 on both blades, then T8; items 1-3 below can run alongside. 1. Restamp the stale rows whose values did not move (S-1 mass/EI_flap, S-4 x2, V-03, V-05,
 anchor beam 20, V-02 32 if `same`), record moved ones as findings (S-7 7.25 -> 7.17 %, T40). 2. T3: group 40 rows
 exist -> `rotating_modal_shift` gap to `bounded` with the rows listed. 3. T2: group 23 unmapped rows and group 5
 need a printed residual or a manual verdict; S-2 LC2 (-2.5 %, in) and LC3 (+10.26 %, the edgewise ratio test
@@ -90,3 +92,5 @@ passes with a different band: read it before deciding). 4. T5: declarations with
 - L2 (2026-10-26, session 10) User chose option 1 "Sensibilidad primero (recomendado)" over "Arreglar el modelo primero" and "Solo declarar".
 - L3 (2026-10-26, session 10) User: "revisa si se esta ejecutando bien para no perder el tiempo". Parent: jobs healthy; flap sign corrected (ours stiffer), signed sensitivity re-run.
 - L4 (2026-10-26, session 10) User: S6 verbatim. Parent: the "10 % softer" is S-2 LC3 static tip-edge (point load, undecided row) and S-1 EI_edge 8 % (mid-span extraction), both vs the BeamDyn/SONATA 6x6; the edgewise dynamics agree (S-4 1E +0.56 / +0.44 % vs BeamDyn, a 10 % EI error would move 1E ~5 %). Model reds with diagnosed causes: flap/EA (cap chamfer, T6), torsion (TE solid closure, T7). Mode shapes are not in the store: T8.
+- L5 (2026-10-26, session 10) User: "en algun momento te sugeri utilizar otra pala del repositorio oficial de NREL y comparar tambien para ver si son defectos de modelo o de implementacion del core de solucion". Parent: suggested 2026-10-23 (blade-input-audit L9), inventoried as T17, parked behind T18 (windIO v2 importer), never run. A SONATA-chain blade (3.4) tells systematic-vs-turbine-specific and doubles the evidence for T6/T7; core is bounded by L1/L2 closed, S-4 within 2.4 %, and the section-only PDF check; SONATA convention vs physics needs a BECAS blade (3 webs, not supported).
+- L6 (2026-10-26, session 10) User chose "1. IEA-3.4 antes de T6 (recomendado)" over "3.4 y además una pala BECAS" and "T6/T7 primero".
