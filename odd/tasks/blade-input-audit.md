@@ -78,7 +78,7 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T36 | S5 | worker + parent | done, merged (fix/ccx-parity-station dcaa07f) | Handoff 6 item 3, T31 verdict: replace the tip-node metric of `tests/test_blade_ccx_parity.py::test_blade_parity_ccx` (mean |u| over the 16 point-loaded tip nodes = load introduction, not stiffness) with an interior-station metric, on branch `fix/ccx-parity-station` (worktree `$SCRATCH/wt/ccx-station`, from a9ca498; supersedes `fix/ccx-parity-work`'s W metric). **Design fixed before any run (session 6):** per case, the mean translation vector over a node slab |z - zc| < 0.6 x ELEMENT_SIZE (CCX corner nodes matched by coordinates, cKDTree, 1e-4 m) at zc = z0 + f (z1 - z0); metric |u_AE - u_CCX| / |u_CCX|; **asserted** at f = 0.5 and 0.7 with the unchanged 5 % bound; f = 0.8, 0.9 and the old tip metric **printed, not asserted** (0.8-0.9 R is the open T28 band: edge translation up to +6.9 %); all four cases (flap, edge, axial +/-). **Prediction:** axial +/- <= ~1 % at 0.5/0.7 (T31 Part 3: <= 0.85 % up to z 82 m); flap and edge < 3 %. If a case is > 5 % at 0.5 or 0.7 R it is a finding (report, never widen, never move the stations). **Result (session 6, SLURM 11623955-58, es 0.25, 7.7 min each):** all 4 pass. Slab-mean vector gap AE/CCX at f 0.5 / 0.7 (asserted) / 0.8 / 0.9 (printed): flap 0.16 / 0.11 / 0.08 / 0.04 %, edge 0.17 / 0.08 / 0.11 / 0.16 %, axial +/- 0.15 / 0.09 / 0.06 / 0.09 %; every slab fully matched (104/78/72/60 nodes); old tip metric (diagnostic) flap 2.14, edge 0.75, axial 7.25 %. Prediction (axial <= ~1 %, flap/edge < 3 %) held. f 0.9 shows no excess in the vector metric; T31's +6.9 % at 82-111 m was the minor x component of the axial case (here 43 vs 828 mm at 0.7 R), not contradicted. **Matching, four iterations (findings):** (1) nearest node within a fixed 1e-4 m misses everything beyond z 100 m (FRD E12.5 rounding 5e-4 m there); (2) the FRD carries 1.83 M nodes (CCX expands composite shells through the thickness) vs 102,667 in the deck; (3) even on deck corners a coordinate match is ambiguous for 579 nodes: our mesh has distinct nodes 0.25 mm apart; (4) fix: the quadratic writer labels our node i as i + 1 (`_build_quadratic_mesh_data`), so pairing is by identity and coordinates only verify it within the rounding (corner set must be exactly 1..N). The run-2 nearest-node numbers coincided with these at 0.5/0.7, but only the label-paired run is evidence. Commits 5282da8, 125c604, 12ec1ef, 4a69c4c, 57a7ff9, dcaa07f; logs `$SCRATCH/wt/ccx-station/logs/check/t36/`.
 - T38 | S5 | worker + parent | measured, not merged (fix/cap-arcs): caps at the yaml arcs, section and frequencies as predicted, S-1 GJ -3.4 pt while S-7 flat (torsion anchors disagree) | branch fix/cap-arcs
 - T39 | S5 | parent | done (finding; decision L35: fix, T40) | Handoff 9 Next 1: S-1 GJ extractor on a tube of known GJ (section 'S-1 GJ extractor on a tube'); decides fix the extractor vs retire the S-1 GJ assertion for S-7 (user decision)
-- T40 | S5 | worker + parent | fix a4b3ca2 (truth tests green), blade re-measured, S-1 still inconsistent with S-7, not merged | Fix S-1 GJ load + derivative and the S-7 load (section 'T40'); branch fix/gj-shearflow; blade re-measure after
+- T40 | S5 | worker + parent | done, merged c6c071a (a4b3ca2 + d81931b): S-1 = S-7 theta on the blade, S-1 GJ 10.74 %, S-7 1.0717 (findings) | Fix S-1 GJ load + derivative and the S-7 load (section 'T40'); branch fix/gj-shearflow; blade re-measure after
 - T37 | S5 | parent + worker | measured, not merged (fix/te-closure-T37 0cccfe9): face-equivalent wedge worsens GJ/EA/mass/1F/1E/2F, EI_edge 8.0 -> 5.8 % by overshoot; see section 'T37 flat-back closure' | Flat-back (TE) closure to match the reference. Findings (session 6, two read-only explores): (1) the yaml places **no layer on the flat-back face** outboard of r/R ~0.245: the FFA-W3-360/330blend/301/270blend polylines are open at the TE, so the face has zero nd-arc; Shell_skin starts at nd 0.01 / Shell_skin_inner at 0.08 outboard of 0.3/0.25, TE_reinforcement_SS/PS (glass_uni 30 mm, 0.75 m) run from each corner forward; the face laminate is a tool assumption. (2) Ours: `*_TE_FLAT` key segment has zero arc length (`keypoints.py:237-239,285-287`), `stackdb._map_continuous_layers` `if b <= a:` gives fraction 0/1 by the yaml start/end; HEAD (`yaml_to_blade.py:449-460` extent [d,te]) puts glass_uni 30 + gelcoat 1 = 31 mm on the face, T30 ([d,e]) leaves gelcoat 1 mm only (G t ~1.3 MN/m: cell effectively open, hence GJ 100 % and 2F -7.5 %). Units: mm. (3) Reference = SONATA/ANBA4 (IEA-15-240-RWT ReleaseNotes v1.1.4: 'Blade elastic properties consistently originate from SONATA/ANBA4'). SONATA master: closes the profile with a straight line between the corners (`classAirfoil.gen_OCCtopo` :125, `BSplineLst_utils.py:481-484`), s=0 at the face midpoint (`classAirfoil.py:86-92`, `classBlade.py:402-411`); [0,1] layers wrap across the face (`utl/converter_WT.py:540-557` snaps near-0/1); **outboard of 20 % span** (`span_adhesive = 0.2`, :131) TE reinforcement is trimmed back to `adhesive_extent = min(0.04, 0.04/chord)` (:323-331), an **adhesive web** is inserted at [adhesive_extent, 1-adhesive_extent] (:521-524) and the TE wedge behind it is **solid adhesive** (:422-432); inboard of 20 %: TE glass_uni + skins + gelcoat on the face. Confidence medium on the adhesive details (master, not the v1.1.4 commit). **So neither HEAD (31 mm glass) nor T30 (1 mm) is the reference:** the reference torsion cell is closed by an adhesive bond line ~4 % of arc forward of the TE plus a solid adhesive wedge. Next: confirm on `IEA-15-240-RWT/CAD/SONATA/blade_section_0.3.pdf` / `_0.5.pdf`; then model it in the shell mesh (a TE shear web of adhesive at adhesive_extent, or an equivalent face laminate with the wedge's G t and E A), keep T30's [d,e] for glass_uni outboard of 0.2, measure S-1 GJ/EI_edge/EA, S-7, V-02 1E/1F, S-4 1E/2F, V-03 mass against the current numbers; prediction to write before the run. The yaml's `adhesive` material exists unused (explore 1).
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
@@ -987,16 +987,38 @@ factors, the axis and dz vs ds, 0.94^2 = 0.883), GREEN max 0.80 % (-0.80 at the 
 ruff clean; quick 75 passed. Blade re-measure: SLURM 11624457 (S-1 GJ), 11624458 (theta comparison, S-1 mesh,
 6-DOF theta), 11624459 (S-1 test class).
 
+**T40b blade result (d81931b, es 0.25, mid; SLURM 11624457/58/59).** Prediction **held**: S-1 theta/beam band
+**1.0736 on the S-1 solve = 1.0735 on the S-7 solve** (slices 1.0717 both); S-1 GJ mid-span mean |rel err|
+**10.74 %** (predicted ~10.5; central difference 10.21 %; signed -10.74, median -7.66). Per r/R (signed % vs
+K66): 0.255 -14.0, 0.296 -5.7, 0.399 -3.8, 0.500 -5.8, 0.601 -8.8, 0.704 -18.2, 0.745 -15.8, 0.807 -1.5, 0.847
+-17.7, 0.908 -39.8; band means 0.2-0.3 -19.4, 0.3-0.6 -5.6, 0.6-0.85 -13.0. S-1 EI_edge 8.01 %, EA(CLT) 6.68 %
+unchanged. **Self-consistency:** integrating S-1's own T/GJ from its first station reproduces its measured theta
+within 1.0028..1.0321 at 0.3-0.9 (0.5-0.9 % at 0.4-0.8); +19 % at 0.19 (the inboard rate errors, where theta
+is tiny). **Correction:** the earlier "integral 1.146 vs S-7 1.072" mixed two beam-integration schemes (GJ-linear
+at the S-1 stations vs the S-7 test's 1/GJ-linear) and the inboard band; the real S-1/S-7 disagreement was
+the 2.64 % load over-delivery, now fixed.
+**Reading.** At 0.3-0.6 S-1 (-3.8..-8.8 % vs K66) sits on our section Bredt (-1..-7 % vs GJ_sc, K66 0.4-2.9 %
+above GJ_sc): the S-1 GJ extraction now agrees with the independent section analysis there. Outboard
+(0.7 -18 % vs Bredt ~-14 %; 0.85-0.9 -18..-40 %) and inboard 0.2-0.3 (-19 %) remain below it: open
+(candidates: the TE solid-region closure of the per-wall localisation, thick-wall terms Bredt omits, and
+non-prismatic effects of the taper). S-7 1.0717 (> 5 %) and S-1 GJ 10.74 % (> 5 %) stay red: findings, bounds
+untouched.
+**Merged** `fix/gj-shearflow` into l3/twist-p1 (c6c071a); `check.sh quick` 75 passed, 1 xfailed. Anchor moves:
+S-1 GJ 10.18 % (a35bba3) -> 10.74 %, S-7 1.0725 -> 1.0717.
+
 ## Handoff 10 (2026-10-26, session 9 close)
 
-**Resume.** Read sections "S-1 GJ extractor on a tube of known GJ" and "T40" (above Handoff 9); nothing else.
-Engram still down. Same mode (prediction before every run, never widen; SLURM `sequana_cpu`, 4 min per blade job).
-**State.** T39 done (finding). T40: fix on `fix/gj-shearflow` a4b3ca2 (worktree `$SCRATCH/wt/gj-shearflow`, shim
-`.pp`, sbatch `logs/check/t40/{py,job}.sbatch`), truth tests green, **not merged**. S-7 = 1.0717 (robust, real
-deficit); S-1 GJ 13.05 %, locally inconsistent with S-7 (1.146 vs 1.072).
-**Next, in order.** 1. theta(z) S-1 vs S-7 on the blade, same solve (diagnose where S-1 departs: 0.2-0.3 and
-0.6-0.9). 2. Fix what that names, re-measure, merge `fix/gj-shearflow`. 3. Handoff 9 items 2-3 (inboard TE
-excess, faithful T37). Cleanup: `$SCRATCH/tmp/t39`, `$SCRATCH/tmp/t40*`.
+**Resume.** Read sections "S-1 GJ extractor on a tube of known GJ" and "T40" (above this one); nothing else.
+Engram still down. Same mode (prediction before every run, never widen; SLURM `sequana_cpu`, ~5 min per blade
+job; sbatch and scripts in `$SCRATCH/wt/gj-shearflow/logs/check/t40/`).
+**State.** T39 done (finding). T40/T40b merged (c6c071a): S-1 GJ and S-7 load as the section wall shear flow,
+S-1 twist with the EI kinematics; truth tests `tests/test_s1_gj_tube.py` (7). The torsion anchors now agree with
+each other (S-1 theta = S-7 theta on the blade) and S-1 with the section Bredt at 0.3-0.6. S-7 1.0717, S-1 GJ
+10.74 %: both red, real model findings.
+**Next, in order.** 1. Outboard GJ deficit (0.65-0.9) and inboard 0.2-0.3: per-wall Bredt says TE solid-region
+closure outboard; Handoff 9 item 3 (faithful T37: bond-line keypoint + solid closure, predicted +5..7 pt at
+0.7-0.9), section check first. 2. Handoff 9 item 2 (inboard TE excess at 0.25-0.3). Cleanup: worktree
+`gj-shearflow` (+ `.pp`), `$SCRATCH/tmp/t39`, `t40*`.
 
 ## Handoff 9 (2026-10-26, session 8 close)
 
