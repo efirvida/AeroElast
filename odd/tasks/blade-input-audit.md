@@ -686,6 +686,51 @@ GJ; neither torsion anchor can be trusted until an independent section GJ exists
 ours). **Reference conflict confirmed with the S-4 log:** BeamDyn parked 1F 0.507083 Hz vs paper 0.5585 (+10.1 %),
 1E 0.693376 vs 0.6406 (-7.6 %): V-02 measures the paper against the release deck, not our model.
 
+## Handoff 8 (2026-10-25, session 7 close; user L31)
+
+**Resume.** Read this section, then only the sections "## T37 flat-back closure" (its last four paragraphs: Material
+ledger, Cap position, Cap arcs) and "## T38 spar caps at the yaml arcs", and the T37/T38 lines in Tasks. Engram is
+still down; this file is the record. Working mode agreed with the user (L27-L30): **diagnose first, decide after**;
+every model change gets its prediction written here before the run, is checked at section level against the PDF
+before any FE anchor, and anchors are never widened. SLURM: partition `sequana_cpu` (user L26).
+
+**Done in session 7.** Known-red full record committed (9b5de65): 21 = the 28 of T25 minus T32/T33/T34. The SONATA
+PDFs (`/scratch/leahk/eduardo.donestevez/IEA-15-240-RWT/CAD/SONATA/blade_section_<r>.pdf`, clone v1.1.18-4, PDFs from
+2021-11, same commit family as the BeamDyn deck, which is byte-identical to ours) reproduce the 6x6 mass/EA/EI to
+<= 0.3 %: they are a per-region arbiter. Our yaml (0ddd9ad, 2023) has the same physical values as the 2021 SONATA yaml
+at the sampled stations. Diagnosis of our section vs the reference:
+1. EA +6-9 %, most of EI_flap: ~9 % more carbon; SONATA chamfers the cap ends (loss t/w, predicted within 1.1 pt).
+   SONATA convention (plan B).
+2. Caps displaced +-50-90 mm in opposite chordwise directions: our keypoints ignored the yaml cap arcs (our
+   defect, fixed in T38) plus a residual that fits SONATA measuring nd arc including the flat-back face (f x h;
+   hypothesis, plan B).
+3. TE solid region (glass, not adhesive): SONATA construction; alone it worsens the anchors (T37, not merged).
+4. Foam 10-18 % short inboard: not diagnosed (mass only).
+5. V-02 is a reference conflict: BeamDyn parked 1F 0.507 vs paper 0.5585 Hz (+10 %), 1E 0.693 vs 0.641 (-7.6 %).
+6. The two torsion anchors disagree: T38 moved S-1 GJ 10.2 -> 13.6 % while S-7 stayed 7.23 %.
+
+**Branches (none merged, user decides).** `fix/te-closure-T37` (worktree `$SCRATCH/wt/t37`, 0cccfe9 + tools):
+face-equivalent TE wedge, evidence only. `fix/cap-arcs` (worktree `$SCRATCH/wt/caparcs`, 1128a24, on top of
+l3/twist-p1 8ad6ff3 + tools): T38, caps at the yaml arcs; carries `tools/sonata_pdf_section.py`,
+`tools/section_ledger.py`, `tools/cap_arc_check.py`, `tools/t37_section_compare.py`; sbatch
+`logs/check/caparcs/job.sbatch` (usage: `sbatch -J name -p sequana_cpu --ntasks=4 --time=00:30:00
+logs/check/caparcs/job.sbatch python -B tools/...`; it runs "$@", no tag argument).
+
+**Open decisions (user).** (a) Merge T38 into l3/twist-p1: fixes a real defect, frequencies move < 0.4 %, moves only
+the S-1 GJ anchor now in doubt; its test RED is structural (AttributeError), strengthen it to a placement RED
+before merging. (b) Plan B order after the torsion question. (c) V-02: keep as a documented reference conflict or
+move it to BeamDyn.
+
+**Next, in order (diagnosis, no model change).** 1. Independent section GJ: thin-wall Bredt (multi-cell with the
+two webs, G t per region) on the PDF section (triangles give geometry and material; G from the yaml, G12 per
+material) and on ours (laminate A66 per element, mid-surface path), at the six stations; compare with BeamDyn K66.
+That decides whether the GJ gap is physical or an S-1 extraction artefact, and which of S-1 GJ / S-7 to trust.
+2. Then plan B one rule at a time (chamfer first: largest, cleanest), each with a section check against the PDF.
+
+**Cleanup (not urgent).** Worktrees `t37`, `caparcs` (+ `.pp`) and the older ones listed in Handoffs 5-7;
+`$SCRATCH/tmp/t37*`, `caparcs-*`, `ydiff`. Main checkout: `logs/check/t29/g5.sbatch` modified and
+`tests/IEA15MW/bd_*` untracked from earlier sessions, untouched in session 7.
+
 ## Handoff 7 (2026-10-25, session 6; user L23-L24)
 
 **Resume.** Read this section and the Tasks lines T25, T29, T36, T37. Engram still down; this file is the record.
@@ -1236,3 +1281,4 @@ for this session.
 - L28 (2026-10-25, session 7) User: "ok vamos con eso" (cap position), asked whether the yaml model differs from SONATA and whether the yaml could be corrected after the measurements, then "ok primero diagnosticamos y despues decidimos". Parent: same yaml, different construction rules; correcting the yaml would hide a calibration in a shared input; diagnosis only, no model change.
 - L29 (2026-10-25, session 7) User: "ok" (map the yaml cap arcs, diagnosis only).
 - L30 (2026-10-25, session 7) User: "ok, y luego, creo que primero A luego B". Parent: T38 (caps at the yaml arcs) first, prediction written before the change.
+- L31 (2026-10-25, session 7) User: "ok haz eso para comenzar en una nueva sesion". Parent: Handoff 8 written.
