@@ -16,11 +16,39 @@ structural solver), before deciding the PhD-use plan. Store: `docs/validation/`,
 
 ## Tasks
 
-- T1 | S1-S3 | worker (background) | in progress | L1: re-run the stale groups (`regression --group`), refresh verdicts whose residual is unchanged within its tolerance, audit the 12 unaudited `material_suite` rows, report the 2 regression pins.
-- T2 | S1-S3 | worker (background) | in progress | L2: same for the 83 stale rows; report the 4 single/no-arbiter rows and the gap.
+- T1 | S1-S3 | worker (background) | partial: trusted 155, open: group 44 (timeout/OOM) + 2 pins | L1: re-run the stale groups (`regression --group`), refresh verdicts whose residual is unchanged within its tolerance, audit the 12 unaudited `material_suite` rows, report the 2 regression pins.
+- T2 | S1-S3 | worker (background) | partial: trusted 77, open: group 43 (timeout) + 4 pins | L2: same for the 83 stale rows; report the 4 single/no-arbiter rows and the gap.
 - T3 | S3 | parent | pending | review, commit, report to the user; then the PhD-use proposal.
 
-## Handoff 1 (2026-10-26, session 9 close)
+## Result (session 9, worker mvp8tox3-1-qu6u; store commit below)
+
+Only `docs/validation/contract.yaml` changed (97 `audited_rev` restamped to 96d90d3, notes appended, 12 new
+verdicts); no tolerance or reference value touched; no residual moved (no finding); no `--write` needed.
+`check`: 313 rows, 0 errors, 1 warning (group 27 on no level).
+- **L1 [open]: trusted 155 (was 127), regression_pin 2, stale 2.** Refreshed: scordelis_lo_triangular 4,
+  ko2017_second_arbiters 3, prestress_centrifugal_analytic 5 (residuals unchanged); mitc3_benchmarks /
+  large_rotation 4 (UNMAPPED by `regression`: nodes pass their asserted bounds, no residual compared, rows stay
+  not_measured). material_suite 12 audited trusted (closed-form CLT / plane-stress reference in the test, 5 %
+  bound; 22 passed, SLURM 11624523). **Open:** group 44 `frame_objectivity` (2 rows): `regression --group 44`
+  timed out at 3 h with 7 oom_kill (SLURM 11624574; 90 min attempt also cut). **Pins (2):** ko2017 3.9
+  hyperbolic paraboloid t/L 1e-4: needs a converged independent arbiter (CalculiX S8R not converged there).
+- **L2 [open, blocked by L1]: trusted 77, regression_pin 4, stale 2.** Refreshed ~71 rows (groups 58, 17, 9,
+  24, 18, 36, 55, 8, 26, 21, 4, 7, 6). **Open:** group 43 `newmark_analytic_frequency` (2 rows): timed out at
+  3 h, no output (SLURM 11624575). **Pins (4):** orthotropic multi-layer iso equivalence (self-comparison),
+  beam_shell_4cases axial x2 (point-load singularity not converged), laminate_bend_twist [60,0,0,60]s CCX deck
+  (not converged): each needs a converged independent reference. Gap `composite_stress_recovery`: bounded,
+  non-blocking.
+
+## Handoff 2 (2026-10-26, session 9 close)
+
+**Resume (step 1 of odd/tasks/thesis-validation-plan.md is still open).** 1. Groups 44 and 43: find why they
+take > 3 h and OOM (`regression --group` runs the group's source files: run their nodes one by one with
+`pytest --durations`, or on `sequana_cpu_bigmem` with a longer limit); refresh only on unchanged residuals.
+2. Decide with the user the 6 regression pins: find converged independent references, or record them as
+   regression-only rows that the level does not count (what the contract already does: confirm whether pins
+   keep a level open). 3. Then `contract --level L1/L2`; step 2 only after both close.
+
+## Handoff 1 (2026-10-26, superseded by Handoff 2)
 
 **State at close.** Worker `mvp8tox3-1-qu6u` (T1+T2) was still running: no change in `docs/validation` yet;
 its outputs are in `logs/check/l1l2/` (`contract-L2-start.txt`, `reg-15..18.txt`, `j-a..e.log`) and SLURM jobs

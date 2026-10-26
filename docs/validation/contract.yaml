@@ -437,19 +437,21 @@ verdicts:
   - target: mitc3_benchmarks.test_equilibrium_path.6_283185307179586_10_0_0_0
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
       The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84. The 2*pi row also has an absolute w_tip comparison (reference 0): bound 0.5 m = 5 % of L = 10 m, i.e. the ceiling expressed as a distance; the harness prints it in metres and the regression tool does not map it (UNMAPPED), measured separately: u_tip 0.3554 %, w_tip 0.0198 m (SLURM 11614690, test_simo_vu_quoc_rollup_360).
+      Re-run at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt): the node passes against its asserted bounds (5 % rtol, 0.5 atol); regression cannot map its residuals (1 print for 2 comparisons, nested helper), so no residual is compared and the row stays not_measured. audited_rev restamped, no value or tolerance touched.
   - target: mitc3_benchmarks.test_simo_vu_quoc_rollup_360.10
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
       The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84. The 2*pi row also has an absolute w_tip comparison (reference 0): bound 0.5 m = 5 % of L = 10 m, i.e. the ceiling expressed as a distance; the harness prints it in metres and the regression tool does not map it (UNMAPPED), measured separately: u_tip 0.3554 %, w_tip 0.0198 m (SLURM 11614690, test_simo_vu_quoc_rollup_360).
+      Re-run at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt): the node passes against its asserted bounds (5 % rtol, 0.5 atol); regression cannot map its residuals (1 print for 2 comparisons, nested helper), so no residual is compared and the row stays not_measured. audited_rev restamped, no value or tolerance touched.
   - target: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.8_1_0323
     class: physics
     verdict: trusted
@@ -528,19 +530,21 @@ verdicts:
   - target: large_rotation.test_equilibrium_path.6_283185307179586_10_0_0_0
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
       Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %. 2*pi rows also carry an absolute w_tip comparison (0.5 m = 5 % of L); regression leaves them UNMAPPED, measured by pytest -s (SLURM 11614700): path u_tip 1.3667 %, w_tip 0.0055 m; rollup u_tip 3.5767 %, w_tip 0.0373 m. The rollup u_tip 3.58 % is single-mesh (10 elements), no refinement table.
+      Re-run at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt): the node passes against its asserted bounds (5 % rtol, 0.5 atol); regression cannot map its residuals (1 print for 2 comparisons, nested helper), so no residual is compared and the row stays not_measured. audited_rev restamped, no value or tolerance touched.
   - target: large_rotation.test_simo_vu_quoc_rollup_360.10
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
       Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %. 2*pi rows also carry an absolute w_tip comparison (0.5 m = 5 % of L); regression leaves them UNMAPPED, measured by pytest -s (SLURM 11614700): path u_tip 1.3667 %, w_tip 0.0055 m; rollup u_tip 3.5767 %, w_tip 0.0373 m. The rollup u_tip 3.58 % is single-mesh (10 elements), no refinement table.
+      Re-run at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt): the node passes against its asserted bounds (5 % rtol, 0.5 atol); regression cannot map its residuals (1 print for 2 comparisons, nested helper), so no residual is compared and the row stays not_measured. audited_rev restamped, no value or tolerance touched.
   - target: shell_static_modal.testlinearstatic_test_fx.single
     class: physics
     verdict: trusted
@@ -1107,67 +1111,74 @@ verdicts:
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.false_16_0_9973
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC4+ N=16 quads cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
     note: >-
       Registered test replacing the unrevisioned out-of-band group 10. Measured 0.970087 vs 0.9973, 2.7286 % against a 5 % bound at 38621e1 (SLURM 11614781/11614782). Two published sources: the table cell and the MacNeal-Harder reference it is normalised by.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.true_8_0_8577
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC3+ N=8 triangles cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
     note: >-
       Registered test replacing the unrevisioned out-of-band group 10. Measured 0.856147 vs 0.8577, 0.1811 % against a 5 % bound at 38621e1 (SLURM 11614781/11614782). Two published sources: the table cell and the MacNeal-Harder reference it is normalised by.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.true_16_0_955
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC3+ N=16 triangles cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
     note: >-
       Registered test replacing the unrevisioned out-of-band group 10. Measured 0.954484 vs 0.9550, 0.0540 % against a 5 % bound at 38621e1 (SLURM 11614781/11614782). Two published sources: the table cell and the MacNeal-Harder reference it is normalised by.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.true_32_0_9851
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC3+ N=32 triangles cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
     note: >-
       Registered test replacing the unrevisioned out-of-band group 10. Measured 0.985079 vs 0.9851, 0.0021 % against a 5 % bound at 38621e1 (SLURM 11614781/11614782). Two published sources: the table cell and the MacNeal-Harder reference it is normalised by.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
 
 # --- PRE-2 (B1/L1), 2026-10-13: second arbiters (groups 46-49) ---
   - target: ko2017_second_arbiters.test_pinched_cylinder_refined_mesh_reach.32
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "MacNeal & Harder 1985 pinched cylinder closed-form series, w_ref = 1.8248e-5"}
     note: >-
       N=32 regular mesh at 0.984994 of w_ref (1.5006 % against a 5 % bound); the sequence 0.714 / 0.918 / 0.985 at N = 8 / 16 / 32 is monotone.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.in_plane
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference 1.390 in (b = 0.05 in), via the Abaqus Benchmarks Manual"}
       - {kind: produced_numerical, label: "CalculiX S8R on the same beam reproduces Simo's value (rows ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.*)"}
     note: >-
       0.237 % against a 5 % bound on 8 x 48 elements. The Simo values were read from the Abaqus Benchmarks Manual tables, not from the paper.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.out_of_plane
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference 0.3431 in (b = 0.05 in), via the Abaqus Benchmarks Manual"}
       - {kind: produced_numerical, label: "CalculiX S8R on the same beam reproduces Simo's value (rows ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.*)"}
     note: >-
       0.1536 % against a 5 % bound on 8 x 48 elements. The Simo values were read from the Abaqus Benchmarks Manual tables, not from the paper.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.8
     class: physics
     verdict: trusted
@@ -1296,458 +1307,514 @@ verdicts:
   - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_bending_top_and_bottom_match_clt_at.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 2 0.0013 -> 0.0012 % (bound 5 %); comparison 3 0.0013 -> 0.0012 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_bending_kappa_matches_d_inverse_m.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.0026 -> 0.0022 % (bound 5 %); comparison 1 0.7229 -> 0.6228 % (bound 5 %); comparison 2 0.0112 -> 0.0108 % (bound 5 %); comparison 3 3.1279 -> 3.0347 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_angle_ply_rotates_qbar_per_ply.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
       Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_beam_parity.test_composite_axial_tension.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
     note: >-
       Closed form within <= 1.25 %; paired convergence (tools/g24_ccx_convergence.py, 4x10 -> 32x80) closes all three comparisons; CCX in-plane bending drifts +2.41 % above Euler-Bernoulli (non-gating, cause unestablished). Regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_beam_parity.test_composite_isotropic_equiv.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
     note: >-
       Closed form within <= 1.25 %; paired convergence (tools/g24_ccx_convergence.py, 4x10 -> 32x80) closes all three comparisons; CCX in-plane bending drifts +2.41 % above Euler-Bernoulli (non-gating, cause unestablished). Regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_beam_parity.test_composite_bending.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
     note: >-
       Closed form within <= 1.25 %; paired convergence (tools/g24_ccx_convergence.py, 4x10 -> 32x80) closes all three comparisons; CCX in-plane bending drifts +2.41 % above Euler-Bernoulli (non-gating, cause unestablished). Regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
       Closed form <= 0.87 % vs 2 % bound; regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
       Closed form <= 0.87 % vs 2 % bound; regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
       Closed form <= 0.87 % vs 2 % bound; regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
       Closed form <= 0.87 % vs 2 % bound; regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial_2
     class: regression_pin
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g17_closed_form.py]
     note: >-
       Pinned as AeroElast-vs-CalculiX code parity, with no valid independent reference: the loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation. Counts toward no level.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial_2
     class: regression_pin
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g17_closed_form.py]
     note: >-
       Pinned as AeroElast-vs-CalculiX code parity, with no valid independent reference: the loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation. Counts toward no level.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
     note: >-
       Loaded-node metric converges (change <= 0.21 %); both codes within 1.03 % of the closed form at 4x20 and 0.50 % at 16x80.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy_2
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
     note: >-
       Loaded-node metric converges (change <= 0.21 %); both codes within 1.03 % of the closed form at 4x20 and 0.50 % at 16x80.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_modal_fir.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "thin-plate modal closed forms (tools/g17_closed_form.py C3/C4)"}
     note: >-
       Four matched modes within 1.3 % of closed form in both codes, mesh change < 0.8 % 8x40 -> 16x80; the fifth mode (473 Hz) has no closed form within 10 % and is code parity only.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist.test_unbalanced_layup_matches_the_free_e.single
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
       Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 2.471 -> 2.4685 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
       Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.4384 -> 0.4085 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
       Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.2116 -> 1.2158 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
       Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 1 2.9083 -> 2.9058 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: dtube_gravity.test_dtube_gravity_tip_deflection_aeroel.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
       Closed form; AE 400 layers -0.05 %, AE 200 layers -1.02 %, CCX S8R +0.12 %. Regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: dtube_gravity.test_dtube_gravity_aeroelast_converges_w.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
       Closed form; AE 400 layers -0.05 %, AE 200 layers -1.02 %, CCX S8R +0.12 %. Regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: dtube_gravity.test_dtube_gravity_tip_deflection_calcul.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
       Closed form; AE 400 layers -0.05 %, AE 200 layers -1.02 %, CCX S8R +0.12 %. Regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: tube_torsion.test_self_equilibrated_isotropic_reprodu.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
       Measured margins <= 0.70 % vs 5 %; regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: tube_torsion.test_self_equilibrated_laminate_reproduc.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
       Measured margins <= 0.70 % vs 5 %; regression same. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.1402 -> 0.1406 % (bound 5 %); comparison 1 0.7033 -> 0.7036 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: tube_torsion.test_distributed_force_plus_transfer_mom.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
       Measured margins <= 0.70 % vs 5 %; regression same.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: isotropic_shell.testisotropicshellparity_test_transverse.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files: [tools/g4_g8_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli P L^3/(3 E I) (tools/g4_g8_ccx_convergence.py)"}
     note: >-
       Converged by mesh sweep (last step +0.055 % AE, +0.141 % CCX, gap 0.01 %); both codes -1.0 % from Euler-Bernoulli (Timoshenko shear adds 0.002 %; remaining offset unestablished, plausibly plate effect). The test asserts code parity; the closed form is from the audit tool.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
 
 # --- PRE-3 (B2/L2), 2026-10-15, session 4: baselines written at fe15b0c (regression --write) ---
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s4
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
       Measured 0.614 % vs the closed form; CalculiX converges +0.60 % above EB, Timoshenko explains +0.78 %. Bound 5 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
       Measured 0.2251 % vs the closed form; CalculiX converges +0.60 % above EB, Timoshenko explains +0.78 %. Bound 5 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8r
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
       Measured 0.4929 % vs the closed form; CalculiX converges +0.60 % above EB, Timoshenko explains +0.78 %. Bound 5 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: tube_torsion.test_clamped_root_metric_convergence_ide.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
       Measured 0.677 % (t=10 mm) and 0.701 % (t=0.5 mm) vs the idealised limit at L=24 m; bound 5 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "beam theory M(x) c / I at mid-span"}
     note: >-
       Measured 0.306 % at mid-span (1.0000 at >=16x4). Whole-plate max is excluded: clamp singularity does not converge.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: orthotropic_shell_parity.test_orthotropic_axial.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli axial/transverse closed form (tools/g4_g8_ccx_convergence.py)"}
     note: >-
       Measured 0.539 % vs CalculiX; mesh sweep converged (last step AE +0.016 %, CCX +0.103 %, gap 0.10 %); +0.72 % AE / +0.62 % CCX vs EB with D22. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.5391 -> 0.5405 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: orthotropic_shell_parity.test_orthotropic_bending.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli plus Timoshenko shear, kappa 5/6, A66 (tools/g4_bending_sweep.py)"}
     note: >-
       Measured 3.648 % vs Euler-Bernoulli (bound 5 %); attributed to shear deformation (+3.93 % for L/B = 10). Mesh sweep 4x10..32x80: tip changes +0.024 % in the last step and sits +0.178 % from EB+Timoshenko (criterion predeclared in the tool). kappa is approximate for an orthotropic deep beam, so the Timoshenko match is context, not a gate.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_axial_extension_matches_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
       Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_axial_extension_matches_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
       Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_axial_extension_matches_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
       Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_axial_extension_matches_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
       Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.4895 -> 0.4899 % (bound 3 %); comparison 1 0.0866 -> 0.0861 % (bound 2.5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_axial_extension_matches_ccx.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
       Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_transverse_bending_matches_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
       Measured 0.3249 % vs hand-CLT; bound 3 %. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.3249 -> 0.3238 % (bound 3 %); comparison 1 0.5068 -> 0.5079 % (bound 1 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_transverse_bending_matches_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
       Measured 0.3736 % vs hand-CLT; bound 3 %. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.3736 -> 0.3672 % (bound 3 %); comparison 1 0.2596 -> 0.2532 % (bound 1 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_transverse_bending_matches_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
       Measured 0.2844 % vs hand-CLT; bound 3 %. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.2844 -> 0.2816 % (bound 3 %); comparison 1 0.2656 -> 0.2684 % (bound 1 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_transverse_bending_matches_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
       Measured 0.2952 % vs hand-CLT; bound 3 %. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.2952 -> 0.2935 % (bound 3 %); comparison 1 0.1059 -> 0.1076 % (bound 1 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_transverse_bending_matches_ccx.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B) (tools/g18_quasi_iso_root_sweep.py)"}
     note: >-
       Measured 1.757 % vs hand-CLT on the test mesh (4x10, bound 3 %). Length-wise refinement takes it to -1.05 % (ny=80); the remainder is the clamped-root restraint of the free-width closed form: it scales with B/L (-1.03, -0.49, -0.24, -0.15 % for B = 0.1..0.0125 m) while the control sym_0_90s stays <= 0.02 %. Criteria predeclared in the tool. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.7572 -> 1.7383 % (bound 3 %); comparison 1 0.2056 -> 0.1864 % (bound 1 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = -kappa_y L^2/2"}
     note: >-
       Measured 0.0241 % vs hand-CLT; bound 1 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
     note: >-
       Out-of-plane deflection of the symmetric layup is 0.0000 % of the coupled one, in both codes.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
     note: >-
       Out-of-plane deflection of the symmetric layup is 0.0000 % of the coupled one, in both codes.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: newmark_analytic_frequency.s3_undamped_free_vibration_f1
     class: physics
     verdict: trusted
@@ -1767,106 +1834,119 @@ verdicts:
   - target: laminate_bend_twist_3d.test_3d_matches_the_shell_within_2_perce.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
       - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip (row laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl)"}
     note: >-
       Shell twist vs a 3D layer-wise elasticity solve of the same strip: 0.2143 % against a 2 % bound (same at 17ef8ad). The relabel from `self` to `code` is correct: the reference is the CalculiX 3D solid, which judges the shell. CORRECTED 2026-10-19: the earlier note said no closed form exists because "the hand-CLT reference was the original problem"; that misread the docstring, where what failed was the issue-#9 formula (missing 1/b and kappa/2). The corrected free-edge closed form is the analytical arbiter of this same coupon (G26 already trusts it for the shell) and both sides of this comparison now face it in their own row: 3D -2.51 %, shell -2.72 %, under the 5 % ceiling. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.2143 -> 0.2462 % (bound 2 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist_3d.test_3d_mesh_convergence.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
       - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip (row laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl)"}
     note: >-
       Refined 3D twist (16x10) vs the shell: 0.2143 % against a 2 % bound; the test also asserts that the 3D value settles under in-plane refinement (6x4, 10x6, 16x10). Against the closed form the 3D sequence is -1.31 / -2.24 / -2.51 % (increments 0.93, 0.27 points, so about -2.6 % extrapolated): it converges toward the shell, away from the first-order closed form, and stays under the 5 % ceiling. Arbiters as the row above. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.2143 -> 0.2462 % (bound 2 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip"}
     note: >-
       Added 2026-10-19 (PRE-3, maintainer approved). 3D C3D20R 16x10 -2.5137 % and MITC4 shell 16x96 -2.7222 % against the closed form, bound the 5 % physics ceiling (not fitted; the 3D value had been measured once in the read-only question that proposed this row). Same laminate [45,0,0,45]s, load P = 10 N, clamp and twist_lsq metric. The closed form is exact for a constant moment and first order for a tip force (it neglects the y-redistribution and the clamp layer), so the ~2.5-2.7 % both codes share is its model residual; its own size is not separately quantified. It is CLT, the shell's theory: it arbitrates the observable (tip twist), not the H6 question of CLT adequacy, which the 3D-vs-shell row answers. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 1 2.7222 -> 2.7531 % (bound 5 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_beam_parity.testcompositematerial_test_clt_matches_i.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "independent first-principles hand CLT (_hand_clt_abd) and the analytical B = 0 of a symmetric laminate"}
     note: >-
       A and D match the hand CLT to 0.0000 % (bound 1e-9). The two atol 1e-6 comparisons assert B = 0 for the symmetric [0/90/45/-45]s stack: measured |B| 1.1e-10 (hand) and 8.7e-11 (AeroElast), at the round-off floor eps*max|A|*h/2 ~ 1.4e-10, four orders under the bound and ten under the |B| ~ 6.5e4 that one perturbed ply gives, so the absolute bound still separates a coupling bug from round-off.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: dtube_gravity.test_dtube_gravity_calculix_is_span_conv.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
       CalculiX S8R span convergence, 50 vs 100 layers: 0.0013 % against a 1 % bound, so the CalculiX number used as comparator is converged in span. The converged value sits +0.12 % from the closed form (row tip_deflection_calculix). The test labels its reference `self` (CCX against itself at a finer span), which is right for a convergence check; the independent arbiter is the closed form.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: dtube_gravity.test_dtube_gravity_aeroelast_and_calculi.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
       AeroElast 400 layers vs CalculiX S8R 100 layers: 0.1624 % against a 1 % bound, with both codes converged (AE within -0.05 % and CCX within +0.12 % of the closed form, which accounts for the gap). The closed form arbitrates; the code-vs-code agreement is context.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single
     class: regression_pin
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 96d90d3
     files: [tools/g26_ccx_deck_convergence.py]
     note: >-
       Code parity against a hand-authored CCX S8R deck, not validation: the free-edge CLT rows of this group carry it. Paired sweep 2x12..16x96 (criterion predeclared in the tool): [45,0,0,45]s and [45,-45,-45,45]s CLOSE (last step element -0.26 / +0.90 %, CCX +0.06 / +0.07 %, gap 0.17 / 0.66 %); [60,0,0,60]s does NOT: CCX is converged (+0.21 %) but the element still moves -3.06 % from 8x48 to 16x96, the gap closing monotonically 32.6 / 12.9 / 5.2 / 1.7 % without reaching a limit. The test's 1.95 % pairs element 16x96 with CCX 8x48; at equal 16x96 the gap is 1.73 %. Counts toward no level. Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 0.2267 -> 0.1948 % (bound 3 %); comparison 1 1.9465 -> 1.6721 % (bound 3 %); comparison 2 0.5953 -> 0.6285 % (bound 3 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_modal_frequencies_match_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
     note: >-
       Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.07 %), matched gap at 32x80 at most 0.16 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456). Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.2587 -> 1.0846 % (bound 3 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_modal_frequencies_match_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
     note: >-
       Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.33 %, CalculiX worst 0.00 %), matched gap at 32x80 at most 0.21 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456). Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.2401 -> 1.0519 % (bound 3 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_modal_frequencies_match_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
     note: >-
       Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.03 %), matched gap at 32x80 at most 0.14 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456). Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.2555 -> 0.8912 % (bound 3 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_modal_frequencies_match_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
     note: >-
       Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.14 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456). Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.2576 -> 1.0582 % (bound 3 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: composite_layup.test_modal_frequencies_match_ccx.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
     note: >-
       Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.43 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.10 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456). Re-adjudicated at c0fdeea (L1-SHEAR, SLURM 11619561 `regression --write`): comparison 0 1.4241 -> 0.8873 % (bound 3 %); the element shear block now consumes the energy-equivalent Cs instead of the plain integral A55 (ADR-1 re-amended). Bound unchanged; figures quoted above from earlier sweeps predate c0fdeea and were not re-run.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: orthotropic_shell_parity.test_multi_layer_iso_equivalence.single
     class: regression_pin
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     note: >-
       Pinned as a software guard, with no independent reference: the asserted metric is the relative norm of K(4 isotropic plies) - K(one isotropic layer), two builds of our own model, so it does not map onto the closed form. The closed form was checked on the laminate side only (create_laminate_from_angles, E 70e9, nu 0.3, h 0.01, 4 plies): A11, A12, A66 and D11, D12, D66 match E h/(1-nu^2) and E h^3/(12(1-nu^2)) (with nu and (1-nu)/2 factors) to 2e-16, and B = 0 exactly. Measured K difference 0.0 against the unchanged 1e-4 bound. Counts toward no level.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
 
 # --- REG-1, 2026-10-19: plate K_G, centrifugal recovery and closed-section beam; e7c5059 ---
 # G56 remeasured at c0fdeea for L1-SHEAR; other groups retain their REG-1 audit.
@@ -1921,143 +2001,158 @@ verdicts:
   - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.isotropic
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: sigma_x(x) = m omega^2 (R^2-x^2)/(2h), sigma_y = tau_xy = 0"}
     note: >-
       Independent statically determinate plane-elasticity solution, not production stress recovery. Root-normalized 40-element error prints 0.0104 % against the exact 0.010416677083333334 % bound; strict assertion passes. The bound is derived from midpoint loading, not fitted. Discrete identity and second-order 20/40 error-ratio guards are retained.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.symmetric
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: sigma_x(x) = m omega^2 (R^2-x^2)/(2h), independent of symmetric layup stiffness"}
     note: >-
       Root-normalized finest error 0.0104 % against 0.010416677083333334 %. Exact equilibrium fixes the resultant independently of the laminate constitutive implementation; source assertion passes with the original discretization-derived bound and second-order convergence check.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.unsymmetric
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     arbiters:
       - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: N_x = m omega^2 (R^2-x^2)/2 and M_x=0, including unsymmetric-laminate B-kappa recovery"}
     note: >-
       Root-normalized finest error 0.0104 % against 0.010416677083333334 %. Equilibrium is independent of the shared Laminate A/B/D and remains exact for B != 0; the old A-epsilon-only recovery would be about 100 % high. Original load identity, transverse and second-order guards remain.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.symmetric
     class: identity
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     note: >-
       Two recovery outputs from the same assembled solution, compared with A11 D11/(A11 D11-B11^2) computed from the same production Laminate. For symmetric B=0 this is the unit-ratio identity, not an independent section arbiter. Printed error 0.0000 % against 0.0001 % (fraction 1e-6).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.unsymmetric
     class: identity
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     note: >-
       Algebraic consistency of output and prestress recovery using the same solution and production Laminate A/B/D; the independent equilibrium result is adjudicated separately. Ratio reference A11 D11/(A11 D11-B11^2) is about 2.0083. Printed error 0.0000 % against 0.0001 %; not an independent physical section validation.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_exact_closed_section_mass.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "Exact volumetric mass integral for four thin-wall strips: rho * 2(width+height) * thickness * length"}
     note: >-
       Physics despite the roundoff bound: expected mass is computed independently from scalar density and geometry, not from the assembled mass matrix. Each rigid x/y/z translation samples that matrix. Finest and all-mesh comparisons both print 0.0000 % against fraction 1e-10 (1e-8 %); the strict source checks pass. Bound display rounds to zero, but the stored tolerance is nonzero.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_parked_closed_section_modes.torsion_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "Saint-Venant-Bredt torsional wave of a uniform cantilever: f1 = sqrt(GJ/[rho(Ix+Iy)])/(4L), J=2 w^2 h^2 t/(w+h)"}
     note: >-
       Independent closed-form torsional wave and thin-wall Bredt section integral. Measured 0.0173 % against 2 % with joint span/wall refinement and mesh movement below 0.5 %.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_parked_closed_section_modes.flap_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
     note: >-
       Measured 0.4053 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_parked_closed_section_modes.flap_1
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
     note: >-
       Measured 0.4368 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_parked_closed_section_modes.edge_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
     note: >-
       Measured 0.4043 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_parked_closed_section_modes.edge_1
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
     note: >-
       Measured 0.4785 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.flap_0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "exact finite-speed Southwell coefficient of the rotating Euler-Bernoulli ODE y'''' - (T y')' = lambda y, Ritz converged to 1e-6 (degree 12 vs 16, asserted); low-speed limit checked against Wright, Smith, Thresher & Wang 1982 (J. Appl. Mech. 49, 197-202), 1.17 < K1(0) < 1.20"}
     note: >-
       Measured 0.1883 % against a 3 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.edge_1
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "exact finite-speed Southwell coefficient of the rotating Euler-Bernoulli ODE y'''' - (T y')' = lambda y, Ritz converged to 1e-6 (degree 12 vs 16, asserted); low-speed limit checked against Wright, Smith, Thresher & Wang 1982 (J. Appl. Mech. 49, 197-202), 1.17 < K1(0) < 1.20"}
     note: >-
       Measured 0.6039 % against a 3 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_explicit_reference_surface_inertia.mid
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli EI: independent integral of four mid-surface wall strips, including each local t^3/12 inertia"}
     note: >-
       Measured interior curvature rigidity error 0.3528 % against 0.5 %. Independent geometric integral, not stiffness-matrix extraction as its own reference. Static 160/320/640 span refinement retains wall count four; last step below 0.5 % is asserted.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_explicit_reference_surface_inertia.outer
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli EI: four wall-strip integral with OML planes shifted out by t/2, including local t^3/12"}
     note: >-
       Measured 0.3336 % against 0.5 %; independent geometry includes the same explicit plane shift as the mesh, without corner-overlap material. Mesh movement below 0.5 % is asserted; this is not a BladeMesh offset-option test.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ea_0_1e_05
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
       - tests/validation/parity/test_composite_beam_parity.py
@@ -2065,10 +2160,11 @@ verdicts:
       - {kind: analytical, label: "Jones classical lamination theory: balanced free-transverse-contraction A_eff=1/a11, EA=A_eff*2(w+h), independent hand CLT"}
     note: >-
       Physics despite the tight bound: composite_reference uses the independent numpy _hand_clt_abd implementation, not production Laminate matrices or the measured shell rigidity. Error 0.0003 % against 0.001 % (fraction 1e-5); span refinement and the mesh movement guard pass.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
   - target: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ei_1_0_005
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: 96d90d3
     files:
       - tests/validation/benchmarks/analytic_beam_helpers.py
       - tests/validation/parity/test_composite_beam_parity.py
@@ -2076,6 +2172,7 @@ verdicts:
       - {kind: analytical, label: "Jones hand CLT A_eff=1/a11 times closed-box wall bending integral w h^2/2+h^3/6"}
     note: >-
       Independent hand CLT and wall-strip integration, not the shell's own ABD or a fitted stiffness. EI error 0.3371 % against 0.5 %, with 160/320/640 span refinement and mesh movement below 0.5 % asserted. Local wall D is neglected at t/h=0.01 as stated by the reference helper.
+      Re-run at 96d90d3 (L1/L2 closure, SLURM 11624500-11624504, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
 
 # --- B3-2 batch 1 (L3), 2026-10-20: G32 V-02, G34 S-7 (above), G38 S-1, G39 S-2, G40 S-4, G41 V-03 ---
 # Criterion K1-K6 fixed before any verdict (odd/tasks/validation-l3-b3-audit.md, b06eedd). Measured at
@@ -2571,3 +2668,149 @@ verdicts:
       Node vs tip-ring mean +1.19 % / +1.14 % > 0.5 %: not a clean metric, printed, not asserted (as LC2). The size of the gap
       (shell ~17 % more flexible edgewise, while LC1/LC4 are 6-7 % stiffer) is a finding for the model investigation, not explained
       by the 1.2 % node/ring spread. Open: an LC3 metric with a distributing tip load or an inboard section.
+
+  # --- L1/L2 closure (T1), 2026-10-26: the 12 material_suite rows added by 7d20c81 (production span frame) ---
+  - target: material_suite.test_production_zero_ply_follows_span.tri
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_production_zero_ply_follows_span.quad
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_triangle_span_uses_material_referen.reversed_normal
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_triangle_span_uses_material_referen.diagonal_local_edge
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_triangle_span_uses_material_referen.global_x_normal_fallback_z
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_triangle_span_uses_material_referen.tilted_projected_span
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_existing_reference_without_in_plane.default_tri
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_existing_reference_without_in_plane.default_quad
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_existing_reference_without_in_plane.normal_span_tri
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_existing_reference_without_in_plane.normal_span_quad
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "CLT UD plane-stress Q11 uniform-strain energy 0.5*A*h*E1/(1-nu12^2*E2/E1)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_isotropic_production_span_behavior.tri
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "isotropic plane-stress uniform-strain energy 0.5*A*h*E/(1-nu^2)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
+  - target: material_suite.test_isotropic_production_span_behavior.quad
+    class: physics
+    verdict: trusted
+    audited_rev: 96d90d3
+    arbiters:
+      - {kind: analytical, label: "isotropic plane-stress uniform-strain energy 0.5*A*h*E/(1-nu^2)*eps^2"}
+    note: >-
+      Audit rules: the reference is a closed form computed in the test from the material constants, not from the element; the 5 % bound
+      (TOL in tests/validation/element/test_production_span_frame.py) is written and was not changed. Stored error 0.0000 % at 7d20c81
+      (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
+      passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
+      test prints none, so the number is the stored one.
