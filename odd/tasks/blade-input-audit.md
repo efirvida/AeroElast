@@ -898,6 +898,29 @@ band; (d) helper: delivered torque exact, zero net force, geometric-only refused
 section Bredt (-3..-7 % at 0.4-0.6, -12 % at 0.7) from -12..-13 %; S-7 band ratio moves by an amount that
 measures how much of its 1.072 was cancellation; either way the numbers are reported, never widened.
 
+**T40 worker result 1 (session 9).** D1/D2 implemented in `wt/gj-shearflow` (uncommitted). (b) circle with GJ
+falling 10x: RED 1.77 % -> GREEN < 1 %; (d) helper: torque exact, zero net force, refusals: GREEN. (a) rectangle
+4 x 2 m uniform t, 24 m: RED 96.5 % -> 12.9 % (z 6.4 m) falling to 5.1 %; (c) S-7 slices RED 12.6..29.6 ->
+0.865..0.913: both still above 1 %, not loosened. Direct measurement: rigid-fit residual 33 % of the rotation at
+z 1.5 m, 14 % at 24 m; 60 m tube 3.6 % mid-span; thicker wall -3 / -2 %; circle clean. Projection tests 140 ->
+143 passed (+3 new), 12 skipped, 1 xfailed: the realisation refactor is behaviour-neutral.
+**Reading (parent).** The load is now right; the residual is physics of the test case, not extraction: a
+uniform-thickness rectangle warps in Saint-Venant torsion (b/t_b != h/t_h), the clamped root restrains it, and
+in a diaphragm-free thin box restrained warping couples into distortion that decays over tens of metres.
+The truth test mixed the extractor with that end effect. **Spec correction (S5 T40, test (a)/(c)):** the
+truth geometry is the **warping-free rectangle** (b/t_b = h/t_h: 4 m walls t 0.02, 2 m walls t 0.01), where the
+clamp restrains nothing; bounds unchanged (1 %). The uniform-thickness clamped rectangle stays as a printed,
+not asserted, record of the root warping-restraint layer (finding). The blade root is circular (warping-free),
+so the layer should be small there; checked in the blade re-measure.
+
+**T40 worker result 2 + commit.** Truth geometry = warping-free rectangle (4 m walls t 0.02, 2 m walls t 0.01).
+Old load (HEAD tools, same tube) RED: (a) -89.7..-96.7 %, (c) slices 14.69..32.42; fix GREEN: (a) max +0.29 %
+(15 stations), (c) 0.9974..0.9976; (b) < 1 %; (d) green; uniform rectangle kept as printed diagnostic
+(`test_uniform_rectangle_root_layer_diagnostic`: 12.9 % at z 5.4 m -> 5.1 % at 19.4 m) and tool case F.
+`tests/test_s1_gj_tube.py` 6 passed; ruff clean; `check.sh quick` 75 passed, 1 xfailed. Commit **a4b3ca2** on
+`fix/gj-shearflow`. Blade re-measure (es 0.25, mid): SLURM 11624403 (S-1 GJ per station,
+`logs/check/t40/s1gj.py`), 11624404 (S-7 test), 11624405 (S-1 test class); logs in `wt/gj-shearflow/logs/check/t40/`.
+
 ## Handoff 9 (2026-10-26, session 8 close)
 
 **Resume.** Read this section and "## Independent section GJ (session 8 ...)" (above Handoff 8); nothing else is
