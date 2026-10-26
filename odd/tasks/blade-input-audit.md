@@ -686,6 +686,59 @@ GJ; neither torsion anchor can be trusted until an independent section GJ exists
 ours). **Reference conflict confirmed with the S-4 log:** BeamDyn parked 1F 0.507083 Hz vs paper 0.5585 (+10.1 %),
 1E 0.693376 vs 0.6406 (-7.6 %): V-02 measures the paper against the release deck, not our model.
 
+## Independent section GJ (session 8, 2026-10-25; user L32, Handoff 8 Next 1; diagnosis, no model change)
+
+Tool `tools/bredt_gj.py` (worktree `wt/caparcs`, branch `fix/cap-arcs`; `--selftest`: thin tube Bredt -0.007 %,
+unequal two-cell box = hand solution 104/23, square warping FE +0.009 % at level 2, thick and bimaterial tube -0.09 %,
+laminate A66/D66 exact). G per material = yaml G12 (all fiber_orientation are 0). Three numbers per station:
+(1) PDF warping FE: Saint-Venant warping function on the PDF triangles (conforming: one component, outer loop + 3
+cavities at 0.3), levels 0/1/2 of uniform 1:4 refinement; (2) PDF Bredt: multi-cell thin wall from rays cast out of
+each cavity (G t = integral of G dl, mid-line cell areas); (3) ours: Bredt on the planar graph of the S-1 element-row
+mid-surface segments, G t = laminate A66, plus 4 D66 l of the walls that close no cell. Reference: BeamDyn K66 and
+GJ_sc = K66 condensed over the two shear strains (Saint-Venant about the shear centre, what (1)-(3) compute); GJ_free =
+1/(K^-1)_66 also reported.
+
+**Prediction (written before the run):**
+- (1) vs GJ_sc: 0..+5 % (G12 used through the thickness too, where ANBA has the lower G13; thick caps and TE solid).
+- (2) vs (1): -1..-5 % (thin-wall approximation, no open terms of the caps / solid TE).
+- (3) vs (2): within +-3 % (carbon +9 % in the caps but carbon G12 is the lowest of the laminates; mid-line areas
+  within ~1-2 %; the TE closure is ~1 % of the cell flexibility). So (3) vs GJ_sc within about -5..+3 %.
+- If that holds, the S-1 GJ gap (-13.6 % at T38, -9.8 % at base; station values -4/-1/-12/-13/-12/-24 % at 0.25-0.7)
+  is an extraction artefact of S-1, and the S-7 ratio (1.072) needs its own explanation. If (3) is ~10 % below (2),
+  the gap is physical and the wall-by-wall flexibilities locate it.
+
+**Result (PDF part on the login node; ours SLURM 11624290 base = l3/twist-p1 model, 11624289 T38; logs
+`wt/caparcs/logs/check/caparcs/bredt{0,1}-<jobid>.log`, JSON line `BREDT_JSON`).** The six stations are BeamDyn
+stations (no interpolation). GJ_sc = GJ_free to 4 digits (no bend-twist coupling: every ply angle is 0); K66 is
++0.4..+2.9 % above GJ_sc (shear-centre offset). Signed % vs BeamDyn GJ_sc:
+
+| r/R | GJ_sc [N m2] | PDF warping L0 / L2 | PDF Bredt (raw rays) | ours Bredt base / T38 | ours / PDF Bredt (base) | S-1 static, nearest row (T38) |
+|---|---|---|---|---|---|---|
+| 0.25 | 1.018e9 | +0.13 / -0.38 | -3.31 (-5.1) | +0.96 / +1.04 | +4.41 | -4.0 |
+| 0.3 | 6.227e8 | +0.14 / -0.49 | -5.40 (-23.3) | -1.11 / -0.77 | +4.54 | -1.0 |
+| 0.4 | 3.624e8 | +0.18 / -0.61 | -3.03 (-10.3) | -3.01 / -2.88 | +0.02 | -12.5 |
+| 0.5 | 2.192e8 | +0.21 / -0.64 | -2.86 (-3.1) | -4.62 / -4.53 | -1.81 | -13.0 |
+| 0.6 | 1.270e8 | +0.22 / -0.80 | -3.22 (-4.8) | -6.82 / -6.84 | -3.72 | -12.3 |
+| 0.7 | 6.943e7 | +0.22 / -0.82 | -4.65 (-5.4) | -11.64 / -11.71 | -7.33 | -23.5 |
+
+Our cells (3 at every station, 0 open walls; open-wall term of all walls 1.4-4.4e6, < 2 %) enclose 0.8-1.0 % less
+mid-line area than the PDF wall lines (about -2 % of GJ by itself). Prediction: (1) held (L0 +0.1..+0.2 %; the
+converged L2 is 0.4-0.8 % below ANBA); (2) held with the 11-ray median (-2.9..-5.4 %; raw rays are fragile at the
+corners, -23 % at 0.3); (3) held at 0.4-0.5 only, refuted at 0.25-0.3 (+4.4/+4.5) and 0.6-0.7 (-3.7/-7.3).
+**Findings.** (a) The PDF section with yaml G12 is the 6x6 torsion too (<= 0.8 %): ANBA's K66 is physical, not a
+convention. (b) **S-1 GJ is an extraction artefact at mid-span**: at 0.4-0.6 it reads -12..-13 % where the Bredt of
+the same section reads -3..-7 % (and ours / PDF Bredt 0 / -1.8 / -3.7 %); T38 moves our Bredt by <= 0.4 pt but S-1
+by -3.4 pt; its station values swing -76..+926 % inboard. S-1 GJ is not a measurement of GJ in its present form
+(`tools/run_s1_sectional.py ea_gj_from_static_response`: rigid-rotation fit + smoothing spline `s=1e-3`
+derivative; not diagnosed further). (c) **There is a real outboard deficit**: ours / PDF Bredt goes +4.5 % (0.25-0.3)
+-> 0 (0.4) -> -1.8 / -3.7 / -7.3 % (0.5 / 0.6 / 0.7), area -1 %, the rest in the wall G t. The twist under a tip
+torque is dominated by the outboard (GJ drops 15x from 0.25 to 0.7), so this sign and size fit S-7 (tip-twist ratio
+1.072 over 0.3-0.9): **S-7 is the torsion anchor to trust**, S-1 GJ is not. Not yet located wall by wall: the
+model's set names carry no 'web', so the skin/web split in the JSON is empty (skin = all walls).
+**Next (diagnosis):** per-wall G t and length, ours vs PDF, by region (TE panel, caps, LE panel, webs) at 0.5-0.9
+(add the 0.75 / 0.9 PDFs), to name the material/thickness behind the outboard deficit; then the S-1 GJ extraction
+question (user decision: fix the extractor or retire the GJ assertion in favour of S-7; never widen).
+
 ## Handoff 8 (2026-10-25, session 7 close; user L31)
 
 **Resume.** Read this section, then only the sections "## T37 flat-back closure" (its last four paragraphs: Material
@@ -1282,3 +1335,4 @@ for this session.
 - L29 (2026-10-25, session 7) User: "ok" (map the yaml cap arcs, diagnosis only).
 - L30 (2026-10-25, session 7) User: "ok, y luego, creo que primero A luego B". Parent: T38 (caps at the yaml arcs) first, prediction written before the change.
 - L31 (2026-10-25, session 7) User: "ok haz eso para comenzar en una nueva sesion". Parent: Handoff 8 written.
+- L32 (2026-10-25, session 8) User: "Leé la sección "Handoff 8" de odd/tasks/blade-input-audit.md y solo las secciones que indica (los últimos cuatro párrafos de "T37 flat-back closure", "T38 spar caps at the yaml arcs" y las líneas T37/T38). Engram sigue caído. Modo de trabajo: diagnosticar primero, decidir después. Empezá por el paso 1 de "Next": GJ independiente por Bredt, sobre la sección del PDF y sobre la nuestra, contra el K66 de BeamDyn. No cambies el modelo."
