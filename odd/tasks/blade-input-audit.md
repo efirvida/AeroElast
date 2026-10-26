@@ -1006,19 +1006,23 @@ untouched.
 **Merged** `fix/gj-shearflow` into l3/twist-p1 (c6c071a); `check.sh quick` 75 passed, 1 xfailed. Anchor moves:
 S-1 GJ 10.18 % (a35bba3) -> 10.74 %, S-7 1.0725 -> 1.0717.
 
+**Evidence note (session 9 close).** The T40 SLURM logs (11624403-05, 11624410-11, 11624457-59) lived in the
+ignored `wt/gj-shearflow/logs/check/t40/` and were deleted with the worktree cleanup by mistake; the numbers in
+this section are the record. The two scripts are recreated in `logs/check/t40/s1gj.py` and `theta_cmp.py` (main
+tree, ignored; run from the repo root with `PYTHONPATH=tools`), the T39 logs remain in `logs/check/t39/`.
+
 ## Handoff 10 (2026-10-26, session 9 close)
 
 **Resume.** Read sections "S-1 GJ extractor on a tube of known GJ" and "T40" (above this one); nothing else.
 Engram still down. Same mode (prediction before every run, never widen; SLURM `sequana_cpu`, ~5 min per blade
-job; sbatch and scripts in `$SCRATCH/wt/gj-shearflow/logs/check/t40/`).
+job; scripts in `logs/check/t40/`).
 **State.** T39 done (finding). T40/T40b merged (c6c071a): S-1 GJ and S-7 load as the section wall shear flow,
 S-1 twist with the EI kinematics; truth tests `tests/test_s1_gj_tube.py` (7). The torsion anchors now agree with
 each other (S-1 theta = S-7 theta on the blade) and S-1 with the section Bredt at 0.3-0.6. S-7 1.0717, S-1 GJ
 10.74 %: both red, real model findings.
 **Next, in order.** 1. Outboard GJ deficit (0.65-0.9) and inboard 0.2-0.3: per-wall Bredt says TE solid-region
 closure outboard; Handoff 9 item 3 (faithful T37: bond-line keypoint + solid closure, predicted +5..7 pt at
-0.7-0.9), section check first. 2. Handoff 9 item 2 (inboard TE excess at 0.25-0.3). Cleanup: worktree
-`gj-shearflow` (+ `.pp`), `$SCRATCH/tmp/t39`, `t40*`.
+0.7-0.9), section check first. 2. Handoff 9 item 2 (inboard TE excess at 0.25-0.3). Cleanup done (worktree `gj-shearflow` and its `.pp`, `$SCRATCH/tmp/t39`, `t40*` removed).
 
 ## Handoff 9 (2026-10-26, session 8 close)
 
