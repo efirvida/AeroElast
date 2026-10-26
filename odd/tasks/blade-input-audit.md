@@ -577,6 +577,28 @@ at 0.5-0.6). A faithful T37 needs a bond-line keypoint (skins aft of it sized to
 only worth doing together with the section-wide excess, which the PDF sections (6x6 to <= 0.3 %) can now localise
 region by region (next: per-region ours-vs-PDF integrals, spar caps / panels / LE / webs; joins T27/T13).
 
+**Material ledger (session 7, user L27 "si"; SLURM 11624215, `tools/section_ledger.py` on `fix/te-closure-T37`
+with `te_closure="face"` = the l3/twist-p1 model; read-only diagnostic).** Area per material, ours vs the PDF section:
+
+| r/R | carbon PDF / ours [cm2] | carbon dEA / EA | total dEA / EA | foam PDF / ours | glass_uni PDF / ours |
+|---|---|---|---|---|---|
+| 0.25 | 1390 / 1506 (+8.4 %) | +6.5 % | +5.9 % | 6705 / 5480 | 522 / 498 |
+| 0.3 | 1525 / 1654 (+8.4 %) | +6.9 % | +6.4 % | 5408 / 4573 | 528 / 509 |
+| 0.4 | 1587 / 1736 (+9.4 %) | +7.9 % | +8.0 % | 3331 / 2998 | 491 / 502 |
+| 0.5 | 1473 / 1608 (+9.1 %) | +7.8 % | +8.7 % | 2020 / 1890 | 444 / 490 |
+| 0.6 | 1337 / 1452 (+8.6 %) | +7.5 % | +8.1 % | 1117 / 1089 | 296 / 322 |
+| 0.7 | 1123 / 1201 (+7.0 %) | +6.4 % | +5.7 % | 575 / 584 | 96 / 78 |
+
+triax, biax, gelcoat within 0-6 % and < 0.1 % of EA. **The EA excess is the spar-cap carbon, all of it.**
+Against the yaml rectangle 2 x width (0.9 m) x thickness: ours = 0.985-0.988 x yaml, PDF = 0.901-0.922 x yaml.
+So our mesher reads the yaml correctly; SONATA builds caps with ~9 % less carbon. Mechanism, seen on the 0.3 PDF
+(`wt/t37/logs/check/t37/capend.png`): the cap ends are chamfered (ply drop ~45 deg, web under the cap edge); two
+45-deg ends remove t^2 per cap, i.e. a fraction t/w: predicted 9.4/10.3/10.9/10.1/9.1/7.5 % at 0.25-0.7 for
+t = 84.7/93.0/97.8/90.7/81.9/67.7 mm, measured 8.9/9.0/9.9/9.8/9.3/7.8 % (within 1.1 pt at every station).
+Secondary: foam (core) 10-18 % short inboard (light, mass only, ~15 kg/m at 0.25); TE glass_uni +9-10 % at 0.5-0.6
+(the skin overlap) and -19 % at 0.7. Chordwise bands also show our carbon displaced toward the LE at 0.4-0.6 (band
+x/c 0.75-0.90: 319 -> 620 cm2 at 0.4), to be checked before any cap change (cap position, not only amount).
+
 ## Handoff 7 (2026-10-25, session 6; user L23-L24)
 
 **Resume.** Read this section and the Tasks lines T25, T29, T36, T37. Engram still down; this file is the record.
@@ -1123,3 +1145,4 @@ for this session.
 - L24 (2026-10-25, session 6) User: "no me digas esas cosas y dime si mejoro la fisica del problema q es lo que me importa", then "si quiero corregir la fisica". Parent: this session improved the evidence, not the model physics; next is T37 (flat-back closure per SONATA).
 - L25 (2026-10-25, session 7) User: copy and commit the 11623882 known-red record, compare with T25; then T37: close the flat-back as SONATA/ANBA4 does (bond line ~4 % of arc ahead of the TE + solid adhesive wedge outboard of 20 %, TE glass_uni off the face; inboard skins + gelcoat + glass_uni on the face); confirm on the 0.3/0.5 PDFs first; propose web vs equivalent face laminate and go on if clear; write the prediction before running; measure at es 0.25 S-1 GJ/EI_edge/EA, S-7, V-02 1F/1E, S-4 1E/2F, V-03 mass; never widen. Parent: 11623882 done, 21 failed = the 28 of T25 minus T32 (2), T33 (2), T34 (3), committed 9b5de65.
 - L26 (2026-10-25, session 7) User: "pon las tareas en sequana_cpu q no tengo nada ahi ahora y las otras tiene nodos down". Parent: all T37 jobs had already finished; noted for the next submissions.
+- L27 (2026-10-25, session 7) User asked for a detailed analysis before any change ("aun sigo creyendo que estas haciendo fuerza bruta de combinaciones"), asked which PDF, then approved the read-only material ledger ("si"). Result: carbon spar caps are the EA excess; SONATA chamfers the cap ends.
