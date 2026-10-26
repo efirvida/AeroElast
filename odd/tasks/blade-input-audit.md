@@ -942,6 +942,39 @@ Old load (HEAD tools, same tube) RED: (a) -89.7..-96.7 %, (c) slices 14.69..32.4
 **Merge: not yet.** `fix/gj-shearflow` is correct on every truth test, but the S-1 blade inconsistency above is
 unexplained; merge after the theta comparison.
 
+**T40 theta comparison (session 9 continued; user L36 "continua en esta sesion").** Script
+`wt/gj-shearflow/logs/check/t40/theta_cmp.py`: one blade (es 0.25, mid), two solves: the S-1 torsion solve
+(wall flow about the tip tangent, captured from `ea_gj_from_static_response`) and the S-7 solve
+(`run_torsion_case`, wall flow about z). On each solution: theta at the S-1 stations (S-1 rigid fit about the
+local tangent, captured), theta at the S-7 slices (`section_twists_deg`), the beam theta
+(`beam_twist_profile_deg`); and the GJ from a plain central difference of each theta.
+**Prediction (before the run):** the two solves give the same theta to < 1 % over 0.2-0.9 (the torque axes
+differ by the tip pre-bend angle, cos ~ 0.995), and on one solution the S-1 station theta and the S-7 slice
+theta agree within ~2 % (both are rigid fits; the S-7 slices are 2.9 m z-bins, the S-1 stations 0.25 m bays):
+then theta_S1 / theta_beam over the band is ~1.07 and the 1.146 comes from the S-1 *derivative* (local
+quadratic on the 2.4 m stations through real local stiffness steps, biased where theta'' changes fast). If
+instead the S-1 station theta itself is ~1.15 x beam, the gap is in the S-1 station sets or tangent frame.
+
+**Result theta comparison, S-1 mesh (SLURM 11624410, 5.6 min; `thcmp-s1-11624410.log`).** Band 0.3-0.9
+theta/beam: S-1 stations on the S-1 solve **1.1021**, S-7 slices on the S-1 solve 1.1001; on the S-7 solve
+1.0736 / **1.0717** (= the S-7 test). The two twist metrics agree (0.2 pt): the prediction's "S-1 station theta
+vs S-7 slice theta within 2 %" **held**. The derivative is not the cause either: plain central difference
+12.59 % vs local quadratic 13.05 % mid-span. But "same theta from both solves" was **refuted**: the S-1 solve
+twists **1.0264 x** the S-7 solve, constant from root to tip (1.0263-1.0268 at 0.01-0.93). A constant factor
+is the load magnitude. Cause: S-1 realises the flow about `tangs[-1]` (a one-sided centroid-gradient tip
+tangent), but the end ring lies in a z-plane, so the in-plane forces deliver a pure z-moment T / cos(alpha);
+1.0264 -> alpha ~ 13 deg. GJ is computed with T, so it reads 2.6 % low everywhere.
+**Fix design T40b (kinematic consistency, the EI path's construction):** (1) realise the flow about the end
+ring's own plane normal (SVD of the ring, oriented with the tip tangent); (2) GJ_i = (M_delivered . t_i) /
+theta'_s,i with M_delivered = sum (x_j - c) x f_j from the applied forces; (3) theta'_s = dtheta/dz * t_z
+(arc length, as kappa * t_z in `_ei_tangent_frame`); (4) theta_i = (rotation vector of the 6-DOF
+least-squares rigid fit of the station nodes) . t_i, the `_ei_tangent_frame` fit, instead of the planar
+in-plane fit (which leaks bending rotation into twist when the ring is not normal to t).
+**Truth test (e):** oblique circular tube, axis d at beta = 20 deg in xz, radius R, rings cut by z-planes
+(ellipses), clamped root, GJ_ref = G t 2 pi R^3 (perpendicular circle, thin-wall Bredt). Prediction: RED now
+(about -6 %: cos 20 deg from dz vs ds and the axis), GREEN <= 1 % after (1)-(4); tests (a)-(d) unchanged;
+blade S-1 theta/beam band -> ~1.074 (= S-7 solve), S-1 GJ mean |err| ~13.0 -> ~10.5 %, profile shape unchanged.
+
 ## Handoff 10 (2026-10-26, session 9 close)
 
 **Resume.** Read sections "S-1 GJ extractor on a tube of known GJ" and "T40" (above Handoff 9); nothing else.
@@ -1569,3 +1602,4 @@ for this session.
 - L33 (2026-10-26, session 8) User: "si" to: per-wall localisation of the outboard GJ deficit first (then, next session, the S-1 GJ extractor on a tube of known Bredt GJ).
 - L34 (2026-10-26, session 9) User: "leé el \"Handoff 9\" de odd/tasks/blade-input-audit.md. El primer paso ahí es probar el extractor del S-1 GJ en un tubo de GJ conocido. Ese resultado te deja decidir con evidencia entre arreglar el extractor o retirar la aserción en favor del S-7."
 - L35 (2026-10-26, session 9) User: "me tienes loco, no se. pero si hay algo que arreglar, que el camino correcto siempre es arreglar no parchear". Parent: T40 (fix both T39 defects at their cause).
+- L36 (2026-10-26, session 9) User: "continua en esta sesion". Parent: T40 theta comparison S-1 vs S-7 on the blade.
