@@ -30,7 +30,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T2 | S2 S4 | parent | pending | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
 - T3 | S5 | parent | pending | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
 - T4 | S2 S3 | parent | done: twist +0.34 %, flap -0.34 %, edge 0.005 % torque | Sensitivity tool: rigid BEM at rated with the twist distribution perturbed by each red's effect; torque/power deltas.
-- T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; root and GJ open (Handoff 3) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
+- T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; mesh Bredt 863ff38 (mesh = yaml), H7 refuted, FE torsionally soft 0.65-0.85 (twist integral); element vs distortion open (Handoff 4) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
@@ -275,6 +275,25 @@ distortion); a short, thin tip section of the 3.4 is outside what it was proven 
 0.6-0.85 under the same shear-flow tip torque vs the integral of T / GJ of the mesh Bredt. Ratio ~1: the FE is
 torsionally right and the S-1 station derivative is wrong there (extraction); ratio ~1.2-1.3: the FE is soft
 (element, then a tapered closed-form tube through MITC4 at es 0.15).
+**Result (worker, `tools/l3_twist_integral.py`; jobs 3.4 11625348, 15 11625349; `logs/check/l3/t9/twist/`).** Same
+T40 shear-flow tip torque and linear rigid-rotation fit (`rigid_rotation_fit`, lstsq, so no large-angle bias) at every
+mesh station; integrand T / (GJ t_z) (rate per arc length); mesh Bredt every 0.5 m (all closed); delivered torque
+about the tangent 0.991-1.000e6 (3.4) / 0.962-1.000e6 (15) over 0.3-0.9. FE delta-theta / integral:
+
+| band | 3.4 / mesh Bredt | 3.4 / deck | 15 / mesh Bredt | 15 / deck |
+|---|---|---|---|---|
+| 0.3-0.6 | 1.014 | 1.116 | 1.002 | 1.054 |
+| 0.4-0.6 | 0.982 | 1.078 | 1.000 | 1.056 |
+| 0.6-0.85 | **1.314** | 1.434 | 0.952 | 1.069 |
+| 0.7-0.85 | **1.380** | 1.506 | 0.932 | 1.050 |
+
+3.4 slices (0.05): 0.55 1.025, 0.60 1.043, 0.65 1.176, 0.70 1.237, 0.75 1.281, 0.80 1.530 (0.85-0.95 tip-affected:
+1.09, 1.79; 0.25-0.35 inboard 2.67, 1.36). 15 slices 0.98-1.03 at 0.3-0.75, 0.93 / 0.88 at 0.75-0.85.
+**Verdict: pre-registered "FE soft" reading holds** (1.31 over 0.6-0.85); the S-1 station derivative is right there
+(its -18..-33 % is the same softness), and right at 0.4-0.6 for both blades. Caveat: the twist is a least-squares
+rigid fit over all section nodes, so in-plane section distortion (no diaphragms; thin, tapered outboard 3.4 section)
+reads as twist: "soft" = element stiffness **or** section distortion, not yet split. The 15 does not show it
+(0.93-1.0), so it is specific to the 3.4 outboard geometry (chord ~2 m, TE cell area 0.09-0.14 m2 at 0.7-0.8).
 
 **H7 on the deck side (session 13, Handoff 3 item 2; read of the 3.4 deck 6x6, no run).** The S-1 reference is
 already the elastic-centre principal value (`beam_reference.load_beamdyn_blade` `ei_*_ec`: Schur complement of K33,
@@ -314,6 +333,20 @@ closed-form thin tube through the FE extraction); mesh Bredt ~ FE -> mesher TE c
 off-diagonals at 0.0-0.20) before our section (H7, weakened for EI_flap by the refuted row). 3. Then T6/T7 on
 both blades, T8.
 
+## Handoff 4 (2026-10-26, session 13 close, ~165 k context)
+
+**Resume.** Read section "T9 IEA-3.4-130" from "Mesh Bredt (session 13" to this handoff. Engram: `l3/t9/mesh-bredt`.
+**State.** Handoff 3 items 1-2 done: the 3.4 mesh is the yaml section in torsion (Bredt within 1 %); H7 refuted on
+the deck side (root EI_edge deficit is ours); the 3.4 FE is torsionally soft at 0.65-0.85 by 1.2-1.5x against its
+own section with no derivative (twist integral), the 15 is not. Commits 863ff38 (mesh Bredt) and the twist integral.
+**Next, in order.** 1. Split element vs section distortion on the 3.4 at 0.65-0.85 (prediction first): (a) the
+least-squares fit residual per station (distortion makes it grow outboard) and the twist fitted on the box nodes
+only (caps + webs) vs all nodes; (b) a tapered closed-form tube through MITC4 at es 0.15 with the 3.4 outboard
+perimeter, wall G t and taper (extend `tools/diagnose_s1_gj_tube.py` / `tests/test_s1_gj_tube.py`); (c) element
+quality of the 3.4 outboard rows (aspect ratio, warp of the quads at the TE / LE, es 0.15 vs 0.10). 2. Root
+0.04-0.18 EI_edge: yaml-side EI (line integral E t about the elastic centre) vs mesh vs FE. 3. Then T6/T7 on both
+blades, T8. The 15 at 0.8: mesh Bredt +11 % over yaml (stiffer TE cell), noted, not chased.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -324,3 +357,4 @@ both blades, T8.
 - L6 (2026-10-26, session 10) User chose "1. IEA-3.4 antes de T6 (recomendado)" over "3.4 y además una pala BECAS" and "T6/T7 primero".
 - L7 (2026-10-26, session 11) User: "seguimos con L3, T9". Parent: deck/yaml pairing checked consistent (section T9), T9a pre-registered before any 3.4 run; T9b reader fixes; T9c sections held, modes refuted, H6 recorded (Handoff 2).
 - L8 (2026-10-26, session 12) User: Handoff 2 items 1-4 in order, verbatim: "1. Probar H6 con la predicción escrita antes: una copia del yaml con las capas en rampa en vez de escalón, y volver a correr modos y S-1. 2. Corregir la auditoría para que una capa valga cero fuera de su grilla, test primero. 3. Bredt de la 3.4 contra el GJ del deck antes de culpar al cierre del borde de fuga. 4. Recién después, T6 y T7 sobre las dos palas." Then asked whether the two blades behave consistently and whether the inconsistencies are model, solver or element; parent: model conventions and reference sampling, solver core unlikely, torsion still open between mesher, extraction and element.
+- L9 (2026-10-26, session 13) User: "continuamos". Parent: Handoff 3 items 1-2 (mesh Bredt, H7 deck check), then the twist integral (worker); Handoff 4.
