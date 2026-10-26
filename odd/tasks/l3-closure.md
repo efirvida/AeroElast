@@ -238,6 +238,53 @@ Bredt); our shell FE is -13 / -32 % in the bands, well below. TE cell exterior w
 the flexibility, LE cell 28-30 %, box 1-5 %, each web 4-6 %. IEA-15 control: -1.4 / -4.7 / -12.0 / -19.4 % at
 0.3 / 0.5 / 0.7 / 0.8 (outboard a thin wall misses SONATA's solid TE fill), TE share 51 / 68 %.
 
+**Mesh Bredt (session 13, Handoff 3 item 1; `tools/l3_bredt_mesh.py`, selftest: thin circle -0.0003 %, two cells =
+`multicell_bredt`).** Same graph Bredt as `tools/bredt_gj.py model_bredt` on the S-1 element row (es 0.15, mid surface,
+wall G t = A66), at the yaml-Bredt stations; FE = S-1 GJ (`s1-iea34-es0.15.json`) interpolated at the row z. FE vs
+deck there: 0.3 -53, 0.4 -4.7, 0.5 -6.9, 0.6 -15, 0.7 -29, 0.8 -43, 0.85 -41 %.
+**Prediction (written before the run).** (1) 3.4 mesh / yaml Bredt within +-5 % at 0.3-0.85 (same mid line; on the 15
+the mesher A66 is within 1 % of the yaml stack, T27, and cell areas cost 2-3 pt). Then FE / mesh Bredt is -10..-35 %
+at 0.6-0.85 and the outboard deficit is element or extraction, not section. Refuted if mesh / yaml < -5 % at
+0.6-0.85 (mesher side: TE closure, offset; T7). (2) At 0.3 the FE -53 % is extraction (mesh Bredt near the yaml).
+(3) IEA-15 control (es 0.25): mesh / yaml within +-5 % at 0.3-0.8, FE / mesh within +-10 pt.
+**Result (jobs 3.4 11625341, 15 11625338; `logs/check/l3/t9/bredt/mesh-iea*.json`, `bm34c-*.log`).** Section = every
+element the plane z crosses (a row picked by centroid z fails on the 3.4: its node rings are not at constant z, the
+plane cuts the neighbouring rows, first runs left 0.28 / 0.78-0.80 open; the 15's rows are planar, same numbers both
+ways). All stations close as 3 cells, no open wall. % vs deck GJ_sc at the row z:
+
+| eta | 0.2 | 0.25 | 0.3 | 0.35 | 0.4 | 0.5 | 0.6 | 0.7 | 0.75 | 0.8 | 0.82 | 0.85 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3.4 mesh Bredt | -2.8 | -9.8 | -10.9 | -9.0 | -8.2 | -8.2 | -8.2 | -6.7 | -6.7 | -8.2 | -13.1 | -4.0 |
+| 3.4 mesh / yaml | -3.1 | | -5.3 | | +0.7 | +0.9 | +0.8 | +0.3 | 0.0 | -2.3 | | -1.2 |
+| 3.4 FE / mesh | | -67 | -44 | -14 | +4.8 | +4.7 | -2.7 | -17.7 | -21.0 | -32.7 | -32.0 | -31.1 |
+| 15 mesh / yaml | | | +0.2 | | | 0.0 | | +0.4 | | +11.4 | | |
+| 15 FE / mesh | | | -1.5 | | | -0.6 | | -4.2 | | +12.7 | | |
+
+TE-cell share of the flexibility, mesh / yaml: 0.54-0.62 / 0.55-0.62 on the 3.4 (equal); 15 at 0.8 0.58 / 0.68.
+Verdicts: (1) **held**: our 3.4 section is the yaml section in torsion (within 1 % at 0.4-0.85, -3..-5 % at
+0.2-0.3), so the mesher (TE closure, offset) is not the 3.4 outboard GJ deficit; the deficit of the S-1 FE GJ
+against its own section grows smoothly from -3 % (0.6) to -18 / -21 / -33 % (0.7 / 0.75 / 0.8) and stays there:
+**element or extraction, and 3.4-specific** (the 15's FE tracks its section within 4 pt to 0.7). (2) **held**: at
+0.25-0.35 the mesh Bredt is -9..-11 % and the FE -22..-71 %, the inboard extraction swing seen on the 15 (T39).
+(3) **held to 0.7, refuted at 0.8**: the 15 mesh is +11 % over the yaml Bredt there, with a stiffer TE cell (share
+0.58 vs 0.68); the 15's FE follows its mesh (+12.7 vs deck +1.5), so at 0.8 the IEA-15 S-1 GJ is near the deck by a
+mesh-vs-yaml TE difference, not by agreement (the yaml Bredt is -19 % there; SONATA's solid TE fill). Not chased.
+The T40 extractor was proven on prismatic tubes only (T39/T40, residual 3-14 % on long or oblique tubes from section
+distortion); a short, thin tip section of the 3.4 is outside what it was proven on.
+**Next (element vs extraction, no derivative):** the S-7-style integral on the 3.4: FE twist increment over
+0.6-0.85 under the same shear-flow tip torque vs the integral of T / GJ of the mesh Bredt. Ratio ~1: the FE is
+torsionally right and the S-1 station derivative is wrong there (extraction); ratio ~1.2-1.3: the FE is soft
+(element, then a tapered closed-form tube through MITC4 at es 0.15).
+
+**H7 on the deck side (session 13, Handoff 3 item 2; read of the 3.4 deck 6x6, no run).** The S-1 reference is
+already the elastic-centre principal value (`beam_reference.load_beamdyn_blade` `ei_*_ec`: Schur complement of K33,
+diagonalised). At 0.05 / 0.10 / 0.15 / 0.20 the elastic centre sits 0.14 / 0.42 / 0.51 / 0.40 m from the reference
+axis along the edge direction (K23/EA; flap offset <= 0.04 m), so raw K44 is 1-15 % above the principal edge value
+(6.66 vs 5.50e9 at 0.15) and that term is already removed; principal axes turn <= 11 deg (hi/lo 1.2-2.3), worth
+<= 2 % on EI_edge. **H7 cannot explain the root EI_edge -20..-26 %: the deficit is ours (section or extraction).**
+Next for the root: a yaml-side EI (line integral of E t about the elastic centre, as `t37_section_compare` does on
+the mesh) at 0.05-0.20, to split section from extraction the way the Bredt pair does for GJ.
+
 ## Handoff 2 (2026-10-26, session 11 close, ~180 k context)
 
 **Resume.** Read section "T9 IEA-3.4-130" only. Engram still down. Logs `logs/check/l3/t9/`, sbatch
