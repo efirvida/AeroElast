@@ -30,7 +30,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T2 | S2 S4 | parent | pending | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
 - T3 | S5 | parent | pending | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
 - T4 | S2 S3 | parent | done: twist +0.34 %, flap -0.34 %, edge 0.005 % torque | Sensitivity tool: rigid BEM at rated with the twist distribution perturbed by each red's effect; torque/power deltas.
-- T9 | S7 S4 | parent/worker | pending | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
+- T9 | S7 S4 | parent/worker | in progress: (a) pre-registered (section T9 below) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
@@ -86,6 +86,49 @@ need a printed residual or a manual verdict; S-2 LC2 (-2.5 %, in) and LC3 (+10.2
 passes with a different band: read it before deciding). 4. T5: declarations with the sensitivity numbers above
 (EA: no torque path), then `contract --level L3`.
 
+## T9 IEA-3.4-130 (session 11, 2026-10-26)
+
+**Inputs and provenance (checked before any run).** Clone `$SCRATCH/IEA-3.4-130-RWT` (HEAD aacff39, windIO 2.1).
+- yaml v1 = `824f8d6:yaml/IEA-3.4-130-RWT.yaml` (2025-09-26); BeamDyn deck `openfast/IEA-3.4-130-RWT_BeamDyn_Blade.dat`,
+  21 stations, last touched in a42ea70 (2020-11-09, "BD input files, webs thick min 20 mm"); that commit also adds
+  `yaml/figures/blade_section_*.png` (SONATA-style section plots, like the IEA-15 PDFs) and edits the yaml.
+- The v2.1 yaml at HEAD embeds `structure/elastic_properties` = the same deck (K33, K66, mass 0.0 % at 0.1-0.9), not
+  a recomputation; the `six_x_six` in a42ea70 is a 2-point placeholder. The deck is the only 6x6 of this blade.
+- **The pair is consistent:** layer-by-name diff a42ea70 -> 824f8d6 finds no physical change in the blade (layup,
+  webs, materials, outer shape): only `TE_reinforcement` (one ud layer, width 0.8 m, midpoint TE) split into
+  `_SS`/`_PS` (0.4 m each, start/end at TE; equivalent), cap names capitalised, airfoil digits, paint fvf/fwf
+  (cost only). An index-based diff first showed x5 thickness changes: an artefact of the inserted layer.
+- Issue #5 ("ANBA mass structural only") concerns the TUM spreadsheet (ANBA) vs the ElastoDyn file, not the deck;
+  the windIO model was a NREL conversion at the blade-structure level. ElastoDyn (PreComp, WISDEM) vs the deck:
+  mass -3..+5 % mid-span, EI_flap +2.5..+26 %, EI_edge +6..+16 %: PreComp is not an arbiter here.
+- Trap found: `tools/beam_reference.load_beamdyn_blade`/`load_elastodyn_blade` default `blade_length=117.0`
+  (IEA-15); every 3.4 call has to pass its axis length (63.0 m in the yaml reference axis; deck eta is arc length).
+
+**T9a pre-registration (written before any IEA-3.4 shell run).** Signed %, ours vs the deck, S-1 metric (mid-span
+0.2-0.85, mean signed; mean |rel| in brackets for the 15), es 0.25, mid-surface skin, same code as the 15 at 1902eed.
+Scaling rule: the cap-chamfer convention (blade-input-audit Handoff 8 item 1) removes ~t^2 per cap end pair, so
+`dEA/EA ~ 2 E_cap t^2 / EA_deck`. Over eta 0.2-0.8 it gives **IEA-15 +7.8 %** (measured EA +6.56) and **IEA-3.4
++4.8 %** (glass ud E1 42 GPa, t 30-63 mm, w 0.8 m, cap EA share 68-94 %): ratio r = 0.62 for chamfer-driven metrics.
+
+| metric | IEA-15 at HEAD | mechanism (15 diagnosis) | IEA-3.4 prediction | refuted if |
+|---|---|---|---|---|
+| EA(CLT) | +6.56 (6.68) | cap chamfer convention | **+4.8, band +3.3..+6.3** | >= +6.5 (systematic, not chamfer) or <= +2 |
+| EI_flap | +3.8 (4.53; signed from 11622464, HEAD prints only mean abs) | chamfer + cap position | **+2.4 (r x 3.8), band 0..+4.5** | >= +5 or < -1 |
+| EI_edge | -1.89 (8.01) | TE solid closure absent (T37 sonata_wedge +6.9 pt) | **-2, band -7..+3; mean abs scatter 5-9** | > +4 or < -10 |
+| GJ 0.3-0.6 / 0.6-0.85 | -5.6 / -13.0 | TE solid region outboard (Bredt per wall) | **negative in both bands, outboard worse; -2..-10 / -5..-18** | either band >= -1 |
+| mass | +2.26 (3.54) | foam/TE bands | **-3..+3** | outside +-4 |
+| S-4 parked 1F / 1E / 2F vs BeamDyn modal | +2.33 / +0.56 / +0.20 | follows EI_flap, mass | **+1.4 / +0.5 / 0, each +-1.5** | 1F >= +3 or <= -1; 1E outside +-2 |
+
+What each outcome discriminates. (i) EA and EI_flap scale with r (both within band): the flap/EA reds are the
+chamfer convention, turbine-specific, and T6 applies to both blades. (ii) EA at ~ +6.5 % or more on a glass-cap blade:
+a systematic bias of our section (mesher/CLT), T6 alone will not close it. (iii) GJ negative with the same outboard
+shape: the TE closure (T7) is a modelling convention shared by both SONATA decks; GJ near 0 on the 3.4: the 15's
+deficit is turbine-specific (its TE band geometry). (iv) Any metric off by the same % on both blades regardless of
+r: suspect the solver core / extraction (but L1/L2 closed and S-4 within 2.4 % bound that). (v) Mesher or reader
+clamps, guards or warnings that fire on the 3.4 and never on the 15: T9b findings, listed before any anchor.
+Mesh: the 3.4 chord is 0.68-0.76 of the 15 at equal eta, so es 0.25 is coarser per chord; run 0.25 and 0.15 and
+trust 0.15 if any S-1 metric moves > 1 pt.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -94,3 +137,4 @@ passes with a different band: read it before deciding). 4. T5: declarations with
 - L4 (2026-10-26, session 10) User: S6 verbatim. Parent: the "10 % softer" is S-2 LC3 static tip-edge (point load, undecided row) and S-1 EI_edge 8 % (mid-span extraction), both vs the BeamDyn/SONATA 6x6; the edgewise dynamics agree (S-4 1E +0.56 / +0.44 % vs BeamDyn, a 10 % EI error would move 1E ~5 %). Model reds with diagnosed causes: flap/EA (cap chamfer, T6), torsion (TE solid closure, T7). Mode shapes are not in the store: T8.
 - L5 (2026-10-26, session 10) User: "en algun momento te sugeri utilizar otra pala del repositorio oficial de NREL y comparar tambien para ver si son defectos de modelo o de implementacion del core de solucion". Parent: suggested 2026-10-23 (blade-input-audit L9), inventoried as T17, parked behind T18 (windIO v2 importer), never run. A SONATA-chain blade (3.4) tells systematic-vs-turbine-specific and doubles the evidence for T6/T7; core is bounded by L1/L2 closed, S-4 within 2.4 %, and the section-only PDF check; SONATA convention vs physics needs a BECAS blade (3 webs, not supported).
 - L6 (2026-10-26, session 10) User chose "1. IEA-3.4 antes de T6 (recomendado)" over "3.4 y además una pala BECAS" and "T6/T7 primero".
+- L7 (2026-10-26, session 11) User: "seguimos con L3, T9". Parent: deck/yaml pairing checked consistent (section T9), T9a pre-registered before any 3.4 run.
