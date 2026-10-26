@@ -21,6 +21,10 @@ SLURM scripts. Grep and import `aeroelast`, never `fem_shell`.
   changed (table in §Validation anchors).
 - `.pi/skills/fem-shell/SKILL.md` carries the same workflow in detail — bootstrap, canonical
   commands, landmark map, memory protocol, validity rules. Load it instead of re-deriving.
+- **Validation follows a strict order** set by the user for the PhD: `odd/tasks/thesis-validation-plan.md`
+  (L1/L2 verification -> L3 blade structure -> L4 BEM rigid -> L5 one-way -> L5 two-way vs OpenFAST and Zhou;
+  tower, wake and CFD out of scope). Do not start a step before the previous one closes, and do not open
+  work outside the current step without the user's go-ahead.
 - Work in **bounded sessions**. Resume from `odd/tasks/<feature>.md` plus one narrow
   `mem_search`; do not continue a session that already carries hundreds of turns, because
   context cost grows with the square of session length. `scripts/token_audit.py` measures it.

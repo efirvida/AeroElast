@@ -12,6 +12,10 @@ and of its one-way and two-way coupling with the built-in BEM. Tower and wake ef
 
 ## Plan (V&V hierarchy: code verification -> components -> coupled system)
 
+**Strict order (user L3).** Steps 1 -> 2 -> 3 -> 4 -> 5 are validated in this order and no step starts before
+the previous one is closed (its rows trusted, or every remaining red declared with cause and torque/power
+sensitivity). Work outside the current step needs the user's explicit go-ahead.
+
 | step | level | what | reference | acceptance |
 |---|---|---|---|---|
 | 1 | L1, L2 | elements and linear solver | analytic and published benchmarks, CalculiX | `contract` closed (odd/tasks/l1-l2-closure.md) |
@@ -33,3 +37,5 @@ and of its one-way and two-way coupling with the built-in BEM. Tower and wake ef
 
 - L1 (2026-10-26, session 9) User: S1 (full message in odd/tasks/l1-l2-closure.md Log L2).
 - L2 (2026-10-26, session 9) User: S2. Parent: tower and wake removed from this plan; OpenFAST comparisons run with tower influence off.
+
+- L3 (2026-10-26, session 9) User: "recuerda esto como un orden estricto que vamos a validar. y cierra la sesion". Parent: strict-order rule above; pointer added to AGENTS.md.

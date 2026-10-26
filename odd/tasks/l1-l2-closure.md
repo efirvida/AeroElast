@@ -20,6 +20,17 @@ structural solver), before deciding the PhD-use plan. Store: `docs/validation/`,
 - T2 | S1-S3 | worker (background) | in progress | L2: same for the 83 stale rows; report the 4 single/no-arbiter rows and the gap.
 - T3 | S3 | parent | pending | review, commit, report to the user; then the PhD-use proposal.
 
+## Handoff 1 (2026-10-26, session 9 close)
+
+**State at close.** Worker `mvp8tox3-1-qu6u` (T1+T2) was still running: no change in `docs/validation` yet;
+its outputs are in `logs/check/l1l2/` (`contract-L2-start.txt`, `reg-15..18.txt`, `j-a..e.log`) and SLURM jobs
+`run.sbatch` 11624500 / 11624504 were running. Its final report may not survive the session close.
+**Resume.** Read this file and `odd/tasks/thesis-validation-plan.md` (strict order: this is step 1).
+1. `git status docs/validation` and `ls logs/check/l1l2/`: if the worker wrote rows, review them (no `--write`
+   over a moved residual, no widened tolerance) and commit; if not, re-run T1/T2 from the row lists.
+2. `scripts/aeroenv.sh python tools/validation_matrix.py contract --level L1` (and L2, > 60 s): report closed
+   rows and what stays open with its cause. 3. Only then step 2 of the thesis plan.
+
 ## Log
 
 - L1 (2026-10-26, session 9) User: "yo te propongo una cosa vamos a cerrar lo que depende de correr tests, como por ejemplo L1 y L2, despues pesamos en esa propuesta"
