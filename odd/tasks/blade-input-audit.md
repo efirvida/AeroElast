@@ -77,7 +77,8 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T35 | S5 | - | open | Four rated-twist tripwires fired on the branch (T25 (d)): each failure message says what to do (promote the rated-twist row to an asserted magnitude vs Zhou, update the free-edge test and the WU7 section of `odd/tasks/rated-twist-sign-convention.md`, re-derive the couple-vs-nodal-rotation and load-path-dominance claims). Measure first which branch commit moved them (mesh tear fixed: likely the T8-T15 mesher fixes); then rewrite the guards with the new numbers and references, in their own session.
 - T36 | S5 | worker + parent | done, merged (fix/ccx-parity-station dcaa07f) | Handoff 6 item 3, T31 verdict: replace the tip-node metric of `tests/test_blade_ccx_parity.py::test_blade_parity_ccx` (mean |u| over the 16 point-loaded tip nodes = load introduction, not stiffness) with an interior-station metric, on branch `fix/ccx-parity-station` (worktree `$SCRATCH/wt/ccx-station`, from a9ca498; supersedes `fix/ccx-parity-work`'s W metric). **Design fixed before any run (session 6):** per case, the mean translation vector over a node slab |z - zc| < 0.6 x ELEMENT_SIZE (CCX corner nodes matched by coordinates, cKDTree, 1e-4 m) at zc = z0 + f (z1 - z0); metric |u_AE - u_CCX| / |u_CCX|; **asserted** at f = 0.5 and 0.7 with the unchanged 5 % bound; f = 0.8, 0.9 and the old tip metric **printed, not asserted** (0.8-0.9 R is the open T28 band: edge translation up to +6.9 %); all four cases (flap, edge, axial +/-). **Prediction:** axial +/- <= ~1 % at 0.5/0.7 (T31 Part 3: <= 0.85 % up to z 82 m); flap and edge < 3 %. If a case is > 5 % at 0.5 or 0.7 R it is a finding (report, never widen, never move the stations). **Result (session 6, SLURM 11623955-58, es 0.25, 7.7 min each):** all 4 pass. Slab-mean vector gap AE/CCX at f 0.5 / 0.7 (asserted) / 0.8 / 0.9 (printed): flap 0.16 / 0.11 / 0.08 / 0.04 %, edge 0.17 / 0.08 / 0.11 / 0.16 %, axial +/- 0.15 / 0.09 / 0.06 / 0.09 %; every slab fully matched (104/78/72/60 nodes); old tip metric (diagnostic) flap 2.14, edge 0.75, axial 7.25 %. Prediction (axial <= ~1 %, flap/edge < 3 %) held. f 0.9 shows no excess in the vector metric; T31's +6.9 % at 82-111 m was the minor x component of the axial case (here 43 vs 828 mm at 0.7 R), not contradicted. **Matching, four iterations (findings):** (1) nearest node within a fixed 1e-4 m misses everything beyond z 100 m (FRD E12.5 rounding 5e-4 m there); (2) the FRD carries 1.83 M nodes (CCX expands composite shells through the thickness) vs 102,667 in the deck; (3) even on deck corners a coordinate match is ambiguous for 579 nodes: our mesh has distinct nodes 0.25 mm apart; (4) fix: the quadratic writer labels our node i as i + 1 (`_build_quadratic_mesh_data`), so pairing is by identity and coordinates only verify it within the rounding (corner set must be exactly 1..N). The run-2 nearest-node numbers coincided with these at 0.5/0.7, but only the label-paired run is evidence. Commits 5282da8, 125c604, 12ec1ef, 4a69c4c, 57a7ff9, dcaa07f; logs `$SCRATCH/wt/ccx-station/logs/check/t36/`.
 - T38 | S5 | worker + parent | measured, not merged (fix/cap-arcs): caps at the yaml arcs, section and frequencies as predicted, S-1 GJ -3.4 pt while S-7 flat (torsion anchors disagree) | branch fix/cap-arcs
-- T39 | S5 | parent | measured, decision open (retire S-1 GJ for S-7 vs fix extractor) | Handoff 9 Next 1: S-1 GJ extractor on a tube of known GJ (section 'S-1 GJ extractor on a tube'); decides fix the extractor vs retire the S-1 GJ assertion for S-7 (user decision)
+- T39 | S5 | parent | done (finding; decision L35: fix, T40) | Handoff 9 Next 1: S-1 GJ extractor on a tube of known GJ (section 'S-1 GJ extractor on a tube'); decides fix the extractor vs retire the S-1 GJ assertion for S-7 (user decision)
+- T40 | S5 | worker + parent | in progress | Fix S-1 GJ load + derivative and the S-7 load (section 'T40'); branch fix/gj-shearflow; blade re-measure after
 - T37 | S5 | parent + worker | measured, not merged (fix/te-closure-T37 0cccfe9): face-equivalent wedge worsens GJ/EA/mass/1F/1E/2F, EI_edge 8.0 -> 5.8 % by overshoot; see section 'T37 flat-back closure' | Flat-back (TE) closure to match the reference. Findings (session 6, two read-only explores): (1) the yaml places **no layer on the flat-back face** outboard of r/R ~0.245: the FFA-W3-360/330blend/301/270blend polylines are open at the TE, so the face has zero nd-arc; Shell_skin starts at nd 0.01 / Shell_skin_inner at 0.08 outboard of 0.3/0.25, TE_reinforcement_SS/PS (glass_uni 30 mm, 0.75 m) run from each corner forward; the face laminate is a tool assumption. (2) Ours: `*_TE_FLAT` key segment has zero arc length (`keypoints.py:237-239,285-287`), `stackdb._map_continuous_layers` `if b <= a:` gives fraction 0/1 by the yaml start/end; HEAD (`yaml_to_blade.py:449-460` extent [d,te]) puts glass_uni 30 + gelcoat 1 = 31 mm on the face, T30 ([d,e]) leaves gelcoat 1 mm only (G t ~1.3 MN/m: cell effectively open, hence GJ 100 % and 2F -7.5 %). Units: mm. (3) Reference = SONATA/ANBA4 (IEA-15-240-RWT ReleaseNotes v1.1.4: 'Blade elastic properties consistently originate from SONATA/ANBA4'). SONATA master: closes the profile with a straight line between the corners (`classAirfoil.gen_OCCtopo` :125, `BSplineLst_utils.py:481-484`), s=0 at the face midpoint (`classAirfoil.py:86-92`, `classBlade.py:402-411`); [0,1] layers wrap across the face (`utl/converter_WT.py:540-557` snaps near-0/1); **outboard of 20 % span** (`span_adhesive = 0.2`, :131) TE reinforcement is trimmed back to `adhesive_extent = min(0.04, 0.04/chord)` (:323-331), an **adhesive web** is inserted at [adhesive_extent, 1-adhesive_extent] (:521-524) and the TE wedge behind it is **solid adhesive** (:422-432); inboard of 20 %: TE glass_uni + skins + gelcoat on the face. Confidence medium on the adhesive details (master, not the v1.1.4 commit). **So neither HEAD (31 mm glass) nor T30 (1 mm) is the reference:** the reference torsion cell is closed by an adhesive bond line ~4 % of arc forward of the TE plus a solid adhesive wedge. Next: confirm on `IEA-15-240-RWT/CAD/SONATA/blade_section_0.3.pdf` / `_0.5.pdf`; then model it in the shell mesh (a TE shear web of adhesive at adhesive_extent, or an equivalent face laminate with the wedge's G t and E A), keep T30's [d,e] for glass_uni outboard of 0.2, measure S-1 GJ/EI_edge/EA, S-7, V-02 1E/1F, S-4 1E/2F, V-03 mass against the current numbers; prediction to write before the run. The yaml's `adhesive` material exists unused (explore 1).
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
@@ -862,6 +863,41 @@ diagnostic), or fix the extractor (spline + shear-flow tip load, then re-measure
 cheap blade check is the S-7 per-slice ratio profile: smooth means little distortion, an oscillation means
 the S-7 band mean is also partly cancellation.
 
+## T40: fix the S-1 GJ extraction and the S-7 load at the root (session 9; user L35)
+
+User L35: "si hay algo que arreglar, que el camino correcto siempre es arreglar no parchear". Both T39 defects
+are fixed at their cause; no band moves. Branch `fix/gj-shearflow` (worktree `$SCRATCH/wt/gj-shearflow`, shim
+`$SCRATCH/wt/gj-shearflow.pp`, from f6d5b8b).
+
+**Design (fixed before any code).**
+- D1 Load. The tip torque of S-1 and S-7 is applied as the Saint-Venant wall shear flow of the tip ring, with
+  the production machinery the BEM projector already uses: `ring_section` (cells, adjacency, edge length,
+  wall `S = G t` from the element properties) + `multi_cell_shear_flow` + the per-cell wall walk of
+  `_realise_multi_cell_section_load`. The walk is factored into one shared private helper and a public
+  `section_torque_wall_forces(mesh, ring_nodes, span_dir, element_properties, torque, coords=None)` in
+  `src/aeroelast/solvers/bem/force_projection.py`; `_realise_multi_cell_section_load` keeps its behaviour
+  byte for byte. The helper refuses (ValueError) a ring with no cell, a geometric-only stiffness (S = 1.0
+  fallback) or a delivered span torque off by > 1e-9 relative. Tip ring = the end ring only (S-1: the last
+  station's nodes not shared with the previous station; S-7: the same physical end ring), span axis = local
+  tip tangent (S-1) / the S-7 span axis.
+- D2 Derivative. S-1 twist rate from `_local_quadratic` (the EI tangent-frame local fit, half window 2 x
+  median station spacing) instead of `UnivariateSpline(s=1e-3)`; signed: GJ = T / theta', NaN where
+  theta' has the wrong sign or is ~0 (no `abs`).
+- D3 Twist measure unchanged: the least-squares rigid in-plane rotation (VABS-type section rotation; exact on
+  T39 C/D).
+- Out of scope, recorded: the EA *response* channel has the same absolute-spline class (`s=1e-1`) but is
+  not asserted (EA(CLT) is).
+
+**Truth tests (RED first, `tests/test_s1_gj_tube.py`, short tubes, es 0.25).** (a) rectangle 4 x 2 m,
+uniform: S-1 GJ within 1 % of Bredt at every mid-span station; (b) circle with GJ(z) varying ~10x: S-1 GJ
+mid-span mean |err| < 1 %; (c) S-7 construction on the rectangle: per-slice twist ratio within 1 % over its
+band; (d) helper: delivered torque exact, zero net force, geometric-only refused. Tolerance basis: T39 C
+0.01 %, MITC4 Bredt tube benchmarks ~1 %.
+**Prediction:** (a) and (c) RED now (T39 A: 257 %, S-7 slices 0.16-4.3), GREEN after D1 at <= 0.1 %; (b) RED now
+(spline ~5 pt), GREEN after D2 at <= 1 %. Blade (re-measured after the merge, es 0.25): S-1 GJ moves toward the
+section Bredt (-3..-7 % at 0.4-0.6, -12 % at 0.7) from -12..-13 %; S-7 band ratio moves by an amount that
+measures how much of its 1.072 was cancellation; either way the numbers are reported, never widened.
+
 ## Handoff 9 (2026-10-26, session 8 close)
 
 **Resume.** Read this section and "## Independent section GJ (session 8 ...)" (above Handoff 8); nothing else is
@@ -1477,3 +1513,4 @@ for this session.
 - L32 (2026-10-25, session 8) User: "Leé la sección "Handoff 8" de odd/tasks/blade-input-audit.md y solo las secciones que indica (los últimos cuatro párrafos de "T37 flat-back closure", "T38 spar caps at the yaml arcs" y las líneas T37/T38). Engram sigue caído. Modo de trabajo: diagnosticar primero, decidir después. Empezá por el paso 1 de "Next": GJ independiente por Bredt, sobre la sección del PDF y sobre la nuestra, contra el K66 de BeamDyn. No cambies el modelo."
 - L33 (2026-10-26, session 8) User: "si" to: per-wall localisation of the outboard GJ deficit first (then, next session, the S-1 GJ extractor on a tube of known Bredt GJ).
 - L34 (2026-10-26, session 9) User: "leé el \"Handoff 9\" de odd/tasks/blade-input-audit.md. El primer paso ahí es probar el extractor del S-1 GJ en un tubo de GJ conocido. Ese resultado te deja decidir con evidencia entre arreglar el extractor o retirar la aserción en favor del S-7."
+- L35 (2026-10-26, session 9) User: "me tienes loco, no se. pero si hay algo que arreglar, que el camino correcto siempre es arreglar no parchear". Parent: T40 (fix both T39 defects at their cause).
