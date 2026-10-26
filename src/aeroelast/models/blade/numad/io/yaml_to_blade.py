@@ -307,9 +307,11 @@ def _add_materials(definition, material_data):
             pass
 
         # first
-        cur_mat.uts = _parse_data(material_data[i]["Xt"])
-        cur_mat.ucs = -_parse_data(material_data[i]["Xc"])
-        cur_mat.uss = _parse_data(material_data[i]["S"])
+        # strengths never enter stiffness or mass; windIO files omit them for unused materials
+        # (IEA-3.4 resin, steel), so a missing one is NaN
+        cur_mat.uts = _parse_data(material_data[i].get("Xt", np.nan))
+        cur_mat.ucs = -_parse_data(material_data[i].get("Xc", np.nan))
+        cur_mat.uss = _parse_data(material_data[i].get("S", np.nan))
         cur_mat.xzit = 0.3
         cur_mat.xzic = 0.25
         cur_mat.yzit = 0.3
@@ -330,9 +332,13 @@ def _add_materials(definition, material_data):
             cur_mat.ex = _parse_data(material_data[i]["E"])
             cur_mat.ey = _parse_data(material_data[i]["E"])
             cur_mat.ez = _parse_data(material_data[i]["E"])
-            cur_mat.gxy = _parse_data(material_data[i]["G"])
-            cur_mat.gxz = _parse_data(material_data[i]["G"])
-            cur_mat.gyz = _parse_data(material_data[i]["G"])
+            if "G" in material_data[i]:
+                g_iso = _parse_data(material_data[i]["G"])
+            else:  # isotropic: G follows from E and nu
+                g_iso = cur_mat.ex / (2.0 * (1.0 + _parse_data(material_data[i]["nu"])))
+            cur_mat.gxy = g_iso
+            cur_mat.gxz = g_iso
+            cur_mat.gyz = g_iso
             cur_mat.prxy = _parse_data(material_data[i]["nu"])
             cur_mat.prxz = _parse_data(material_data[i]["nu"])
             cur_mat.pryz = _parse_data(material_data[i]["nu"])
@@ -381,10 +387,8 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict, 
         # mat_names = [mat.name for mat in definition.materials]
         # C,IA,IB = np.intersect1d(mat_names,i_component_data['material'],return_indices=True)
         cur_comp.materialid = i_component_data["material"]
-        try:
-            cur_comp.fabricangle = np.mean(i_component_data["fiber_orientation"]["values"])
-        finally:
-            pass
+        # optional in windIO v1 (absent on most IEA-3.4 layers); 0 deg as in WISDEM
+        cur_comp.fabricangle = np.mean(i_component_data.get("fiber_orientation", {}).get("values", [0.0]))
         # One span scheme for every layer, linear on the yaml grid (as WISDEM <= v3.2 and the audit
         # reference). NuMAD used pchip when the name contained "spar"; a pchip option is planned
         # (odd/tasks/blade-input-audit.md, G10).
@@ -435,11 +439,10 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict, 
 
     # Shell skin
     shell_skin = full_keys_from_substrings(component_dict, ["shell"])
-    if len(shell_skin) == 2:
-        component_dict[shell_skin[0]].hpextents = ["le", "te"]
-        component_dict[shell_skin[0]].lpextents = ["le", "te"]
-        component_dict[shell_skin[1]].hpextents = ["le", "te"]
-        component_dict[shell_skin[1]].lpextents = ["le", "te"]
+    if len(shell_skin) in (1, 2):  # IEA-15: outer + inner skin; IEA-3.4: one skin
+        for skin in shell_skin:
+            component_dict[skin].hpextents = ["le", "te"]
+            component_dict[skin].lpextents = ["le", "te"]
     else:
         raise ValueError("Incorrect number of shell components")
 
