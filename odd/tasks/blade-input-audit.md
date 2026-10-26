@@ -964,6 +964,10 @@ twists **1.0264 x** the S-7 solve, constant from root to tip (1.0263-1.0268 at 0
 is the load magnitude. Cause: S-1 realises the flow about `tangs[-1]` (a one-sided centroid-gradient tip
 tangent), but the end ring lies in a z-plane, so the in-plane forces deliver a pure z-moment T / cos(alpha);
 1.0264 -> alpha ~ 13 deg. GJ is computed with T, so it reads 2.6 % low everywhere.
+**S-7 mesh (SLURM 11624411, 33,806 nodes vs 33,827).** Band theta/beam: stations 1.1005 / 1.0736, slices 1.0985 /
+**1.0717** (S-1 / S-7 solve); S-1 GJ 13.23 % (central diff 12.64 %). The S-7 generator options (n_samples 300,
+constant airfoil spacing, chord grading) change nothing measurable (<= 0.2 pt): the two anchors see the same blade.
+
 **Fix design T40b (kinematic consistency, the EI path's construction):** (1) realise the flow about the end
 ring's own plane normal (SVD of the ring, oriented with the tip tangent); (2) GJ_i = (M_delivered . t_i) /
 theta'_s,i with M_delivered = sum (x_j - c) x f_j from the applied forces; (3) theta'_s = dtheta/dz * t_z
