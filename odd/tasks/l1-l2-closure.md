@@ -16,8 +16,8 @@ structural solver), before deciding the PhD-use plan. Store: `docs/validation/`,
 
 ## Tasks
 
-- T1 | S1-S3 | worker (background) | partial: trusted 155, open: group 44 (timeout/OOM) + 2 pins | L1: re-run the stale groups (`regression --group`), refresh verdicts whose residual is unchanged within its tolerance, audit the 12 unaudited `material_suite` rows, report the 2 regression pins.
-- T2 | S1-S3 | worker (background) | partial: trusted 77, open: group 43 (timeout) + 4 pins | L2: same for the 83 stale rows; report the 4 single/no-arbiter rows and the gap.
+- T1 | S1-S3 | worker (background) | done (session 10): L1 CLOSED, trusted 157, pins 2 | L1: re-run the stale groups (`regression --group`), refresh verdicts whose residual is unchanged within its tolerance, audit the 12 unaudited `material_suite` rows, report the 2 regression pins.
+- T2 | S1-S3 | worker (background) | done (session 10): L2 CLOSED, trusted 79, pins 4 | L2: same for the 83 stale rows; report the 4 single/no-arbiter rows and the gap.
 - T3 | S3 | parent | pending | review, commit, report to the user; then the PhD-use proposal.
 
 ## Result (session 9, worker mvp8tox3-1-qu6u; store commit below)
@@ -38,6 +38,16 @@ verdicts); no tolerance or reference value touched; no residual moved (no findin
   beam_shell_4cases axial x2 (point-load singularity not converged), laminate_bend_twist [60,0,0,60]s CCX deck
   (not converged): each needs a converged independent reference. Gap `composite_stress_recovery`: bounded,
   non-blocking.
+
+## Result (session 10, parent inline)
+
+Groups 43 and 44 re-run with `regression --group <g> --scope "<the row nodes only>"` on the login node:
+44 9 same (6.6 s, 0.29 GB), 43 2 same (40 s, 0.45 GB); every residual identical to its stored baseline
+(digest unchanged). The 3 h SLURM timeouts with 7 oom_kill (11624574/5, both on sdumont6129) were not the
+tests: the same 4 rows run in seconds. The 4 `stale_declaration` lines are an artifact of the scope (it
+leaves out the declared non-validation tests on purpose). 4 rows restamped c0fdeea -> 7b0073c with a note.
+Pins confirmed not to keep a level open: `contract` excludes `regression_pin` from `open_states`
+(`tools/validation_matrix.py:4429`). **L1 [CLOSED]: trusted 157, regression_pin 2.** **L2 [CLOSED]: trusted 79, regression_pin 4; gaps 0 blocking / 1** (`composite_stress_recovery`, bounded).
 
 ## Handoff 2 (2026-10-26, session 9 close)
 
@@ -63,3 +73,4 @@ its outputs are in `logs/check/l1l2/` (`contract-L2-start.txt`, `reg-15..18.txt`
 
 - L1 (2026-10-26, session 9) User: "yo te propongo una cosa vamos a cerrar lo que depende de correr tests, como por ejemplo L1 y L2, despues pesamos en esa propuesta"
 - L2 (2026-10-26, session 9) User (thesis goal, verbatim): "volviendo a lo que necesito para mi tesis, el problema es que nadie va a creer en mis resultados si no presento una validacion cientifica del mismo que  pueda ser aveptada. Lo que quiero estudiar de forma general es medir como influye la deformacion de las palas cuando el aerogenerador produce energia sobre la se~nal de torque del mismo, incluyendo cuando la pala pasa frente a la torre. Pero de momento para validacion no hay muchos datos por lo que el proceso de validacion tiene que ser particionado por componentes, lo unico que he encontrado para validar el es articulo de Zhou. En otro proyecto estoy haciendo la validacion numerica de OpenFoam con metodos ALM/ASM pero como es numericamente costozo aqui tenemos un BEM simple para validar la parte estructural y el acoplamiento". Evidence: the built-in BEM (`src/aeroelast/solvers/bem/`) has no tower influence model (no file mentions "tower"); Zhou et al. 2025 (Energy 336:138488) is used by `test_blade_rated_twist.py` (tip twist -3.60 deg, rigid 2.53 MN / 16.11 MW), `test_bem_load_frame.py`, V-02.
+- L3 (2026-10-26, session 10) User: "vamos a continuar intentando cerrar L1 y L2, intenta solo correr lo que falta para no tener que esperar demas." Evidence: `contract --level L1` CLOSED (157/2 pins), `--level L2` CLOSED (79/4 pins, 42 s); logs `logs/check/l1l2/reg-43.txt`, `reg-44.txt`, `contract-L2-s10.txt`. Next: step 2 of `odd/tasks/thesis-validation-plan.md` (L3 blade structure), only on the user's go-ahead.

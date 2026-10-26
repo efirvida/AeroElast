@@ -912,15 +912,17 @@ verdicts:
   - target: frame_objectivity.tangent_under_rigid_rotation
     class: identity
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 7b0073c
     note: >-
       Round-off bound of our own computation: K_t(u_rigid) is compared with T K0 T^T built from our own K0 (reference kind analytical, but the reference is derived from the code under test). Measured 2.58e-12 / 1.75e-12 / 1.99e-12 at 1 / 5 / 30 deg against 1e-9, identical to 6 digits for assemble_kt and assemble_kt_corotational, so the corotational MITC4 path is numerically the TL tangent here. Scope: one 4x1 MITC4 cantilever, rotation about z, translational block only; the variant with theta_z set in u (1.9e-4..5.7e-3 for both paths) is not asserted and its interpretation is open. Counts as identity.
+      Re-run at 7b0073c (L1/L2 closure session 10, regression --group 44 --scope <the row nodes only>, logs/check/l1l2/reg-44.txt): residual identical to the stored baseline (verdict same, digest unchanged); audited_rev restamped, no value or tolerance touched. The 3 h SLURM timeouts of session 9 (11624574/5) were not the tests: scoped, the group runs in 7 s with 0.3 GB peak RSS on the login node.
   - target: frame_objectivity.rigid_rotation_internal_force
     class: identity
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 7b0073c
     note: >-
       Round-off bound: a rigid motion produces no strain, so f_int(u_rigid) = 0 (closed form), but the test only checks that our assembly returns it. Measured 5.39e-13 / 5.68e-13 / 8.62e-13 at 1 / 5 / 30 deg relative to the 1e-3 stretch force scale, against 1e-9. Same mesh and scope limits as the tangent row. Counts as identity.
+      Re-run at 7b0073c (L1/L2 closure session 10, regression --group 44 --scope <the row nodes only>, logs/check/l1l2/reg-44.txt): residual identical to the stored baseline (verdict same, digest unchanged); audited_rev restamped, no value or tolerance touched. The 3 h SLURM timeouts of session 9 (11624574/5) were not the tests: scoped, the group runs in 7 s with 0.3 GB peak RSS on the login node.
   - target: newton_elastica.test_newton_scheme_narrow_strip_matches.1_0
     class: physics
     verdict: trusted
@@ -1818,19 +1820,21 @@ verdicts:
   - target: newmark_analytic_frequency.s3_undamped_free_vibration_f1
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 7b0073c
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first frequency"}
     note: >-
       2.9385 % vs EB (bound 5 %) decomposed in tools/g43_decomp.py as spatial -2.93 % (shell mesh vs EB) + Newmark -0.0145 % (exact trapezoidal dispersion); integrator checked on its own by test_newmark_frequency_matches_discrete_dispersion (0.0105 % vs 0.05 %). Zero-crossing estimator is interpolated.
+      Re-run at 7b0073c (L1/L2 closure session 10, regression --group 43 --scope <the row nodes only>, logs/check/l1l2/reg-43.txt): residual identical to the stored baseline (verdict same, digest unchanged); audited_rev restamped, no value or tolerance touched. The 3 h SLURM timeouts of session 9 (11624574/5) were not the tests: scoped, the group runs in 40 s with 0.45 GB peak RSS on the login node.
   - target: newmark_analytic_frequency.s3_newmark_dispersion
     class: physics
     verdict: trusted
-    audited_rev: c0fdeea
+    audited_rev: 7b0073c
     arbiters:
       - {kind: analytical, label: "trapezoidal-rule dispersion omega_d = (2/dt) atan(omega dt/2) of the mesh's own first eigenfrequency"}
     note: >-
       Measured 0.0105 % vs 0.05 % bound fixed before measuring; the predicted offset is -0.0145 %. Isolates the integrator from the shell mesh error carried by the Euler-Bernoulli row.
+      Re-run at 7b0073c (L1/L2 closure session 10, regression --group 43 --scope <the row nodes only>, logs/check/l1l2/reg-43.txt): residual identical to the stored baseline (verdict same, digest unchanged); audited_rev restamped, no value or tolerance touched. The 3 h SLURM timeouts of session 9 (11624574/5) were not the tests: scoped, the group runs in 40 s with 0.45 GB peak RSS on the login node.
   - target: laminate_bend_twist_3d.test_3d_matches_the_shell_within_2_perce.single
     class: physics
     verdict: trusted
