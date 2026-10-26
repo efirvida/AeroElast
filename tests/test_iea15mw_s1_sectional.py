@@ -142,7 +142,10 @@ class TestS1SectionalProperties:
     def test_gj_distribution_matches_beamdyn(self, s1_results):
         """GJ(r) mid-span mean |rel err| vs BeamDyn below 5 %.
 
-        Static-response torsion test: tip torque couple about the local pre-bent span tangent.
+        Static-response torsion test: the tip torque about the local pre-bent span tangent is applied as
+        the end ring's Saint-Venant wall shear flow (``section_torque_wall_forces``) and the twist rate is
+        the local-quadratic derivative of the rigid-fit theta (blade-input-audit T40; before, a
+        ``t x r_perp`` couple and an absolute smoothing spline, T39).
         """
         z, gj, gjb = s1_results["z"], s1_results["gj"], s1_results["gj_bd"]
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
