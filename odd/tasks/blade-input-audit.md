@@ -739,6 +739,66 @@ model's set names carry no 'web', so the skin/web split in the JSON is empty (sk
 (add the 0.75 / 0.9 PDFs), to name the material/thickness behind the outboard deficit; then the S-1 GJ extraction
 question (user decision: fix the extractor or retire the GJ assertion in favour of S-7; never widen).
 
+**Per-wall localisation (session 8, user L33 "si"; diagnosis, no model change).** Regions on both sides: exterior
+wall of each cell split SS/PS (TE panel incl. TE closure, spar-cap box, LE panel) and the two webs; per region:
+length, integral ds/(G t), mean G t and G t per material; stations 0.25-0.9 where PDFs exist.
+**Prediction (written before the run):** the outboard deficit (ours / PDF Bredt -1.8 / -3.7 / -7.3 % at 0.5-0.7) sits
+in the skin panels (TE and LE exterior walls), through the biax / triax G t (biax G12 13.5 GPa dominates the panel
+shear stiffness); the webs agree within 2 %; the cap box exterior contributes < 1 pt (its walls are ~2 % of the cell
+flexibility, carbon G12 is low). Inboard (+4.5 % at 0.25-0.3) the excess is in the TE panel (TE reinforcement /
+closure), not the caps.
+
+**Result (worker; SLURM 11624301, base model, `wt/caparcs/logs/check/caparcs/bredtw-11624301.log`; `tools/bredt_gj.py
+--stations`, six old stations reproduce `bredt0-11624290` exactly; warping FE vs GJ_sc at 0.75 / 0.9: +0.19 / +0.10 %
+L0, -0.60 / -0.15 % L2, both BeamDyn stations, no unknown fill colours).** Points of the ours / PDF Bredt gap carried
+by each region (our GJ minus our GJ with that region's flexibility, or the cell areas, replaced by the PDF's, % of
+PDF Bredt):
+
+| r/R | gap % | TE ext | box ext | LE ext | webs | cell areas |
+|---|---|---|---|---|---|---|
+| 0.25 | +4.41 | +4.80 | +0.27 | +1.96 | -0.53 | -2.10 |
+| 0.3 | +4.53 | +6.21 | +0.22 | +1.34 | -0.73 | -2.48 |
+| 0.4 | +0.02 | +1.98 | +0.36 | +1.32 | -0.85 | -2.81 |
+| 0.5 | -1.81 | +0.04 | +0.35 | +1.24 | -1.12 | -2.35 |
+| 0.6 | -3.72 | -1.20 | +0.30 | +1.27 | -1.49 | -2.64 |
+| 0.7 | -7.33 | -4.76 | +0.71 | +1.12 | -1.77 | -2.80 |
+| 0.75 | -8.59 | -5.58 | +0.52 | +0.97 | -1.93 | -2.76 |
+| 0.9 | -7.12 | -6.68 | +0.30 | +0.43 | -0.82 | -0.68 |
+
+**Findings.** (a) **The outboard deficit is the TE solid region again**: in the PDF the TE cell ends at the bond line
+(~200 mm ahead of the TE at 0.65-0.9) and the region behind it is solid glass (rigid closure); ours carries the two
+skins plus the face to the TE as ordinary flexible walls (spot check at 0.7: ours 0.197 m of wall with 6.2e-9 of
+ds/(G t) in the last 0.1 m, PDF nothing there). Outboard the cell perimeter is short, so those ~0.4 m of skin are a
+large share of the TE-cell flexibility (at 0.9 about half of the TE.PS one). This corrects the session-7 statement
+"closure ~1 % of the cell flexibility, T37 cannot close the GJ gap": true at 0.3, false from 0.6 outward. Secondary in
+the same wall: our TE-panel glass_triax G t is 15 % below the PDF (26.9 vs 31.7 MN/m at 0.7). (b) Inboard
+(0.25-0.3) the TE exterior is 13-19 % stiffer in ours (CarbonUD G t near the TE 19.7-25.6 vs 8.9-9.2 MN/m; our wall
+line 7-13 % shorter): not explained yet. (c) Cell areas cost -2.1..-2.8 pt everywhere (TE +1.2 %, box -1.9 %, LE
+-3.4..-4 %). (d) Webs -0.5..-1.9 pt (ours 6-9 % more flexible), partly a ray artefact: the PDF web rays near the cap
+edges pick up CarbonUD/triax. (e) LE exterior +0.4..+2.0 pt. Prediction: deficit in the panels through biax/triax
+**refuted** (it is the TE closure geometry); webs within 2 % **refuted** (6-9 %); box < 1 pt **held** (+0.2..+0.7);
+inboard excess in the TE panel **held** (+4.8 / +6.2 pt). Caveats: the SS/PS split is unreliable at the TE and LE
+(use the ext sums); ours has glass_biax G t = 0 in every skin vs 0.5-1.7 MN/m in the PDF rays (smoothing, unverified).
+**Consequence (estimate, not measured):** a faithful T37 (bond-line keypoint, solid closure behind it) would raise
+our Bredt GJ by ~5-7 pt at 0.7-0.9, i.e. in the direction and size that S-7 (1.072) asks; the T37 face-equivalent
+put the fill on the face only and could not do it (S-7 1.0743).
+
+## Handoff 9 (2026-10-26, session 8 close)
+
+**Resume.** Read this section and "## Independent section GJ (session 8 ...)" (above Handoff 8); nothing else is
+needed. Engram still down; same working mode (diagnose first, prediction written before every run, anchors never
+widened; SLURM `sequana_cpu`). Tool: `tools/bredt_gj.py` on `fix/cap-arcs` (73f2e0c, 26d4793; worktree `wt/caparcs`;
+run the model part with `logs/check/caparcs/job_base.sbatch` = l3/twist-p1 model).
+**State.** S-1 GJ is an extraction artefact at mid-span; S-7 is the torsion anchor to trust; the real outboard GJ
+deficit (-4..-9 % vs PDF Bredt at 0.6-0.9) is the TE solid region (rigid closure ~200 mm ahead of the TE in the
+reference, flexible skins in ours).
+**Next, in order.** 1. S-1 GJ extractor on a prismatic shell tube of known Bredt GJ through
+`tools/run_s1_sectional.py ea_gj_from_static_response` (decides: fix the extractor or retire the GJ assertion in
+favour of S-7; user decision). 2. Inboard TE excess at 0.25-0.3 (CarbonUD G t near the TE, 13-19 % stiffer wall):
+locate with the TAIL rows of the log. 3. Then plan B: faithful T37 (bond-line keypoint + solid closure) predicted
++5..7 pt GJ at 0.7-0.9 (toward S-7) and the cap chamfer, one rule at a time, section check first. Open decisions (a)-(c)
+of Handoff 8 unchanged.
+
 ## Handoff 8 (2026-10-25, session 7 close; user L31)
 
 **Resume.** Read this section, then only the sections "## T37 flat-back closure" (its last four paragraphs: Material
@@ -1336,3 +1396,4 @@ for this session.
 - L30 (2026-10-25, session 7) User: "ok, y luego, creo que primero A luego B". Parent: T38 (caps at the yaml arcs) first, prediction written before the change.
 - L31 (2026-10-25, session 7) User: "ok haz eso para comenzar en una nueva sesion". Parent: Handoff 8 written.
 - L32 (2026-10-25, session 8) User: "Leé la sección "Handoff 8" de odd/tasks/blade-input-audit.md y solo las secciones que indica (los últimos cuatro párrafos de "T37 flat-back closure", "T38 spar caps at the yaml arcs" y las líneas T37/T38). Engram sigue caído. Modo de trabajo: diagnosticar primero, decidir después. Empezá por el paso 1 de "Next": GJ independiente por Bredt, sobre la sección del PDF y sobre la nuestra, contra el K66 de BeamDyn. No cambies el modelo."
+- L33 (2026-10-26, session 8) User: "si" to: per-wall localisation of the outboard GJ deficit first (then, next session, the S-1 GJ extractor on a tube of known Bredt GJ).
