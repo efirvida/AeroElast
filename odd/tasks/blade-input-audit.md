@@ -599,6 +599,18 @@ Secondary: foam (core) 10-18 % short inboard (light, mass only, ~15 kg/m at 0.25
 (the skin overlap) and -19 % at 0.7. Chordwise bands also show our carbon displaced toward the LE at 0.4-0.6 (band
 x/c 0.75-0.90: 319 -> 620 cm2 at 0.4), to be checked before any cap change (cap position, not only amount).
 
+**Cap position (SLURM 11624234, same tool, read-only).** Carbon centroid ours - PDF, x forward from the TE (y+ / y- side):
+0.25: -61 / +80 mm; 0.3: -88 / +84; 0.4: -75 / +78; 0.5: -48 / +54; 0.6: -23 / +37; 0.7: -6 / +10. y (flap) within
+-20..+5 mm; extents ours 0.884-0.887 m vs PDF 0.900-0.910 m. The two caps are displaced in OPPOSITE chordwise directions
+(150-170 mm apart inboard, decaying to 16 mm at 0.7): a relative tilt of 4.2/5.8/6.5/5.5/4.2/1.5 deg, which does not
+follow the twist (7.0/5.5/3.2/1.7/0.6/-0.5 deg). Code fact: `yaml_to_blade.py:666-685` stores the caps'
+`start_nd_arc`/`end_nd_arc` in `definition.sparcap_start_nd_arc/_end_nd_arc`, and nothing reads them; keypoints
+(`keypoints.py:202-226`, `swtwisted` is only set by the Excel path) centre each cap where the profile crosses the pitch
+axis (x = 0) on its own surface, minus `offset_y_pa`. The yaml arcs (identical in the 2021 SONATA yaml and ours) are
+not symmetric (cap centres at nd 0.307 SS / 0.676 PS), consistent with WISDEM's `rotation: twist` placement.
+Hypothesis (not yet verified): the PDF caps sit at the yaml nd arcs and ours do not. Next diagnostic: map the yaml
+nd arcs onto our profile and compare with our keypoints b/c and with the PDF extents (no FE).
+
 ## Handoff 7 (2026-10-25, session 6; user L23-L24)
 
 **Resume.** Read this section and the Tasks lines T25, T29, T36, T37. Engram still down; this file is the record.
@@ -1146,3 +1158,4 @@ for this session.
 - L25 (2026-10-25, session 7) User: copy and commit the 11623882 known-red record, compare with T25; then T37: close the flat-back as SONATA/ANBA4 does (bond line ~4 % of arc ahead of the TE + solid adhesive wedge outboard of 20 %, TE glass_uni off the face; inboard skins + gelcoat + glass_uni on the face); confirm on the 0.3/0.5 PDFs first; propose web vs equivalent face laminate and go on if clear; write the prediction before running; measure at es 0.25 S-1 GJ/EI_edge/EA, S-7, V-02 1F/1E, S-4 1E/2F, V-03 mass; never widen. Parent: 11623882 done, 21 failed = the 28 of T25 minus T32 (2), T33 (2), T34 (3), committed 9b5de65.
 - L26 (2026-10-25, session 7) User: "pon las tareas en sequana_cpu q no tengo nada ahi ahora y las otras tiene nodos down". Parent: all T37 jobs had already finished; noted for the next submissions.
 - L27 (2026-10-25, session 7) User asked for a detailed analysis before any change ("aun sigo creyendo que estas haciendo fuerza bruta de combinaciones"), asked which PDF, then approved the read-only material ledger ("si"). Result: carbon spar caps are the EA excess; SONATA chamfers the cap ends.
+- L28 (2026-10-25, session 7) User: "ok vamos con eso" (cap position), asked whether the yaml model differs from SONATA and whether the yaml could be corrected after the measurements, then "ok primero diagnosticamos y despues decidimos". Parent: same yaml, different construction rules; correcting the yaml would hide a calibration in a shared input; diagnosis only, no model change.
