@@ -979,6 +979,14 @@ in-plane fit (which leaks bending rotation into twist when the ring is not norma
 (about -6 %: cos 20 deg from dz vs ds and the axis), GREEN <= 1 % after (1)-(4); tests (a)-(d) unchanged;
 blade S-1 theta/beam band -> ~1.074 (= S-7 solve), S-1 GJ mean |err| ~13.0 -> ~10.5 %, profile shape unchanged.
 
+**T40b result (worker; commit d81931b on fix/gj-shearflow).** (1)-(4) implemented; shared
+`sectional.rigid_rotation_fit` (the `_ei_tangent_frame` lstsq; sectional tests 9 passed before and after).
+Truth test (e), oblique circle 20 deg: RED -10.99..-11.01 % flat (prediction -6 % refuted: two cos 20 deg
+factors, the axis and dz vs ds, 0.94^2 = 0.883), GREEN max 0.80 % (-0.80 at the first mid-span station to
+-0.37 at the last; a trend, modest margin, bound not touched). (a) 0.29 %, (b) 0.52 %, (c)/(d) green; 7 passed;
+ruff clean; quick 75 passed. Blade re-measure: SLURM 11624457 (S-1 GJ), 11624458 (theta comparison, S-1 mesh,
+6-DOF theta), 11624459 (S-1 test class).
+
 ## Handoff 10 (2026-10-26, session 9 close)
 
 **Resume.** Read sections "S-1 GJ extractor on a tube of known GJ" and "T40" (above Handoff 9); nothing else.
