@@ -140,7 +140,23 @@ Checked harmless: missing `ply_t` (triax, biax, ud) falls back to 1 mm, but `nPl
 (`continuous_layers`), so thickness is exact. Still name-driven (substring matching in `_add_components`): caps
 `spar`+`ss`/`ps`, webs by `fore`/`rear` in the layer's `web` key (3.4: `Web_aft_*` belong to `fore_web` -> group 1,
 keypoint b; `Web_rear_*` -> group 2, c); the input audit (mesh vs yaml) is the check that the mapping is right.
-Input audit es 0.25: `logs/check/l3/t9/audit-es025/` (running).
+Input audit es 0.25 (`logs/check/l3/t9/audit-es025/`, 13592 nodes): 0.6 clean; 0.3: 42 fails (Shell_skin ply
+1.41 vs 1.44 mm, chord -1.5 %, one cap-edge element where the yaml has balsa); 0.9 / 0.97: the ud layer missing in
+the LE/TE panels, axial sum(Ex t ds) -26 % / -72 %, mass -54 %, 0 webs vs 2 at 0.97. **Cause: partial-span layers,
+which the IEA-15 does not have (all its layers span 0-1).** 3.4: caps and webs on grid 0.1-0.94, LE/TE reinforcement
+and all fillers on 0.1-0.8, each ending at a nonzero thickness (fillers 7-13 mm at 0.8). The mesh drops a layer
+outside its grid (WISDEM convention, thickness 0); the audit's yaml side uses `np.interp`, which holds the end value:
+the outboard fails are an audit artefact (fix: zero outside the layer grid), to confirm against the mesher rule at
+the grid ends (abrupt or over one bay). Root 0-0.1: skin only (triax 65 -> 20 mm, paint), deck EA 11.3 -> 4.7 GN.
+
+**T9c-2 result (worker, not committed yet; `tools/l3_s4_blade.py`, `tools/bd_rotating_freevib.py` beam `iea34`).**
+Parked, Hz: ours es 0.25 0.7369 / 0.9485 / 2.1929, es 0.15 0.7364 / 0.9470 / 2.1936; BeamDyn iea34 p20 0.7565 /
+0.9869 / 2.2703 (p15-p30 within 0.5 %; load and dt halved move <= 0.001 Hz; fit residual 0.25 vs 0.038 on the 15,
+from unfitted modes above 8 Hz, a 14 Hz band leaves the three unchanged). **Signed vs BeamDyn (es 0.15): 1F -2.66,
+1E -4.04, 2F -3.38 %. Pre-registration refuted** (+1.4 / +0.5 / 0): every mode is low, opposite to the 15. Same
+code on the IEA-15 reproduces +2.33 / +0.56 / +0.20 % (job 11625095). Mode labels: shell beam-fraction 1.000
+(1F, 1E, 2F, 2E, 3F), BeamDyn by dominant tip channel; no swap. Jobs: BD 11625092/113/147/173/174/214, shell
+11625093/94/95.
 
 ## Log
 
