@@ -1,7 +1,8 @@
 """S-7 — global torsional response: shell tip torque vs BeamDyn GJ tables.
 
-The shell's global torsional response (tip torque via force couples, section
-rotation from the displacement field) is compared against the BeamDyn 6×6 tables:
+The shell's global torsional response (tip torque applied as the end ring's Saint-Venant wall shear
+flow since blade-input-audit T40; the ratios quoted below were measured with the earlier ``F_y ~ x_off``
+force couple, ``tip_couple``; section rotation from the displacement field) is compared against the BeamDyn 6×6 tables:
 the station-by-station twist ratio in the 0.3-0.9 span band measures **0.8670** at
 an element size of 0.25, trending to about **0.861** at 0.125 — the shell twists
 about 13-14 % LESS than the beam, i.e. its global GJ runs about 15 % ABOVE the deck,
@@ -57,8 +58,8 @@ from run_s7_torsion import (  # noqa: E402
 )
 
 MOMENT_NM = 1000.0
-# Span resolution.  The ratios below are the *measured* shell/beam twist ratio with the tip couple
-# delivering exactly MOMENT_NM (see tip_couple) and the beam twist integrated to each section's z
+# Span resolution.  The ratios below are the *measured* shell/beam twist ratio with the (legacy,
+# pre-T40) tip couple delivering exactly MOMENT_NM (see tip_couple) and the beam twist integrated to each section's z
 # (see beam_twist_profile_deg).  es=2.0/1.0/0.5/0.25 were measured on 2026-10-11 with
 # tools/diagnose_s7_beam_reference.py; es=0.125 is the 2026-10-10 load-corrected 1.039011 times
 # the reference correction measured at 0.25 (0.8670/1.0466), so it is derived and good to about

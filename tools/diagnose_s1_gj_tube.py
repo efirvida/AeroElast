@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """S-1 GJ extractor on a prismatic shell tube of known GJ (blade-input-audit T39).
 
-Runs the unchanged ``run_s1_sectional.ea_gj_from_static_response`` on an isotropic MITC4 rectangular
+Runs ``run_s1_sectional.ea_gj_from_static_response`` (T40: tip torque as the end ring's Saint-Venant wall
+shear flow, twist rate from the local quadratic fit; T39 measured the previous couple + spline) on an isotropic MITC4 rectangular
 tube whose torsional stiffness is known per station by thin-wall Bredt, ``GJ = G t 4 A^2 / P``
 (mid-line area and perimeter). The tube copies what the S-1 extraction sees on the blade: 117 m long,
 root clamped, one 0.25 m station element set per layer (``BladeMesh.max_bay_length``), the
@@ -15,6 +16,9 @@ Cases (rectangle 4.0 x 2.0 m or circle of the same 12 m perimeter, mid-line):
   C  circle, uniform (the extractor's tip couple t x r_perp is then the uniform Bredt shear flow).
   D  circle, BeamDyn GJ(z) as in B.
   E  rectangle A with a 5x thicker wall and G/5 (same GJ, wall bending stiffness x25).
+  F  warping-free rectangle (T40): 4 m walls t, 2 m walls t/2 so b/t_b = h/t_h and Saint-Venant torsion
+     does not warp the section; A's residual under the fixed extractor is the clamped root's
+     warping-restraint layer, which F isolates away.
 
 Printed per selected station: the extractor's GJ against Bredt, the unsmoothed central difference of
 the extractor's own theta (the rigid-fit part without the spline), and theta against the exact
@@ -23,8 +27,8 @@ integral of T / GJ. The summary is the S-1 metric: mean |rel err| over 0.2-0.85 
 Usage:  scripts/aeroenv.sh python tools/diagnose_s1_gj_tube.py [--case A B C D E] [--metric s1|s7]
         [--all-stations]
 
-``--metric s7`` runs the S-7 construction instead (``run_s7_torsion``: tip couple F_y ~ x_off and the
-40-slice rigid-fit twist) and reports the shell/exact twist ratio over its 0.3-0.9 band.
+``--metric s7`` runs the S-7 construction instead (``run_s7_torsion``: the tip torque as the wall shear
+flow and the 40-slice rigid-fit twist) and reports the shell/exact twist ratio over its 0.3-0.9 band.
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import run_s1_sectional as s1  # noqa: E402
+from aeroelast.postprocess import sectional  # noqa: E402
 from beam_reference import load_beamdyn_blade  # noqa: E402
 
 B_MID = 4.0  # mid-line width [m]
@@ -56,6 +61,7 @@ CASES = {  # name: (shape, wall thickness, GJ profile)
     "C": ("circle", T_WALL, "uniform"),
     "D": ("circle", T_WALL, "beamdyn"),
     "E": ("rect", 5.0 * T_WALL, "uniform"),
+    "F": ("rectw", T_WALL, "uniform"),  # warping-free rectangle: 4 m walls t, 2 m walls t / 2
 }
 
 
@@ -78,16 +84,24 @@ def ring_points(shape="rect"):
     return pts
 
 
+def wall_thickness_ratio(shape, p, q):
+    """Thickness of the wall p -> q in units of the case thickness: ``rectw`` halves the 2 m walls."""
+    if shape == "rectw" and abs(q[1] - p[1]) > abs(q[0] - p[0]):
+        return 0.5
+    return 1.0
+
+
 def bredt_factor(shape):
-    """4 A^2 / P of the mid-line polygon (GJ = G t * factor)."""
+    """4 A^2 / sum(l_i t_wall / t_i) of the mid-line polygon (GJ = G t_wall * factor)."""
     p = np.asarray(ring_points(shape))
     q = np.roll(p, -1, axis=0)
     area = 0.5 * abs(np.sum(p[:, 0] * q[:, 1] - q[:, 0] * p[:, 1]))
-    perim = np.sum(np.linalg.norm(q - p, axis=1))
-    return 4.0 * area**2 / perim
+    length = np.linalg.norm(q - p, axis=1)
+    ratio = np.array([wall_thickness_ratio(shape, a, b) for a, b in zip(p, q, strict=True)])
+    return 4.0 * area**2 / np.sum(length / ratio)
 
 
-def build_tube(g_of_layer, shape="rect", t_wall=T_WALL):
+def build_tube(g_of_layer, shape="rect", t_wall=T_WALL, length=LENGTH):
     """MeshModel with one station element set per layer and the per-layer ShellProperty dict."""
     from aeroelast.core.material import IsotropicMaterial
     from aeroelast.core.mesh import ElementSet, MeshElement, MeshModel, Node, NodeSet
@@ -97,9 +111,9 @@ def build_tube(g_of_layer, shape="rect", t_wall=T_WALL):
     Node._id_counter = 0
     MeshElement._id_counter = 0
     mesh = MeshModel()
-    ring = ring_points(shape)
-    nz = int(round(LENGTH / ES))
-    zl = np.linspace(0.0, LENGTH, nz + 1)
+    ring = ring_points("rect" if shape == "rectw" else shape)
+    nz = int(round(length / ES))
+    zl = np.linspace(0.0, length, nz + 1)
     rings = []
     for z in zl:
         row = []
@@ -111,46 +125,48 @@ def build_tube(g_of_layer, shape="rect", t_wall=T_WALL):
     props = {}
     nr = len(ring)
     for k in range(nz):
-        els = set()
+        els = {}
         for i in range(nr):
             j = (i + 1) % nr
             e = MeshElement(nodes=[rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]],
                             element_type=ElementType.quad)
             mesh.add_element(e)
-            els.add(e)
-        name = f"00_{k:03d}_tube"
-        mesh.add_element_set(ElementSet(name, els))
+            ratio = wall_thickness_ratio(shape, ring[i], ring[j])
+            els.setdefault(ratio, set()).add(e)
         g = float(g_of_layer[k])
-        props[name] = ShellProperty(
-            material=IsotropicMaterial(name=f"m{k}", E=2.0 * (1.0 + NU) * g, nu=NU, rho=1000.0),
-            thickness=t_wall)
+        for comp, (ratio, group) in enumerate(sorted(els.items(), reverse=True)):
+            name = f"{comp:02d}_{k:03d}_tube"  # one set per wall thickness; same station field
+            mesh.add_element_set(ElementSet(name, group))
+            props[name] = ShellProperty(
+                material=IsotropicMaterial(name=f"m{k}_{comp}", E=2.0 * (1.0 + NU) * g, nu=NU, rho=1000.0),
+                thickness=t_wall * ratio)
     mesh.add_node_set(NodeSet("RootNodes", set(rings[0])))
     return mesh, props, zl
 
 
 class _Recorder:
-    """Wraps ``UnivariateSpline`` in run_s1_sectional to capture the theta fit (s = 1e-3 call)."""
+    """Wraps ``sectional._local_quadratic`` to capture the theta the extractor differentiates."""
 
-    def __init__(self, cls):
-        self.cls, self.calls = cls, []
+    def __init__(self, fn):
+        self.fn, self.calls = fn, []
 
-    def __call__(self, x, y, *a, **kw):
-        self.calls.append((np.array(x), np.array(y), kw.get("s")))
-        return self.cls(x, y, *a, **kw)
+    def __call__(self, zs, y, half, deriv):
+        self.calls.append((np.array(zs), np.array(y), half))
+        return self.fn(zs, y, half, deriv)
 
 
 def run_case(name, gj_layer, stations):
     shape, t_wall, _ = CASES[name]
     g_layer = gj_layer / (t_wall * bredt_factor(shape))
     mesh, props, zl = build_tube(g_layer, shape, t_wall)
-    rec = _Recorder(s1.UnivariateSpline)
-    s1.UnivariateSpline = rec
+    rec = _Recorder(sectional._local_quadratic)
+    sectional._local_quadratic = rec
     try:
         zs, _ea, gj_ext, _ = s1.ea_gj_from_static_response(mesh, props, torque=TORQUE, stations=stations)
     finally:
-        s1.UnivariateSpline = rec.cls
-    zt, theta, s_used = rec.calls[-1]
-    assert s_used == 1e-3 and np.allclose(zt, zs)
+        sectional._local_quadratic = rec.fn
+    zt, theta, _half = rec.calls[-1]
+    assert np.allclose(zt, zs)
     layer = np.clip(np.searchsorted(zl, zs) - 1, 0, len(gj_layer) - 1)
     gj_ref = gj_layer[layer]
     # exact theta at z: integral of T/GJ over the layers (the tube is clamped at z = 0)
@@ -186,16 +202,20 @@ def run_case(name, gj_layer, stations):
 
 def run_s7_case(name, gj_layer):
     """The S-7 construction (``run_s7_torsion``: tip couple F_y ~ x_off, 40 slice rigid fit) on the tube."""
-    from run_s7_torsion import run_torsion_case, section_twists_deg, tip_couple
+    from run_s7_torsion import run_torsion_case, section_twists_deg
 
     shape, t_wall, _ = CASES[name]
     g_layer = gj_layer / (t_wall * bredt_factor(shape))
     mesh, props, zl = build_tube(g_layer, shape, t_wall)
     if getattr(mesh, "coords_array", None) is None:
         mesh.coords_array = np.asarray([n.coords for n in mesh.nodes], dtype=float)
-    tip, f_y = tip_couple(mesh, TORQUE)
-    x_off = mesh.coords_array[tip, 0] - mesh.coords_array[tip, 0].mean()
-    delivered = float(np.sum(x_off * f_y))
+    from aeroelast.solvers.bem.force_projection import section_torque_wall_forces
+
+    z = mesh.coords_array[:, 2]
+    ring, f_ring = section_torque_wall_forces(
+        mesh, np.nonzero(z >= z.max() - 1e-6)[0], (0.0, 0.0, 1.0), props, TORQUE)
+    r_ring = mesh.coords_array[ring, :2] - mesh.coords_array[ring, :2].mean(axis=0)
+    delivered = float(np.sum(r_ring[:, 0] * f_ring[:, 1] - r_ring[:, 1] * f_ring[:, 0]))
     u = np.asarray(run_torsion_case(mesh, props, TORQUE), dtype=float)
     zs, th = section_twists_deg(mesh, u)
     flex = np.concatenate([[0.0], np.cumsum(TORQUE / gj_layer * np.diff(zl))])
