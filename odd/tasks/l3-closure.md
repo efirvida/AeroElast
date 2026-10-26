@@ -129,6 +129,19 @@ clamps, guards or warnings that fire on the 3.4 and never on the 15: T9b finding
 Mesh: the 3.4 chord is 0.68-0.76 of the 15 at equal eta, so es 0.25 is coarser per chord; run 0.25 and 0.15 and
 trust 0.15 if any S-1 metric moves > 1 pt.
 
+**T9b ingest (188c997).** Vendored `tests/IEA-3.4-130-RWT.yaml` (824f8d6) and `tests/IEA34/reference/` (BeamDyn
+blade + driver deck, 824f8d6 = a42ea70 bytes; Apache 2.0). Reader clamps the IEA-15 never binds, each fixed with a
+RED test (`tests/software/mesh/test_yaml_materials_optional.py`, 4 passed; `check.sh quick` 75 passed):
+(1) `Xt/Xc/S` required on every material (3.4 `resin`, `steel` lack them; unused by the blade) -> NaN;
+(2) isotropic `G` required (`resin`, `steel`) -> E/(2(1+nu)); (3) `fiber_orientation` required on every layer
+(absent on most 3.4 layers; the yaml path never consumes `fabricangle`, stackdb sets ply angle 0) -> 0 deg;
+(4) exactly two `shell` components (15: outer + inner skin; 3.4: one) -> one or two.
+Checked harmless: missing `ply_t` (triax, biax, ud) falls back to 1 mm, but `nPlies` is a float
+(`continuous_layers`), so thickness is exact. Still name-driven (substring matching in `_add_components`): caps
+`spar`+`ss`/`ps`, webs by `fore`/`rear` in the layer's `web` key (3.4: `Web_aft_*` belong to `fore_web` -> group 1,
+keypoint b; `Web_rear_*` -> group 2, c); the input audit (mesh vs yaml) is the check that the mapping is right.
+Input audit es 0.25: `logs/check/l3/t9/audit-es025/` (running).
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
