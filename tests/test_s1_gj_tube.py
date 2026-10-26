@@ -28,10 +28,16 @@ extractor; ``test_uniform_rectangle_root_layer_diagnostic`` prints it without as
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import pytest
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
+
+from tests.support.paths import REPO_ROOT  # noqa: E402
+
+sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import diagnose_s1_gj_tube as tube  # noqa: E402
 import run_s1_sectional as s1  # noqa: E402
