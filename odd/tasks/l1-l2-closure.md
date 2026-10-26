@@ -1,0 +1,25 @@
+# L1/L2 closure: re-run and re-audit the element and linear-solver validation levels
+
+Close the validation levels that only need tests re-run and rows re-audited (L1 MITC shell elements, L2 linear
+structural solver), before deciding the PhD-use plan. Store: `docs/validation/`, tool `tools/validation_matrix.py`.
+
+## Specs
+
+- S1 (user L1, verbatim): "yo te propongo una cosa vamos a cerrar lo que depende de correr tests, como por ejemplo L1 y L2, despues pesamos en esa propuesta"
+- S2 (repository physics discipline, AGENTS.md): every row keeps its independent reference and tolerance; a pass band is never widened; a moved anchor is a finding to report, not a baseline to overwrite silently; a row with no independent reference is reported, not promoted.
+- S3 Done means: `tools/validation_matrix.py contract --level L1` and `--level L2` report the level closed, or every entry that keeps it open is listed with its cause (finding, missing reference, or a decision for the user).
+
+## Starting state (2026-10-26, HEAD 617ed3e, `contract`)
+
+- L1 [open]: trusted 127, regression_pin 2, stale 18 (stale by 7dfe78d 7d20c81 / 61b0d52), unaudited 12 (all `material_suite`); over ceiling 0; gaps 0. Rows: `logs/check/contract-L1.txt`.
+- L2 [open, blocked by L1]: stale 83; over ceiling 0; single or no arbiter 4; gaps 0 blocking / 1. (`contract --level L2 --rows` takes > 60 s.)
+
+## Tasks
+
+- T1 | S1-S3 | worker (background) | in progress | L1: re-run the stale groups (`regression --group`), refresh verdicts whose residual is unchanged within its tolerance, audit the 12 unaudited `material_suite` rows, report the 2 regression pins.
+- T2 | S1-S3 | worker (background) | in progress | L2: same for the 83 stale rows; report the 4 single/no-arbiter rows and the gap.
+- T3 | S3 | parent | pending | review, commit, report to the user; then the PhD-use proposal.
+
+## Log
+
+- L1 (2026-10-26, session 9) User: "yo te propongo una cosa vamos a cerrar lo que depende de correr tests, como por ejemplo L1 y L2, despues pesamos en esa propuesta"
