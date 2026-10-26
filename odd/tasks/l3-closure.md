@@ -185,6 +185,34 @@ all three modes; the IEA-15 has no partial-span layer, so it never showed it. No
 the abrupt cap start (real shell physics a beam lacks), and the GJ deficit (-29 % mean; torsion couples little
 into 1F/1E).
 
+**H6 pre-registration (session 12, written before any ramped run).** Correction to the premise: the shell does
+not see a step. `update_internal_structure` (`yaml_to_blade.py:602`) resamples every layer onto the 50-point
+reference-axis grid with zero outside its own grid, and the laminate is linear between grid stations, so the shell
+already ramps over one grid interval: 0.0833-0.10, 0.80-0.8175, 0.94-0.955 (~1 m). The deck ramps over 0.05-0.10,
+0.80-0.85, 0.90-0.95 (3.15 m). Prior from a decoupled Euler-Bernoulli beam on the deck scaled by the S-1 station
+ratios (`tools/l3_beam_station_ratio.py`, es 0.15 json): all ratios <= 0.955 give 1F/1E/2F -3.4 / -5.4 /
+-3.8 % (measured -2.66 / -4.04 / -3.38): the station deficits do explain the modes, mostly the root 0-0.20
+(-2.8 / -3.6 / -2.3). Compared at the deck stations themselves (ours interpolated, no deck interpolation),
+EI_flap is -20.9 at 0.05 and EI_edge -20.6 at 0.15, where no layer ends in either model: H6 cannot close those.
+H6 bands set to ratio 1 (upper bound): +2.4 / +1.7 / +2.6; bands bridged between their neighbours (realistic):
++0.8 / +0.6 / +1.6. Ramped yaml (`tools/l3_h6_ramp_yaml.py` -> `logs/check/l3/t9/h6/`, never in tests/): each partial-span layer and web
+becomes the deck's linear interpolation across each deck interval that contains its grid end (zero at 0.05,
+yaml value at 0.10; yaml value at 0.80, zero at 0.85; t(0.90) to zero at 0.95), other keys held at their end.
+
+| quantity (es 0.15, signed vs BeamDyn) | now | H6 predicts | refuted if |
+|---|---|---|---|
+| 1F / 1E / 2F shift | | **+0.8 / +0.6 / +1.6** | any shift < 0, or above +2.9 / +2.2 / +3.1 (bound + 0.5) |
+| 1F / 1E / 2F after | -2.66 / -4.04 / -3.38 | -1.9 / -3.5 / -1.8 | (follows) |
+| S-1 EI_flap, EI_edge at 0.0583-0.0917 | -19..-31 | rise toward the 0.0417 / 0.11 neighbours | no rise |
+| S-1 at 0.0417 and EI_edge at 0.11-0.18 | -19, -18..-26 | unchanged within 2 pt (no layer end) | moves > 2 pt |
+| S-1 EI_edge 0.81-0.83 | -21 | closes to the 0.75-0.78 level | stays below -10 |
+| S-1 mass / EA 0.93-0.95 | +34..+43 / +48..+60 | shrink (less cap and web past 0.90) | grow |
+
+If H6 holds as predicted it is real but secondary, and the modes stay 1.5-3.5 % low: the lever is the root
+section 0.04-0.18, where mass and EA agree (+0.4 / +0.8 at 0.05) and EI_flap does not (-21). Same EA and mass,
+less EI points at the axis about which the deck states EI (elastic centre vs reference axis, a parallel-axis
+term EA d^2) before the material: candidate H7, to check on the deck's 6x6 off-diagonals at 0.0-0.15.
+
 ## Handoff 2 (2026-10-26, session 11 close, ~180 k context)
 
 **Resume.** Read section "T9 IEA-3.4-130" only. Engram still down. Logs `logs/check/l3/t9/`, sbatch
