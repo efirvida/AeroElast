@@ -1882,6 +1882,13 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             tau_total,
         )
 
+    @staticmethod
+    def _aerodynamic_powers(
+        tau_aero: float, tau_total: float, omega: float
+    ) -> Tuple[float, float]:
+        """Aerodynamic and total power of the window [W]."""
+        return tau_aero * omega, tau_total * omega
+
     def _compute_performance_coefficients(
         self,
         thrust: float,
@@ -1893,21 +1900,16 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
 
         Sign convention note
         --------------------
-        The structural solver uses RHR around +Y (omega > 0, clockwise from -Y).
-        The driving tangential force projects onto -X in the structural frame, so
-        ``tau_aero = r × F · ŷ < 0`` for a powered wind turbine and
-        ``power_aero = tau_aero * omega < 0`` (energy extracted *from* the fluid).
-
-        Ct, Cp, Cq are reported as positive quantities (standard wind-turbine
-        convention) by negating ``tau_aero`` and ``power_aero`` before
-        normalisation.  Thrust projects onto +Y (axial direction = rotation axis)
-        and is already positive, so Ct needs no sign correction.
+        Since T7c the driving tangential force points to the leading edge, so
+        ``tau_aero = r × F · axis > 0`` for a powered wind turbine and
+        ``power_aero = tau_aero * omega > 0`` (energy extracted *from* the fluid).
+        Ct, Cp and Cq follow without sign correction; thrust projects onto the
+        rotation axis and is already positive.
         """
         area = np.pi * radius * radius
         q_dyn = 0.5 * self._fluid_density * self._flow_velocity * self._flow_velocity
-        # Negate: tau_aero < 0 and power_aero < 0 for energy-extracting rotor
-        power_extracted = -torque_aero * omega
-        torque_extracted = -torque_aero
+        power_extracted = torque_aero * omega
+        torque_extracted = torque_aero
 
         denom_force = q_dyn * area
         denom_power = q_dyn * area * self._flow_velocity
@@ -2239,11 +2241,9 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             )
 
             torque_non_aero = tau_total - tau_aero
-            # tau_aero < 0 for a wind turbine in this frame convention (driving
-            # force in -X, rotation_axis = +Y). Negate for physically meaningful
-            # reporting: power_aero > 0 means energy extracted from the wind.
-            power_aero = -tau_aero * omega_window
-            power_total = -tau_total * omega_window
+            # Since T7c the driving force points to +X (leading edge), so tau_aero > 0
+            # for a wind turbine: power_aero > 0 means energy extracted from the wind.
+            power_aero, power_total = self._aerodynamic_powers(tau_aero, tau_total, omega_window)
             structural_efficiency = (
                 float(np.clip(-torque_non_aero / tau_aero, 0.0, 1.0))
                 if abs(tau_aero) > _MIN_DENOMINATOR

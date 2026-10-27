@@ -177,6 +177,19 @@ solver** (29 dirs Rotor-only, e.g. `IEA15MW/frontiersin_2025_yaw`, `convergence_
 **Every coupled BEM run made from those cases before this commit is suspect** (torque ~cos theta, BEM geometry
 from mixed u_x/u_z) and needs re-running before it is evidence.
 
+## C8 D3 / D2 result (worker; commits ab46009 D3, next D2)
+
+**D3 confirmed, fixed:** the step callback rotated the rotating-frame coordinates again for the aero, inertial, gravity
+and total torques; now `_window_torques` uses them as Rust does. RED 3 failed / 1 passed (aero 198 % off at 180 deg,
+inertial 1063 % at 90 deg) -> GREEN vs the closed form sum (X+u) x F . axis (no Rust binding exposes compute_torque).
+**D2 confirmed, fixed:** CP, CQ, power_aero, power_total now +tau_aero omega (Tp drives the rotor about +axis since T7c);
+RED -> GREEN Python `test_rotor_power_sign.py` 2/2 and Rust `driving_torque_reports_positive_cp_and_cq` (was cp -0.289);
+`cargo test -p aeroelast-solvers --lib rotor_physics` 48, `-p aeroelast-core` 170; maturin release rebuilt; rotor tests 94
+passed, inertial/wiring 78 passed 7 skipped; quick OK. Computed-omega mode unaffected (omega used tau, never power).
+Open: inertial solver power sign left inconsistent (to be discontinued, S7); `shaft_torque` sign not reviewed. Past
+rotor CSVs: CP, CQ, power_aero and callback torques at theta != 0 are suspect; the Rust-driven omega was not affected.
+Rust test needs RUSTFLAGS="-L /scratch/app/openmpi/4.1.4_gnu/lib -C link-arg=-lmpi" to link on this cluster.
+
 ## Log
 
 - L1 (2026-10-26) User: S1 verbatim (during the PR of l3/twist-p1, merged as #68 / 3a2d222).
