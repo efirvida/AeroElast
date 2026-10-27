@@ -213,6 +213,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -290,6 +291,21 @@ def _parse_partner_frame(bem_config: dict) -> str:
     if frame not in PARTNER_FRAMES:
         raise ValueError(f"bem.partner_frame must be one of {PARTNER_FRAMES}, got {frame!r}")
     return frame
+
+
+def _check_theta_source(omega_mesh: str | None, omega_initial: float) -> None:
+    """Fail when the structure's rotor angle cannot reach the participant.
+
+    The corotational structure publishes theta on the omega mesh (decision D4); without
+    that mesh the participant has no angle.  That is fine for a parked rotor
+    (``omega == 0``, theta stays 0) and impossible for a spinning one.
+    """
+    if omega_mesh is None and omega_initial != 0.0:
+        raise ValueError(
+            "bem.omega: a spinning rotor needs the omega mesh to receive the rotor angle theta "
+            f"from the structure (static omega={omega_initial} rad/s, no bem.omega.mesh); "
+            "declare bem.omega.mesh / data / vertex and the Theta data in the preCICE config"
+        )
 
 
 def _parse_rotation_axis(bem_config: dict) -> np.ndarray:
@@ -394,6 +410,7 @@ class BEMFSIParticipant:
         omega_data: str = "AngularVelocity",
         omega_vertex: list[float] | None = None,
         element_properties: dict | None = None,
+        theta_data: str = "Theta",
     ) -> None:
         self._mesh = mesh
         self._blade_aero = blade_aero
@@ -409,6 +426,8 @@ class BEMFSIParticipant:
         # omega preCICE read config (optional)
         self._omega_mesh: str | None = omega_mesh
         self._omega_data: str = omega_data
+        # Rotor angle theta [rad] published by the structure on the omega mesh.
+        self._theta_data: str = theta_data
         self._omega_vertex: np.ndarray = (
             np.asarray(omega_vertex, dtype=float) if omega_vertex is not None else np.zeros(3)
         )
@@ -535,9 +554,8 @@ class BEMFSIParticipant:
         self._previous_iteration_forces: Optional[np.ndarray] = None
         self._window_count = 0
         self._iteration_count = 0
-        # Accumulated blade azimuth [deg], integrated from live omega.
-        # Starts from the static YAML value so a non-zero initial azimuth is respected.
-        self._azimuth: float = float(bem_config.get("azimuth", 0.0))
+        # CCBlade azimuth [deg] at structure angle theta = 0 (static YAML value).
+        self._azimuth_offset: float = float(bem_config.get("azimuth", 0.0))
 
         # -- Partner frame at the preCICE boundary (T7a) ---------------------
         # The partner (Rust rotor_fsi.rs, always corotational) exchanges global
@@ -545,37 +563,72 @@ class BEMFSIParticipant:
         # write; the transform is unconditional.
         self._partner_frame: str = _parse_partner_frame(bem_config)
         self._rotation_axis: np.ndarray = _parse_rotation_axis(bem_config)
-        # Converged rotor angle [rad] of the partner frame, mirroring Rust's
-        # ``self.theta``: it starts at 0, NOT at ``bem.azimuth`` (the BEM blade
-        # azimuth may carry an offset Rust does not know about), and advances
-        # only when a window completes, so checkpoint reloads do not move it.
-        # Known gaps: (1) a Rust restart via ``with_initial_state(state, theta)``
-        # starts from a non-zero theta that is not mirrored here; (2) Rust's
-        # increment comes from ``kinematics_over_step`` and includes ramp and
-        # angular-acceleration terms, while this side integrates omega * dt with
-        # the omega read from preCICE - they agree for a constant omega
-        # (``omega_ramp_time: 0``).
-        self._frame_theta: float = 0.0
+        # Rotor angle theta [rad] read from the structure (Rust ``theta_target``, the
+        # end-of-window angle it rotates forces and displacements with).  This is the only
+        # source of the angle: the participant never integrates omega itself.  It is also
+        # the CCBlade azimuth (see ``_azimuth_deg``).
+        self._partner_theta: float = 0.0
 
     # -----------------------------------------------------------------------
     # Rotor-frame boundary
     # -----------------------------------------------------------------------
 
-    def _frame_theta_end(self, dt: float) -> float:
-        """End-of-window partner angle [rad], Rust's ``theta_target``."""
-        return self._frame_theta + self._current_omega * dt
+    def _read_rotor_state(self, adapter) -> None:
+        """Read omega and theta from the omega mesh (same time level, end of window)."""
+        if self._omega_mesh is None:
+            return
+        omega_arr = adapter.read_data(self._omega_mesh, self._omega_data)
+        if omega_arr is not None and np.asarray(omega_arr).size > 0:
+            previous_omega = self._current_omega
+            new_omega = float(np.asarray(omega_arr).ravel()[0])
+            changed = abs(new_omega - previous_omega) > 1e-6
+            logger.info(
+                "[BEM-FSI] ω received from preCICE: %.6f%s rad/s (window %d, iteration %d)",
+                new_omega,
+                f" (was {previous_omega:.6f})" if changed else " unchanged",
+                self._window_count,
+                self._iteration_count,
+            )
+            self._current_omega = new_omega
+        theta_arr = adapter.read_data(self._omega_mesh, self._theta_data)
+        if theta_arr is not None and np.asarray(theta_arr).size > 0:
+            self._partner_theta = float(np.asarray(theta_arr).ravel()[0])
 
-    def _displacements_from_partner(self, displacements: np.ndarray, dt: float) -> np.ndarray:
+    def _require_partner_theta(self, adapter) -> None:
+        """Fail at setup when the preCICE configuration does not carry the theta data."""
+        try:
+            adapter.precice.get_data_dimensions(self._omega_mesh, self._theta_data)
+        except Exception as exc:  # preCICE raises RuntimeError for unknown data
+            raise RuntimeError(
+                f"the structural partner publishes the rotor angle as data '{self._theta_data}' "
+                f"on mesh '{self._omega_mesh}' (the BEM takes its frame rotation and CCBlade "
+                "azimuth from it), but the preCICE configuration does not declare it: add "
+                f'<data:scalar name="{self._theta_data}" />, use it in both omega meshes, '
+                "write it from the structure, read it here, and exchange it from the structure "
+                f"(initialize=\"true\"). preCICE said: {exc}"
+            ) from exc
+
+    def _azimuth_deg(self) -> float:
+        """CCBlade azimuth [deg] for the current angle: ``bem.azimuth + degrees(theta)``.
+
+        Both CCBlade's azimuth and the structure's theta are positive rotations of the rotor
+        about its shaft (see ``tests/validation/rotor/test_bem_theta_from_structure.py``).
+        Same time level as the frame rotation, the end of the window: the loads computed
+        here are applied to the blade at the angle the structure rotates them with.
+        """
+        return (self._azimuth_offset + math.degrees(self._partner_theta)) % 360.0
+
+    def _displacements_from_partner(self, displacements: np.ndarray) -> np.ndarray:
         """Bring the read displacements into the rotating (blade) frame."""
         if len(displacements) == 0:
             return displacements
-        return _to_rotating(displacements, self._rotation_axis, self._frame_theta_end(dt))
+        return _to_rotating(displacements, self._rotation_axis, self._partner_theta)
 
-    def _forces_to_partner(self, forces: np.ndarray, dt: float) -> np.ndarray:
+    def _forces_to_partner(self, forces: np.ndarray) -> np.ndarray:
         """Express the rotating-frame forces in the partner's frame for writing."""
         if len(forces) == 0:
             return forces
-        return _to_inertial(forces, self._rotation_axis, self._frame_theta_end(dt))
+        return _to_inertial(forces, self._rotation_axis, self._partner_theta)
 
     # -----------------------------------------------------------------------
     # Public API
@@ -610,6 +663,8 @@ class BEMFSIParticipant:
             config_file=self._config_file,
             coupling_meshes=_coupling_meshes,
         )
+        if self._omega_mesh is not None:
+            self._require_partner_theta(adapter)
         adapter.initialize()
 
         logger.info(
@@ -638,37 +693,14 @@ class BEMFSIParticipant:
             # brought to the rotating frame below, once omega is current).
             displacements_read = adapter.read_data(self._coupling_mesh, self._displacement_data)
 
-            # Update omega from preCICE if configured (live rotor speed from Solid)
-            if self._omega_mesh is not None:
-                omega_arr = adapter.read_data(self._omega_mesh, self._omega_data)
-                if omega_arr is not None and np.asarray(omega_arr).size > 0:
-                    previous_omega = self._current_omega
-                    new_omega = float(np.asarray(omega_arr).ravel()[0])
-                    if abs(new_omega - previous_omega) > 1e-6:
-                        logger.info(
-                            "[BEM-FSI] ω received from preCICE: %.6f → %.6f rad/s "
-                            "(window %d, iteration %d)",
-                            previous_omega,
-                            new_omega,
-                            self._window_count,
-                            self._iteration_count,
-                        )
-                    else:
-                        logger.info(
-                            "[BEM-FSI] ω received from preCICE: %.6f rad/s unchanged "
-                            "(window %d, iteration %d)",
-                            new_omega,
-                            self._window_count,
-                            self._iteration_count,
-                        )
-                    self._current_omega = new_omega
+            # Live rotor speed and rotor angle from the structure.
+            self._read_rotor_state(adapter)
 
             # From here on ``displacements`` is ROTATING-frame (blade frame):
             # the BEM geometry, disp_max, the log lines, the timestep output and
             # the bem_report.csv tip columns all use it.  With an inertial
-            # partner it is R(theta_end)^T . u_read, theta_end using the omega
-            # just updated above.
-            displacements = self._displacements_from_partner(displacements_read, dt)
+            # partner it is R(theta_end)^T . u_read, theta_end read just above.
+            displacements = self._displacements_from_partner(displacements_read)
             if len(displacements) == 0:
                 disp_max = 0.0
             else:
@@ -697,7 +729,7 @@ class BEMFSIParticipant:
             # _previous_iteration_forces, output); only the written copy is
             # expressed in the partner's frame.
             adapter.write_data(
-                self._coupling_mesh, self._force_data, self._forces_to_partner(forces, dt)
+                self._coupling_mesh, self._force_data, self._forces_to_partner(forces)
             )
 
             adapter.advance(dt)
@@ -708,14 +740,6 @@ class BEMFSIParticipant:
                 self._window_count += 1
                 self._iteration_count = 0
                 current_time = self._window_count * dt
-
-                # Integrate azimuth: Δθ [deg] = ω [rad/s] × Δt [s] × (180/π)
-                import math as _math  # noqa: PLC0415
-
-                self._azimuth += _math.degrees(self._current_omega * dt)
-                self._azimuth %= 360.0  # keep in [0, 360)
-                # Partner-frame angle: same increment, no wrap, no azimuth offset.
-                self._frame_theta += self._current_omega * dt
 
                 self._write_timestep_output(
                     forces,
@@ -1066,8 +1090,8 @@ class BEMFSIParticipant:
 
         omega = self._current_omega * 60.0 / (2.0 * _math.pi)
         pitch = float(self._bem_cfg.get("pitch", 0.0))
-        # Use live accumulated azimuth (integrated from omega each window).
-        azimuth = self._azimuth
+        # Azimuth from the structure's rotor angle (end of window), not integrated here.
+        azimuth = self._azimuth_deg()
 
         disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
 
@@ -1479,6 +1503,7 @@ def build_from_config(
         omega_mesh: str | None = omega_cfg.get("mesh")
         omega_data: str = omega_cfg.get("data", "AngularVelocity")
         omega_vertex: list[float] = omega_cfg.get("vertex", [0.0, 0.0, 0.0])
+        theta_data: str = omega_cfg.get("theta_data", "Theta")
         # Normalise bem_cfg so the constructor can read omega as a float
         bem_cfg = {**bem_cfg, "omega": omega_initial}
     else:
@@ -1486,6 +1511,8 @@ def build_from_config(
         omega_mesh = None
         omega_data = "AngularVelocity"
         omega_vertex = [0.0, 0.0, 0.0]
+        theta_data = "Theta"
+    _check_theta_source(omega_mesh, omega_initial)
 
     blade_aero = load_blade_aero(
         blade_file,
@@ -1513,4 +1540,5 @@ def build_from_config(
         omega_data=omega_data,
         omega_vertex=omega_vertex,
         element_properties=element_properties,
+        theta_data=theta_data,
     )

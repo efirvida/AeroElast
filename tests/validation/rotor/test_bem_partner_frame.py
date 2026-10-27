@@ -34,12 +34,12 @@ def _rust_rotation(axis, theta):
 
 def _participant(bem_config: dict, theta_end: float):
     """Participant carrying only frame state, configured through the loader's parsers,
-    with the end-of-window angle ``theta_end`` (omega * DT added to the start angle)."""
+    with the end-of-window angle ``theta_end`` the structure publishes."""
     p = object.__new__(fp.BEMFSIParticipant)
     p._partner_frame = fp._parse_partner_frame(bem_config)
     p._rotation_axis = fp._parse_rotation_axis(bem_config)
     p._current_omega = 0.5
-    p._frame_theta = theta_end - p._current_omega * DT
+    p._partner_theta = theta_end  # published by the structure (D4)
     return p
 
 
@@ -48,7 +48,7 @@ def _participant(bem_config: dict, theta_end: float):
 def test_forces_written_inertial_by_default(theta_deg, cfg):
     theta = math.radians(theta_deg)
     p = _participant(cfg, theta)
-    written = p._forces_to_partner(F_ROT, DT)
+    written = p._forces_to_partner(F_ROT)
     np.testing.assert_allclose(written, F_ROT @ _rust_rotation(AXIS_Y, theta).T, atol=1e-9)
     assert not np.allclose(written, F_ROT)
     # Rust applies R^T(theta_target) on read: it must recover the rotating-frame force.
@@ -61,7 +61,7 @@ def test_displacements_read_unrotated_by_default(theta_deg, cfg):
     theta = math.radians(theta_deg)
     p = _participant(cfg, theta)
     written_by_rust = U_ROT @ _rust_rotation(AXIS_Y, theta).T  # R u, row-wise
-    np.testing.assert_allclose(p._displacements_from_partner(written_by_rust, DT), U_ROT, atol=1e-9)
+    np.testing.assert_allclose(p._displacements_from_partner(written_by_rust), U_ROT, atol=1e-9)
 
 
 def test_rotating_partner_frame_is_rejected():

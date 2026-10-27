@@ -68,38 +68,39 @@ def test_force_round_trip(axis, theta):
     np.testing.assert_allclose(seen_by_rust, VECS, atol=1e-12)
 
 
-def _bare_participant(partner_frame, omega=0.8, frame_theta=1.1, azimuth_deg=200.0):
+def _bare_participant(partner_frame, omega=0.8, partner_theta=1.1, azimuth_offset=200.0):
     """A participant with only the frame state set (no mesh, preCICE or CCBlade)."""
     p = object.__new__(fp.BEMFSIParticipant)
     cfg = {} if partner_frame is None else {"partner_frame": partner_frame}
     p._partner_frame = fp._parse_partner_frame(cfg)
     p._rotation_axis = fp._parse_rotation_axis({})
     p._current_omega = omega
-    p._frame_theta = frame_theta
-    p._azimuth = azimuth_deg
+    p._partner_theta = partner_theta
+    p._azimuth_offset = azimuth_offset
     return p
 
 
 def test_boundary_helpers_always_transform():
-    dt = 0.01
-    omega, theta0 = 0.8, 1.1
-    theta_end = theta0 + omega * dt  # Rust's theta_target
+    theta_end = 1.1 + 0.8 * 0.01  # Rust's theta_target, as published to the participant
 
-    inertial = _bare_participant("inertial", omega=omega, frame_theta=theta0)
+    inertial = _bare_participant("inertial", partner_theta=theta_end)
     u_read = VECS @ _rust_rotation(AXIS_Y, theta_end).T
-    np.testing.assert_allclose(inertial._displacements_from_partner(u_read, dt), VECS, atol=1e-12)
-    f_written = inertial._forces_to_partner(VECS, dt)
+    np.testing.assert_allclose(inertial._displacements_from_partner(u_read), VECS, atol=1e-12)
+    f_written = inertial._forces_to_partner(VECS)
     np.testing.assert_allclose(f_written @ _rust_rotation(AXIS_Y, theta_end), VECS, atol=1e-12)
 
-    default = _bare_participant(None, omega=omega, frame_theta=theta0)
-    np.testing.assert_allclose(default._displacements_from_partner(u_read, dt), VECS, atol=1e-12)
-    np.testing.assert_allclose(default._forces_to_partner(VECS, dt), f_written, atol=1e-12)
+    default = _bare_participant(None, partner_theta=theta_end)
+    np.testing.assert_allclose(default._displacements_from_partner(u_read), VECS, atol=1e-12)
+    np.testing.assert_allclose(default._forces_to_partner(VECS), f_written, atol=1e-12)
 
 
 def test_frame_angle_ignores_bem_azimuth_offset():
-    """The frame angle follows Rust's theta (starts at 0), not the BEM azimuth."""
-    p = _bare_participant("inertial", omega=0.5, frame_theta=0.0, azimuth_deg=120.0)
-    assert p._frame_theta_end(0.02) == pytest.approx(0.01)
+    """The frame rotates with Rust's theta; the BEM azimuth offset only shifts CCBlade's azimuth."""
+    p = _bare_participant("inertial", omega=0.5, partner_theta=0.01, azimuth_offset=120.0)
+    np.testing.assert_allclose(
+        p._forces_to_partner(VECS), VECS @ _rust_rotation(AXIS_Y, 0.01).T, atol=1e-12
+    )
+    assert p._azimuth_deg() == pytest.approx(120.0 + np.degrees(0.01))
 
 
 def test_partner_frame_default_and_validation():

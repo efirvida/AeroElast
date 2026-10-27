@@ -1,3 +1,7 @@
+/// preCICE data name under which the end-of-window rotor angle θ [rad] is written on the
+/// omega mesh, next to the angular velocity.
+pub const THETA_DATA_NAME: &str = "Theta";
+
 /// Co-rotational FSI solver for rotating structures (rotor blades).
 ///
 /// Implements the full preCICE coupling loop for a rotor in a rotating reference
@@ -21,7 +25,7 @@ use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
 use crate::petsc::fsi::linear_elastic::{FsiConfig, FsiError, FsiInitialState, FsiResult};
 use crate::petsc::fsi::profiling::WindowProfiler;
 use crate::petsc::fsi::rotor_physics::{
-    OmegaCheckpoint, OmegaProvider, PerformanceCoefficients, RotorTransforms,
+    OmegaCheckpoint, OmegaProvider, PerformanceCoefficients, RotorAngle, RotorTransforms,
     build_coriolis_matrix, build_ksp_vals,
     compose_deformed_coords, compute_centrifugal_force, compute_euler_force,
     compute_gravity_force, compute_performance_coefficients, compute_thrust,
@@ -209,8 +213,8 @@ pub struct RotorFsiSolver {
 
     // ── Angular velocity ──────────────────────────────────────────────────────
     omega_provider: OmegaProvider,
-    /// Cumulative rotation angle θ = ∫ω dt [rad].
-    theta: f64,
+    /// Cumulative rotation angle θ = ∫ω dt [rad], with its window target and checkpoint.
+    theta: RotorAngle,
 
     // ── Inertial forces: full-mesh nodal data ─────────────────────────────────
     /// Reference (undeformed) coordinates of ALL structural nodes in the
@@ -357,7 +361,7 @@ impl RotorFsiSolver {
             mesh_dims,
             transforms,
             omega_provider,
-            theta: 0.0,
+            theta: RotorAngle::new(0.0),
             all_node_coords,
             all_node_masses,
             assembler,
@@ -739,6 +743,18 @@ impl RotorFsiSolver {
                 None
             };
 
+        // Rotor angle θ next to ω on the same mesh (D4): published only when the preCICE
+        // configuration declares the data, so configs of partners that do not need it
+        // (OpenFOAM today, the inertial solver) keep loading.
+        let theta_data: Option<&str> = match (&self.config.omega_mesh_name, &omega_vertex_ids) {
+            (Some(mesh), Some(_))
+                if participant.get_data_dimensions(mesh, THETA_DATA_NAME).is_ok() =>
+            {
+                Some(THETA_DATA_NAME)
+            }
+            _ => None,
+        };
+
         let restart_time = self.initial_state.as_ref().map(|state| state.t).unwrap_or(0.0);
 
         // Write initial omega before initialize() when preCICE requires it.
@@ -751,6 +767,10 @@ impl RotorFsiSolver {
             ) {
                 let omega_init = self.omega_provider.get(restart_time).0;
                 participant.write_data(mesh, wdata, ids, &[omega_init])?;
+                if let Some(tdata) = theta_data {
+                    // Initial value = θ at the start of the run (θ0 of a restart).
+                    participant.write_data(mesh, tdata, ids, &[self.initial_theta])?;
+                }
             }
         }
 
@@ -760,7 +780,7 @@ impl RotorFsiSolver {
         // ── Optional restart ──────────────────────────────────────────────────
         if let Some(ref state) = self.initial_state {
             self.stepper.set_state(&state.u, &state.v, &state.a, state.t);
-            self.theta = self.initial_theta;
+            self.theta = RotorAngle::new(self.initial_theta);
         }
 
         // ── Initial K_SP build ────────────────────────────────────────────────
@@ -773,7 +793,6 @@ impl RotorFsiSolver {
         // Checkpoint storage.
         let mut newmark_cp: Option<NewmarkCheckpoint> = None;
         let mut omega_cp: Option<OmegaCheckpoint> = None;
-        let mut theta_cp: f64 = self.theta;
 
         let mut result = FsiResult::default();
         let mut prof = WindowProfiler::new("RotorFsi");
@@ -786,7 +805,7 @@ impl RotorFsiSolver {
                 let t_cp = Instant::now();
                 newmark_cp = Some(self.stepper.checkpoint());
                 omega_cp = Some(self.omega_provider.checkpoint());
-                theta_cp = self.theta;
+                self.theta.save_checkpoint();
                 prof.record_since("checkpoint_save", t_cp);
             }
 
@@ -794,7 +813,7 @@ impl RotorFsiSolver {
             let window_kin = self.omega_provider.kinematics_over_step(t, dt);
             let omega_step = window_kin.omega_step;
             let alpha_step = window_kin.alpha_step;
-            let theta_target = self.theta + window_kin.theta_increment;
+            let theta_target = self.theta.begin_window(window_kin.theta_increment);
 
             // ── Read forces from preCICE (global frame) ───────────────────────
             let mut forces_global = vec![0.0f64; n_data];
@@ -974,6 +993,10 @@ impl RotorFsiSolver {
                 &self.config.omega_write_data,
             ) {
                 participant.write_data(mesh, wdata, ids, &[omega_step])?;
+                // θ_target: the angle this window rotated forces and displacements with.
+                if let Some(tdata) = theta_data {
+                    participant.write_data(mesh, tdata, ids, &[self.theta.published()])?;
+                }
             }
             prof.record_since("precice_write", t_wr);
 
@@ -988,7 +1011,7 @@ impl RotorFsiSolver {
                     (Some(ncp), Some(ocp)) => {
                         self.stepper.restore(ncp);
                         self.omega_provider.restore(ocp);
-                        self.theta = theta_cp;
+                        self.theta.restore();
                     }
                     _ => {
                         return Err(FsiError::PreciceError(
@@ -1001,7 +1024,7 @@ impl RotorFsiSolver {
             } else {
                 // ── Converged time window ─────────────────────────────────────
                 // 1. Commit the converged target angle for this time window.
-                self.theta = theta_target;
+                self.theta.commit();
 
                 // 2. Compute aerodynamic torque (for ω dynamics and logging).
                 //    Use interface reference coords + displacements in the ROTATING frame.
@@ -1038,7 +1061,7 @@ impl RotorFsiSolver {
                 //    (gravitational sag changes the driving torque; centrifugal/Coriolis/Euler
                 //    are fictitious forces and must NOT be included).
                 let tau_gravity = if self.config.gravity_active() {
-                    let g_rot = self.transforms.gravity_to_rotating(self.config.gravity, self.theta);
+                    let g_rot = self.transforms.gravity_to_rotating(self.config.gravity, self.theta.committed());
                     let f_grav = compute_gravity_force(&self.all_node_masses, &g_rot);
                     let u_full = self.expand_to_full(self.stepper.current_u());
                     let u_nodes = self.extract_node_translations(&u_full);
@@ -1120,7 +1143,7 @@ impl RotorFsiSolver {
                 log::info!(
                     "RotorFsi step {time_step}: t={:.4} θ={:.4}rad ω_window={omega_step:.4}rad/s ω_state={omega_state:.4}rad/s \
                      τ_aero={tau_aero:.3e}N·m τ_grav={tau_gravity:.3e}N·m  Ct={:.4} Cp={:.4} TSR={:.3}",
-                    step_t, self.theta, perf.ct, perf.cp, perf.tsr
+                    step_t, self.theta.committed(), perf.ct, perf.cp, perf.tsr
                 );
 
                 // 10. Per-step callback.
@@ -1142,7 +1165,7 @@ impl RotorFsiSolver {
                         &forces_global,
                         omega_state,
                         alpha_state,
-                        self.theta,
+                        self.theta.committed(),
                         tau_aero,
                         perf,
                         inertial_snap,
@@ -1173,7 +1196,7 @@ impl RotorFsiSolver {
 
     /// Current cumulative rotation angle θ [rad].
     pub fn theta(&self) -> f64 {
-        self.theta
+        self.theta.committed()
     }
 
     /// Current angular velocity ω [rad/s] from the provider.

@@ -192,6 +192,22 @@ Open: inertial solver power sign left inconsistent (to be discontinued, S7); `sh
 rotor CSVs: CP, CQ, power_aero and callback torques at theta != 0 are suspect; the Rust-driven omega was not affected.
 Rust test needs RUSTFLAGS="-L /scratch/app/openmpi/4.1.4_gnu/lib -C link-arg=-lmpi" to link on this cluster.
 
+## C8 D4 result (worker, resumed after a 30-min stall in a 13-file pytest batch)
+
+Rust `RotorAngle` (committed / checkpoint / target) in `rotor_physics.rs`; `rotor_fsi.rs` writes `Theta` (theta_target,
+same time level as omega, initial write for restarts) on the omega mesh when the preCICE config declares it.
+`BEMFSIParticipant` reads it for the frame rotation and the CCBlade azimuth, `azimuth_deg = (bem.azimuth +
+deg(theta)) mod 360` (CCBlade `bem.f90 windComponents`: positive rotation about the shaft, zero blade up, same sense as
+R(axis, theta); derived from code, not measured on a yaw case), end-of-window level; own integration removed; a
+spinning case without the Theta data or without an omega mesh fails at setup. RED -> GREEN: Python
+`test_bem_theta_from_structure.py` 18; Rust `published_theta_is_the_angle_used_for_the_frame_rotation`,
+`rotor_angle_defaults_to_zero_without_restart` (`rotor_physics` 50, `--lib rotor` 72, core 170). maturin release
+rebuilt. 21 preCICE configs declare Theta (validated with precice-config-validate); `parked_v50` (no omega mesh)
+untouched. Python: participant/frame/theta/nan/callback/power 89, rotor aero/dispatch/ch6/inertial-keys/parity 163
+(6 skipped), deformed geometry 8; quick OK. **Not verified:** `tests/test_ccx_fsi_parity_parked_v50.py` hit
+`timeout 600` (CCX deck gate, does not read the changed configs); no real two-participant preCICE run yet; BEM YAMLs
+with a bare nonzero `bem.omega` now fail at load (not scanned beyond the 66 ch6 cases).
+
 ## Log
 
 - L1 (2026-10-26) User: S1 verbatim (during the PR of l3/twist-p1, merged as #68 / 3a2d222).
