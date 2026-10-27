@@ -42,7 +42,31 @@ K11.3 clean-metric gate (node vs ring within 0.5 %, as K9.3). Measured at es 0.2
 shell 40.310002 m, +16.94 % vs BeamDyn, ring mean 39.837109 m, node vs ring +1.19 % > 0.5 %, so by
 K11.3 LC3 is printed, not asserted (`undecided`), like LC2.
 
-Marks: slow (blade mesh generation + 4 static solves per blade).
+Interior station (l3-closure T10, S12; `TestS2InteriorStation`, official blade only). The tip metric moved
+three times and each move is a finding, so the LC1-LC4 claim now lives away from the free tip:
+
+  1. tip node (`argmax z`, the first tip-ring node in mesh order; the K9/K11 metric above): an arbitrary material
+     point of a ring whose load is split equally, 9-11 % from the ring mean on LC2/LC3 (T4 report, T10b).
+  2. tip-ring mean (L12(4)): node-count dependent where the ring spacing is non-uniform, so the load
+     introduction was made defined (tip `arc` = uniform line traction, LC4 `area` = tributary-area traction;
+     T10c). On the closed-form tube that did not converge either: an edge load not tangent to the wall has a
+     transverse-shear edge layer of order t that es 0.25 / 0.125 do not resolve (rect flap tip ring +1.24 ->
+     +1.54 % vs Timoshenko, T10c RESULT), while rings >= 2 section depths inboard converge to the closed form.
+  3. interior station (S12): BeamDyn p60 FE-node translation (Gauss quadrature, so output nodes are the GLL FE
+     nodes) vs the shell arc-weighted ring mean at the node's z, linearly interpolated between the bracketing
+     rings. Predeclared node rule: inner of the two nodes nearest the tip that are >= 2 tip chords inboard; z is
+     read from the BeamDyn reference output, not the GLL estimate. Dominant component uy (LC1/LC2/LC4) or ux
+     (LC3: BeamDyn -N#TDyr). BeamDyn is normalised by its load scale (1e-4 and 2e-4 must agree), the shell
+     response is linear in the load. Tolerance K3, 5 %. The tip-node tests above stay as they were (printed or
+     asserted per K9/K11) and the `utd` param is untouched.
+
+  4. what is asserted (S13, after T10c-station refuted the predeclared convergence gate P2): the distributed
+     loads LC1 (gravity) and LC4 pass every gate on both blades (es 0.25 -> 0.125 <= 0.32 pp, stations <= 0.21 pp,
+     arc vs area <= 0.18 pp) and are asserted at K3. The tip point loads LC2 / LC3 move 0.5-1 pp with refinement
+     at every station and stay station dependent 2-4 chords inboard: the shell has no rigid tip coupling (MPC),
+     so BeamDyn's axis point load is not reproduced, and they are printed as diagnostics, not asserted.
+
+Marks: slow (blade mesh generation + 4 static solves per blade, +4 for the station loads).
 """
 
 from __future__ import annotations
@@ -58,7 +82,16 @@ petsc4py = pytest.importorskip("petsc4py", reason="PETSc not available")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
+sys.path.insert(0, str(REPO_ROOT / "tests"))
+
 from beam_reference import load_beamdyn_blade, load_elastodyn_blade  # noqa: E402
+from support.assertions import assert_residual_below  # noqa: E402
+from support.s2_station import (  # noqa: E402
+    bd_station_nodes,
+    component_index,
+    pick_station_node,
+    ring_mean_at_z,
+)
 
 GRAVITY = (0.0, -9.81, 0.0)
 TIP_FORCE_N = 1.0e6
@@ -85,8 +118,42 @@ _BD_STATIC_LC3_UX = 34.469441
 # K11.3 clean-metric gate failed at es 0.25 (node vs ring +1.19 % > 0.5 %): printed, not asserted.
 _LC3_ASSERTED_VS_BD = False
 
+# Interior station (S12): BeamDyn p60 reference nodes (tools/bd_static_reference.py post --nodes 53,...,61).
+_BD_STATIC_DIR = REPO_ROOT / "tests" / "IEA15MW" / "bd_static"
+_STATION_TOL = 0.05  # K3
+_BD_SCALE_SPREAD = 1.0e-3  # K9 linearity gate: scales 1e-4 / 2e-4 agree within 0.1 %
+# Load introduction as predeclared: tip `arc`, LC4 `area` (defined tractions, independent of the ring node count).
+# S13: only the distributed loads are a validation claim; LC2 / LC3 are printed (see the module docstring, item 4).
+_STATION_ASSERTED = ("LC1", "LC4")
+_STATION_CASES = {
+    "LC1": ("LC1_gravity", {"type": "gravity", "value": GRAVITY}),
+    "LC2": ("LC2_tip_flap", {"type": "tip", "value": (0.0, TIP_FORCE_N, 0.0), "distribution": "arc"}),
+    "LC3": ("LC3_tip_edge", {"type": "tip", "value": (TIP_FORCE_N, 0.0, 0.0), "distribution": "arc"}),
+    "LC4": ("LC4_distributed", {"type": "distributed", "value": (0.0, DISTRIB_Q_NM, 0.0),
+                                "n_slices": 60, "distribution": "area"}),
+}
+
 # Cache of expensive per-blade results shared across the test session.
 _S2_CACHE: dict = {}
+
+
+def _blade_mesh(blade_name, iea_blade_yaml, iea_blade_xlsx):
+    """(mesh, properties) of a blade at element_size 0.25, mid-surface skin; cached per blade."""
+    key = ("mesh", blade_name)
+    if key not in _S2_CACHE:
+        from aeroelast.core.mesh.generators import BladeMesh
+        from aeroelast.models.blade.model import build_rust_properties
+
+        generator = BladeMesh(
+            excel_file=None if blade_name == "official" else str(iea_blade_xlsx),
+            yaml_file=iea_blade_yaml if blade_name == "official" else None,
+            airfoil_dir=str(iea_blade_xlsx.parent / "airfoils"),
+            element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
+        )
+        mesh = generator.generate(renumber="rcm")
+        _S2_CACHE[key] = (mesh, build_rust_properties(generator.numad_mesh_data))
+    return _S2_CACHE[key]
 
 
 @pytest.mark.slow
@@ -103,22 +170,11 @@ class TestS2StaticPrescribed:
             run_shell_case,
             shell_tip_displacement,
         )
-        from aeroelast.core.mesh.generators import BladeMesh
-        from aeroelast.models.blade.model import build_rust_properties
-
         ref_dir = Path(__file__).resolve().parents[1] / "tests" / "IEA15MW" / "reference"
         ed = load_elastodyn_blade(ref_dir / "IEA-15-240-RWT_ElastoDyn_blade.dat")
         bd = load_beamdyn_blade(ref_dir / "IEA-15-240-RWT_BeamDyn_blade.dat")
 
-        generator = BladeMesh(
-            excel_file=None if blade_name == "official" else str(iea_blade_xlsx),
-            yaml_file=iea_blade_yaml if blade_name == "official" else None,
-            airfoil_dir=str(iea_blade_xlsx.parent / "airfoils"),
-            element_size=0.25,
-            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
-        )
-        mesh = generator.generate(renumber="rcm")
-        properties = build_rust_properties(generator.numad_mesh_data)
+        mesh, properties = _blade_mesh(blade_name, iea_blade_yaml, iea_blade_xlsx)
         beam = BeamReference.from_mesh(mesh, ed, bd)
 
         cases = [
@@ -193,4 +249,53 @@ class TestS2StaticPrescribed:
         assert lo < ratio < hi, (
             f"[{blade_name}] LC3 edgewise ratio shell/beam = {ratio:.2f} "
             f"outside [{lo}, {hi}]"
+        )
+
+
+@pytest.mark.slow
+class TestS2InteriorStation:
+    """S12: BeamDyn p60 node displacement vs the shell arc ring mean at the node's z (official blade)."""
+
+    @pytest.fixture
+    def station_profiles(self, iea_blade_yaml, iea_blade_xlsx):
+        """Per case: (ring profile near the station, tip z, tip chord); cached, loads as predeclared."""
+        if "station" in _S2_CACHE:
+            return _S2_CACHE["station"]
+
+        from run_s2_static_cases import run_shell_case, tip_ring_scale  # noqa: E402
+        from s2_ring_metric_blade import profile_means, ring_profile  # noqa: E402
+
+        mesh, properties = _blade_mesh("official", iea_blade_yaml, iea_blade_xlsx)
+        z_tip = float(mesh.coords_array[:, 2].max())
+        chord = tip_ring_scale(mesh)
+        # the deepest station any case can pick is bounded by the BeamDyn nodes; keep the rings of the last 8 m
+        rings = ring_profile(mesh, z_tip - 8.0)
+        out = {}
+        for case, (_name, load) in _STATION_CASES.items():
+            u = np.asarray(run_shell_case(mesh, properties, load))
+            out[case] = profile_means(rings, u)
+        _S2_CACHE["station"] = (out, z_tip, chord)
+        return _S2_CACHE["station"]
+
+    @pytest.mark.parametrize("case", list(_STATION_CASES))
+    def test_station_matches_beamdyn_node(self, station_profiles, case):
+        profiles, z_tip, chord = station_profiles
+        nodes, spread = bd_station_nodes(_BD_STATIC_DIR, case)
+        assert spread < _BD_SCALE_SPREAD, f"{case}: BeamDyn scales 1e-4 / 2e-4 differ by {spread:.3e} (gate {_BD_SCALE_SPREAD})"
+        node = pick_station_node(nodes, z_tip=z_tip, chord=chord)
+        k = component_index(case)
+        comp = "xy"[k]
+        d_bd = node[f"linear_shell_u{comp}_m"]
+        d_shell = ring_mean_at_z(profiles[case], node["z"])[k]
+        rel = abs(d_shell - d_bd) / abs(d_bd)
+        if case not in _STATION_ASSERTED:
+            print(f"S-2 {case} station u{comp} [m] diagnostic (S13, not asserted: tip point load without MPC): "
+                  f"shell {d_shell:.6f} vs BeamDyn p60 node {node['node']} {d_bd:.6f}, signed {d_shell / d_bd - 1:+.4%}")
+            return
+        assert_residual_below(
+            rel,
+            tol=_STATION_TOL,
+            reference_name=f"OpenFAST v5.0.0 BeamDyn p60 node {node['node']} (z {node['z']:.3f} m, {(z_tip - node['z']) / chord:.2f} chords)",
+            kind="code",
+            what=f"S-2 {case} station u{comp} [m] shell arc ring mean {d_shell:.6f} (BeamDyn {d_bd:.6f}, signed {d_shell / d_bd - 1:+.4%})",
         )
