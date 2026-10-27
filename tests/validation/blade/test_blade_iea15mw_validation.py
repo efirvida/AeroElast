@@ -48,13 +48,17 @@ skin -> 0.25 m mid skin: the AeroElast-vs-CCX gap falls from up to 1.64% to at m
 the five matched modes (so the 1.0 m parity was discretisation noise), the static tip gap to
 CCX from 1.17% to 0.44%, and 1st flapwise / 1st edgewise move 0.543 / 0.702 -> 0.525 / 0.695 Hz.
 The Bernardi gaps at higher modes (worst 11.4% at 0.25 m, mode 7) remain: the shell-vs-beam
-warping/torsion validity limit.  Two comparisons that held at 1.0 m now fall outside their
+warping/torsion validity limit.  Since 2026-10-27 that comparison is against OpenFAST BeamDyn
+p20 (parked, official v1.1 deck) instead: Bernardi's blade is not tied to the v1.1 deck and
+stays a citation (the three S-4 modes are not repeated).  Two comparisons that held at 1.0 m now fall outside their
 bound and are reported as xfail, not re-banded: 2nd flapwise vs NuMAD (12.26% vs 11.3%) and
 the static tip deflection vs the article's DLC 1.4 (20.39 m vs 23.49 m, 13.21% vs 5%; it was
 4.77% at 1.0 m, where the CCX tip was 22.64 m).
 """
 
 from __future__ import annotations
+
+import subprocess
 
 import numpy as np
 import pytest
@@ -125,8 +129,34 @@ REFERENCE_MARGIN = 0.03
 #: doi:10.5194/wes-11-2345-2026, Table B1: the first 8 modes from their beam-based
 #: CSD model (1st flap, 1st edge, 2nd flap, 2nd edge, 3rd flap, 1st torsion,
 #: 3rd edge, 4th flap).
+#: Since 2026-10-27 (odd/tasks/l3-closure.md L12 (3)) these are no longer a modal arbiter (their
+#: Fig. B1 cannot be tied to the v1.1 blade, D8/K11.4); they remain the peer whose scatter
+#: against the article / NuMAD bounds the tests below.
 BERNARDI_MODES_HZ = [0.5369, 0.7267, 1.577, 2.267, 3.113, 3.642, 4.571, 5.385]
-BERNARDI_MODE_TOL = 0.05  # measured worst 11.4% at 0.25 m mid (2026-10-22; 18.0% at 1.0 m), shell vs the beam CSD
+
+#: Arbiter of the modal comparison to a beam model: OpenFAST v5.0.0 BeamDyn, single member,
+#: element order 20, official v1.1 deck, parked (0 rpm), MBC3 collective frequencies
+#: (SLURM 11617531 run, 11617539 post; odd/tasks/openfast-beamdyn-modal-arbiter.md; the first
+#: eight modes of ``logs/check/of_bd/bp20_0/modes.json``, classified by their dominant MBC3
+#: state; the first three are the S-4 parked targets).  p15 -> p20 moves 1F/1E/2F/2E/1T by
+#: -0.03 / +0.13 / +0.07 / -0.02 / +0.24 %.  Same families as Bernardi's Table B1.
+BEAMDYN_P20_PARKED_MODES = [
+    (0.507082680, "1st flap"),
+    (0.693376286, "1st edge"),
+    (1.480900161, "2nd flap"),
+    (2.136559808, "2nd edge"),
+    (2.935455662, "3rd flap"),
+    (4.093666297, "1st torsion"),
+    (4.379791174, "3rd edge"),
+    (4.844769666, "4th flap"),
+]
+#: Modes that ``tests/test_iea15mw_s4_rotating_modal.py`` already asserts against the same
+#: p20 parked numbers (group 40); not repeated here.
+BEAMDYN_P20_IN_S4 = frozenset({"1st flap", "1st edge", "2nd flap"})
+BEAMDYN_P20_ROWS = [
+    j for j, (_, label) in enumerate(BEAMDYN_P20_PARKED_MODES) if label not in BEAMDYN_P20_IN_S4
+]
+BEAMDYN_MODE_TOL = 0.05  # K3, the S-4 bound against the same arbiter
 
 MASS_TOL = 0.05  # measured 66,683 kg = -2.0% under the article value (0.25 m mid, 2026-10-22)
 MODAL_TOL = 0.05  # measured worst over the first five matched pairs (see test)
@@ -209,6 +239,13 @@ def build_blade_mesh(element_size: float = ELEMENT_SIZE):
     return mesh, build_rust_properties(generator.numad_mesh_data)
 
 
+def _ccx_version(ccx_bin: str) -> str:
+    """The ``This is Version X`` line of the binary, so the reference is read, not assumed."""
+    out = subprocess.run([ccx_bin, "-v"], input="", capture_output=True, text=True, check=False)
+    lines = [ln.strip() for ln in (out.stdout + out.stderr).splitlines() if "Version" in ln]
+    return lines[0] if lines else "version unknown"
+
+
 @pytest.fixture(scope="module")
 def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     """Mesh, assemble, and solve the blade once, AeroElast and CCX.
@@ -216,6 +253,7 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     Returns the mass, the AeroElast frequencies and the CCX frequencies.
     """
     ccx_bin = ccx_bin_or_skip()
+    print(f"\nccx binary: {ccx_bin}  {_ccx_version(ccx_bin)}")
 
     mesh, props = build_blade_mesh()
 
@@ -326,15 +364,22 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     }
 
 
-def _matched_pairs(freqs_ae: np.ndarray, freqs_ccx: np.ndarray, n: int):
-    """Smallest-cost one-to-one frequency pairs, by Hungarian assignment."""
-    cost = np.abs(freqs_ae[:, None] - freqs_ccx[None, :]) / np.maximum(freqs_ccx[None, :], 1e-14)
+def _matched_pairs(freqs_ae: np.ndarray, freqs_ref: np.ndarray, n: int):
+    """One-to-one frequency pairs (Hungarian), in reference mode order.
+
+    Entry ``j`` is ``(gap, f_ae, f_ref)`` of reference mode ``j + 1``, whatever the size of
+    its gap.  The earlier version sorted the pairs by gap and returned the ``n`` smallest, so
+    row ``k`` was the k-th best-matching pair and not mode ``k + 1`` (T13 audit; the same
+    defect T29 removed from ``_matched_gaps`` in the mesh-convergence test).  ``freqs_ref``
+    must be ascending.
+    """
+    cost = np.abs(freqs_ae[:, None] - freqs_ref[None, :]) / np.maximum(freqs_ref[None, :], 1e-14)
     row_ind, col_ind = linear_sum_assignment(cost)
-    pairs = sorted(
-        (float(cost[i, j]), float(freqs_ae[i]), float(freqs_ccx[j]))
+    by_ref = {
+        int(j): (float(cost[i, j]), float(freqs_ae[i]), float(freqs_ref[j]))
         for i, j in zip(row_ind, col_ind, strict=False)
-    )
-    return pairs[:n]
+    }
+    return [by_ref[j] for j in range(min(n, len(by_ref)))]
 
 
 def test_blade_mass_matches_published_models(blade: dict) -> None:
@@ -360,10 +405,11 @@ def test_blade_mass_matches_published_models(blade: dict) -> None:
 
 @pytest.mark.parametrize("index", range(N_COMPARE))
 def test_blade_modal_frequencies_match_ccx(blade: dict, index: int) -> None:
-    """The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+    """CCX mode ``index + 1`` agrees with its AeroElast partner within ``MODAL_TOL``.
 
     The pairing is by cost over 10 requested modes, so a mode that one solver
-    orders differently cannot turn a real mismatch into a false failure.
+    orders differently cannot turn a real mismatch into a false failure; the row
+    is a fixed CCX mode, not the ``index``-th best pair.
     """
     pairs = _matched_pairs(blade["ae"], blade["ccx"], N_COMPARE)
     rel, freq_ae, freq_ccx = pairs[index]
@@ -372,7 +418,7 @@ def test_blade_modal_frequencies_match_ccx(blade: dict, index: int) -> None:
         rel,
         tol=MODAL_TOL,
         kind="code",
-        reference_name="CalculiX 2.23 S8R, the same mesh and composite properties",
+        reference_name="CalculiX S8R (binary version in the run log), the same mesh and composite properties",
         what=f"matched blade mode {index}",
     )
 
@@ -481,7 +527,7 @@ def test_blade_static_tip_deflection_matches_ccx(blade: dict) -> None:
         rel,
         tol=STATIC_TOL,
         kind="code",
-        reference_name="CalculiX 2.23 S8R, the same mesh and composite properties",
+        reference_name="CalculiX S8R (binary version in the run log), the same mesh and composite properties",
         what="static tip deflection",
     )
 
@@ -509,30 +555,30 @@ def test_blade_static_deflection_matches_article_dlc(blade: dict) -> None:
     )
 
 
-@pytest.mark.parametrize("index", range(len(BERNARDI_MODES_HZ)))
-def test_blade_modal_frequencies_match_bernardi(blade: dict, index: int) -> None:
-    """The first 8 blade modes match Bernardi et al.'s published table.
+@pytest.mark.parametrize("index", BEAMDYN_P20_ROWS)
+def test_blade_modal_frequencies_match_beamdyn_p20(blade: dict, index: int) -> None:
+    """Parked modes 2E, 3F, 1T, 3E and 4F match OpenFAST BeamDyn p20 within ``BEAMDYN_MODE_TOL``.
 
-    Bernardi et al. (Wind Energ. Sci. 11, 2345-2367, 2026, Table B1) report
-    the first 8 modes of the same IEA 15 MW blade from the beam-based CSD model
-    of their LES FSI solver.  Pairing is by Hungarian assignment over 10
-    computed modes, so an ordering difference cannot masquerade as a mismatch.
-    This is an independent reference from a different solver family (beam vs
-    shell); the shell model is expected to sit above the beam on the torsional
-    modes because it restrains cross-section warping.
+    Replaces the comparison with Bernardi et al. (Wind Energ. Sci. 11, 2345-2367, 2026,
+    Table B1, beam-CSD modes of a blade that Fig. B1 does not tie to the v1.1 deck,
+    docs/validation contract D8/K11.4; user decision L12 (3)).  The arbiter is the BeamDyn
+    p20 parked run of the official deck (``BEAMDYN_P20_PARKED_MODES``).  Modes 1F, 1E and 2F
+    are asserted against the same numbers by S-4 (group 40) and are skipped here.  Pairing is
+    by Hungarian assignment over the 10 computed modes, and ``index`` is the reference mode
+    (row ``.k`` is reference mode ``k + 1``).  No xfail and no re-banding: a gap above the
+    bound is a finding.
     """
-    pairs = _matched_pairs(blade["ae"], np.array(BERNARDI_MODES_HZ), len(BERNARDI_MODES_HZ))
-    rel, freq_ae, freq_ref = pairs[index]
-    print(f"  bernardi[{index}] aero={freq_ae:.3f} ref={freq_ref:.3f} rel={rel * 100:.2f}%")
-    if rel > BERNARDI_MODE_TOL:
-        pytest.xfail(
-            f"beam CSD vs shell: mode {index} differs by {rel * 100:.2f}% "
-            f"(bound {BERNARDI_MODE_TOL * 100:.0f}%) -- validity limit of the shell vs a beam"
-        )
+    freqs_ref = np.array([f for f, _ in BEAMDYN_P20_PARKED_MODES])
+    label = BEAMDYN_P20_PARKED_MODES[index][1]
+    rel, freq_ae, freq_ref = _matched_pairs(blade["ae"], freqs_ref, len(freqs_ref))[index]
+    print(
+        f"  beamdyn-p20[{index}] {label}: aero={freq_ae:.3f} ref={freq_ref:.3f} "
+        f"signed={(freq_ae / freq_ref - 1) * 100:+.2f}% rel={rel * 100:.2f}%"
+    )
     assert_residual_below(
         rel,
-        tol=BERNARDI_MODE_TOL,
-        kind="paper",
-        reference_name="Bernardi et al. 2026, Table B1, the published beam-CSD modes",
-        what=f"mode {index} against the beam CSD",
+        tol=BEAMDYN_MODE_TOL,
+        kind="code",
+        reference_name="OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3",
+        what=f"{label} (reference mode {index + 1}) against BeamDyn p20",
     )
