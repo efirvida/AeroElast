@@ -638,6 +638,22 @@ Inputs (no new run): shell S-4 pass 1 (1F/1E parked +2.33 / +0.56 %, rated +1.85
 - P3: precone -4 deg is not modelled; K10.4 bounds its effect below 0.06 % on 1F/2F (no row needed).
 Run to confirm: shell parked + rated at es 0.25 / 0.125, Southwell K for 1F/1E/2F vs the driver p20 hub 0 (same rpm 7.56).
 
+## T14 RESULT, es 0.25 (2026-10-27, session 18; no new run: shell `logs/check/l3/store-pass1/pyt-s4.txt`, driver p20 hub 0 / 3.97 `validation-l3-b3-audit.md` "B3-2.2 K10.3-K10.5 RESULT")
+
+Omega = 7.56 rpm; K = (f_r^2 - f_p^2) / Omega^2 (Omega in Hz). Shell / BeamDyn - 1:
+
+| mode | delta-f vs hub 0 | delta-f vs hub 3.97 | K vs hub 0 | parked / rated error |
+|---|---|---|---|---|
+| 1F | **-3.11 %** | -7.55 % | **-0.94 %** | +2.36 / +2.12 % |
+| 1E | -10.56 % | -21.74 % | -10.12 % | +0.54 / +0.44 % |
+| 2F | -4.06 % | -8.13 % | -3.89 % | +0.22 / +0.14 % |
+
+P1 held: like with like the 1F shift is -3.1 % (in band) and the hub radius carries 59 % of the -7.55 % gap (predicted
+~70 %, "not half" held). K removes the parked offset: 1F -0.9 %. P2: 1E is -10.6 %, not ~-50 % (size refuted); by the
+predeclared rule it is still not resolvable as a shift (parked and rated errors 0.54 / 0.44 % > 0.15 %), so its
+centrifugal evidence stays the absolute rated 1E (row 40, trusted). 2F -4.1 % (K -3.9 %), in band with 0.9 pp margin.
+es 0.125 confirmation: SLURM 11626148 (`logs/check/l3/t14/`, worktree rev in `revision`).
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
