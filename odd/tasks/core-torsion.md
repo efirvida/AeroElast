@@ -77,6 +77,30 @@ a prismatic tube away from the ends. Predicted, at eta 0.3-0.7 (away from root a
 - all-node ratio >= 1.1 or residual >= 5 % on the prismatic: the distortion is produced by the section itself
   (shell model of the TE strips, load path), an artefact to fix in the model or element.
 
+## C4 result (worker; job 11625404; `logs/check/core-torsion/prismatic/`; `tools/core_torsion_prismatic_yaml.py`)
+
+Prismatic copy of the 3.4 at eta 0.8 (chord 1.9, pitch axis 0.308, twist 0, no prebend/sweep, DU91/DU08 blend
+w 0.5576 -> t/c 0.2277, all 17 layers and both webs held at their eta-0.8 values): mesh Bredt GJ 9.561e6 at all 100
+stations; FE / mesh Bredt **0.982 (all nodes) = 0.982 (box)** at every slice 0.25-0.85 (0.989 at 0.9, tip);
+residual 0.15-0.45 % (all and box). **First reading holds:** element and twist measure are right on the real
+multi-cell section; the 3.4 outboard distortion (C3) is a non-prismatic physical effect (taper, pretwist, prebend)
+that a rigid-section beam cannot represent. The uniform 1.8 % stiffer-than-Bredt is the thick-wall / open-wall term
+(T27 measured +2.0 pt on the IEA-15), not distortion. TE strips aspect 49-51 do no harm.
+**Consequences.** (1) The core is reliable in torsion: no element fix (C5 as written does not apply). (2) Against
+the beam references (S-1 GJ, S-7) the beam-equivalent twist is the box twist; the all-node twist carries physical
+section distortion. (3) Production BEM feedback (`fsi_participant._section_rotation`: antisymmetric part of an
+affine fit over the whole ring) includes the non-affine distortion; the aerodynamic twist is the chord-line
+rotation. Which one the BEM must take is a modelling decision, to be made on its measured torque effect.
+
+## C5 (revised): twist definition sensitivity; prediction (written before the run)
+
+IEA-15, rated, one-way, same solve as `tools/l3_torque_sensitivity.py` (rigid production loads, es 0.25): per BEM
+strip, elastic twist by (a) the production ring-affine rotation, (b) the chord line (LE and TE nodes of the ring),
+(c) the box rigid fit; rigid-geometry BEM torque/thrust with each. Prediction: (b) and (c) within 5 % of (a) in
+tip elastic twist (the 15's all-node residual is 4-10 % at 0.7-0.85), so torque within 0.15 % of (a) (twist alone
+moves torque -3.2 %). Refuted if any definition moves torque > 0.3 % or tip twist > 10 %: then the definition is a
+thesis-level choice and goes to the user with the numbers.
+
 ## Log
 
 - L1 (2026-10-26) User: S1 verbatim (during the PR of l3/twist-p1, merged as #68 / 3a2d222).
@@ -84,3 +108,4 @@ a prismatic tube away from the ends. Predicted, at eta 0.3-0.7 (away from root a
   BeamDyn 6x6; torsion not reliable (IEA-15 S-7 7 % soft; 3.4 outboard FE 1.3x its own section; KO2017 twisted beam
   and D-Tube element reds); mode shapes unmeasured (T8). Recommendation: core torsion first, then T8.
 - L3 (2026-10-26) User: S2 verbatim.
+- L4 (2026-10-26) User: "continua en esta sesion". Parent: C2 (benchmarks green), C3 (measure), C4 (prismatic: core right).
