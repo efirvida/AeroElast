@@ -57,9 +57,19 @@ gaps:
 
   - id: rotating_modal_shift
     scope: "rotating and centrifugal modal shift"
-    status: not_validated
+    status: bounded
     reason: >-
-      CLOSED AS A VALIDATION, OPEN AS A ROW (re-checked 2026-10-06): the
+      BOUNDED 2026-10-27 (L3 store pass 1, odd/tasks/l3-closure.md T3): the
+      rows exist (group 40, `blade_rotating_modes.s4_parked_openfast_modes`
+      and `s4_rated_openfast_modes`, trusted at f1c9e91 against OpenFAST
+      v5.0.0 BeamDyn p20 and the BeamDyn driver: rated 1F +1.85 %, 1E
+      +0.44 %, 2F +0.06 %). The limit that remains is the shift itself: no
+      row asserts the parked-to-rated delta, and ours is 7-13 % below
+      BeamDyn's (1F +0.02290 vs +0.02492 Hz, 1E +0.00528 vs +0.00604 Hz, 2F
+      +0.02514 vs +0.02716 Hz), about half of the 1F deficit being the MBC3
+      HubRad 3.97 m the shell does not carry. A delta-f row is a pass-2
+      capability row. Earlier text: CLOSED AS A VALIDATION, OPEN AS A ROW
+      (re-checked 2026-10-06): the
       rotating and centrifugal shift IS compared against an independent rotor
       source. `tests/test_iea15mw_s4_rotating_modal.py` asserts 1st flap, 1st
       edge and 2nd flap against the OpenFAST v5 MBC3 targets (assert rel <
@@ -79,10 +89,12 @@ gaps:
       registering the test as a group and extracting its rows is the remaining
       step.
     consequence: >-
-      A centrifugal-stiffening claim is now validated against OpenFAST MBC3
-      for the IEA 15 MW blade, but it cannot be cited until the row exists.
-    citations_forbidden: true
-    rows: []
+      The rotating frequencies are citable through the two S-4 rows; the
+      size of the centrifugal shift is not, until a delta-f row exists.
+    citations_forbidden: false
+    rows:
+      - blade_rotating_modes.s4_parked_openfast_modes
+      - blade_rotating_modes.s4_rated_openfast_modes
 
   - id: moment_realization_over_delivers
     scope: >-

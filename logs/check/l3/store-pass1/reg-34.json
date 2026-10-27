@@ -1,0 +1,26 @@
+[
+  {
+    "row": "blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single",
+    "comparison": 0,
+    "label": "rtol at line 107",
+    "verdict": "changed",
+    "baseline": 7.2496,
+    "current": 7.1712,
+    "delta": -0.0784,
+    "digest": "d706c4d3d05e24cc",
+    "stored_digest": "f285a2541fefa1b6",
+    "value": 1.07171,
+    "expected": null,
+    "text": "shell/beam tip twist ratio over the 0.3-0.9 span band vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.07171 vs 1 (error: 7.1712%, bound: 5.0000%)"
+  },
+  {
+    "row": null,
+    "verdict": "stale_declaration",
+    "detail": "test_s7_applied_moment_matches_request"
+  },
+  {
+    "row": null,
+    "verdict": "stale_declaration",
+    "detail": "test_s7_beam_reference_integrates_to_the_query_point"
+  }
+]

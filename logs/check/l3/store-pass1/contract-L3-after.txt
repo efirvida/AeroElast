@@ -1,0 +1,30 @@
+contract: physics ceiling 5% relative; a level closes only when nothing is open
+L3 [open] IEA 15 MW blade structure against published models and CalculiX
+    trusted 6, undecided 10, rejected 6, unarbitrated 1, unaudited 7, absent 2; over ceiling 0; single or no arbiter 18; gaps 0 blocking / 1
+      unaudited  blade_mesh_convergence.test_blade_modal_gap_converges_with_mesh.single  arbiters: produced_numerical:the CalculiX frequencies for the same blade and mesh
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.0  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.1  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.2  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.3  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.4  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_static_tip_deflection_matches.single  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.0  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.1  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.2  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.3  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.4  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.5  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.6  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.7  arbiters: published_numerical:bernardi2025
+      rejected   blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
+      rejected   blade_sectional_distribution.s1_sectional_edgewise_ei
+      rejected   blade_sectional_distribution.s1_sectional_gj
+      rejected   blade_sectional_distribution.s1_sectional_ea
+      rejected   blade_static_prescribed.s2_official_lc1_tip_displacement
+      undecided  blade_static_prescribed.s2_official_lc2_tip_displacement
+      undecided  blade_static_prescribed.s2_official_lc3_tip_edge_displacement
+      rejected   blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
+      unarbitrated blade_total_mass.v03_assembled_mass_vs_tabular  arbiters: published_numerical:IEA-15-240-RWT tabular xlsx declared blade mass, 67,921 kg
+      absent     tests/test_iea15mw_sx_mesh_convergence.py  arbiters: none
+      absent     tests/test_iea15mw_sx_campbell.py  arbiters: none
+      gap        rotating_modal_shift (bounded)

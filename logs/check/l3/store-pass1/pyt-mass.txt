@@ -1,0 +1,64 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.9, pytest-9.0.3, pluggy-1.6.0 -- /scratch/leahk/eduardo.donestevez/venv/bin/python
+rootdir: /scratch/leahk/eduardo.donestevez/fem-shell
+configfile: pyproject.toml
+plugins: anyio-4.13.0
+collecting ... collected 2 items
+
+tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct --------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6015
+--------------------------------------------------------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+inset: 26656 nodes, sign -1 (votes -26876), mean half-thickness 23.3 mm, max 54.4 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 33827 nodes, 35012 elements
+PASSED
+tests/test_iea15mw_v05_structural_properties.py::TestAssembledStiffnessProperties::test_mass_matrix_total_consistent_with_reference       Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+inset: 26656 nodes, sign -1 (votes -26876), mean half-thickness 23.3 mm, max 54.4 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 33827 nodes, 35012 elements
+V-05 assembled mass 67150.0 kg vs BeamDyn v1.1 deck mass 66996.9 kg (signed error: +0.2285%, bound: 5.0000%)
+PASSED
+
+=============================== warnings summary ===============================
+tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct
+tests/test_iea15mw_v05_structural_properties.py::TestAssembledStiffnessProperties::test_mass_matrix_total_consistent_with_reference
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+    rotVec = (theta / mag) * cp
+
+tests/test_iea15mw_v03_static_gravity.py: 35012 warnings
+tests/test_iea15mw_v05_structural_properties.py: 35012 warnings
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/core/mesh/generators.py:1412: DeprecationWarning: Setting thickness on MeshElement is deprecated. Use a 'properties' dict mapping element-set names to ShellProperty / CompositeShellProperty instead.
+    elem.thickness = thickness
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct
+PASSED tests/test_iea15mw_v05_structural_properties.py::TestAssembledStiffnessProperties::test_mass_matrix_total_consistent_with_reference
+================ 2 passed, 70026 warnings in 168.58s (0:02:48) =================
+elapsed 171.73 s maxrss 1713800 kB

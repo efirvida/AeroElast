@@ -1,0 +1,250 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.9, pytest-9.0.3, pluggy-1.6.0 -- /scratch/leahk/eduardo.donestevez/venv/bin/python
+rootdir: /scratch/leahk/eduardo.donestevez/fem-shell
+configfile: pyproject.toml
+plugins: anyio-4.13.0
+collecting ... collected 8 items
+
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official] --------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6187
+--------------------------------------------------------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 1261 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 123546 nodes, 125880 elements
+      Deduplicating nodes...
+      Deduplicated: 123546 -> 123546 nodes (0% reduction)
+      Creating 125880 elements...
+      Creating element and node sets...
+inset: 97936 nodes, sign -1 (votes -94618), mean half-thickness 23.3 mm, max 54.6 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 123546 nodes, 125880 elements
+S-2 LC1_gravity uy [m]: shell -2.113600 vs OpenFAST BeamDyn p60 -2.231483 (signed error: -5.2827%, bound: 5.0000%); in-house EB beam -1.968118 (+7.3919%, comparison, not asserted)
+FAILED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-utd]       Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 1256 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 119479 nodes, 121797 elements
+      Deduplicating nodes...
+      Deduplicated: 119479 -> 119479 nodes (0% reduction)
+      Creating 121797 elements...
+      Creating element and node sets...
+inset: 94808 nodes, sign -1 (votes -92866), mean half-thickness 23.4 mm, max 55.0 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 119479 nodes, 121797 elements
+FAILED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official] S-2 LC2_tip_flap uy [m]: shell 79.345318 vs OpenFAST BeamDyn p60 82.273278 (signed error: -3.5588%, bound: 5.0000%); in-house EB beam 68.313345 (+16.1491%, comparison, not asserted)
+PASSED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-utd] FAILED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official] S-2 LC4_distributed uy [m]: shell 8.528136 vs OpenFAST BeamDyn p60 9.062631 (signed error: -5.8978%, bound: 5.0000%); in-house EB beam 7.554468 (+12.8886%, comparison, not asserted)
+FAILED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-utd] FAILED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official] S-2 LC3_tip_edge ux [m]: shell 38.413383 vs OpenFAST BeamDyn p60 34.469441 (signed error: +11.4419%, bound: 5.0000%); tip ring mean 37.842245 (node vs ring +1.5093%); in-house EB beam 32.400185 (ratio 1.1856, comparison, not asserted)
+PASSED
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[utd] PASSED
+
+=================================== FAILURES ===================================
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC1_gravity-official] _
+
+self = <es0125_s2.TestS2StaticPrescribed object at 0x146cd266ccb0>
+s2_results = {'LC1_gravity': {'beam': array([-0.09205449, -1.96811813, -0.11198049]), 'ring': array([-0.16079206, -2.11836504, -0.1...48540247]), 'ring': array([0.4389018 , 8.56750003, 0.55590431]), 'shell': array([0.43661558, 8.52813627, 0.5492117 ])}}
+blade_name = 'official', case_name = 'LC1_gravity'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [official] LC1_gravity uy: shell=-2.1136 BeamDyn p60=-2.2315 (rel=5.28%, tol=5%)
+E       assert np.float64(0.0528272528724822) < 0.05
+
+logs/check/l3/store-pass1/es0125_s2.py:162: AssertionError
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC1_gravity-utd] _
+
+self = <es0125_s2.TestS2StaticPrescribed object at 0x146cd27003e0>
+s2_results = {'LC1_gravity': {'beam': array([-0.07841979, -1.75844718, -0.10549975]), 'ring': array([-0.14610422, -1.93424598, -0.1...47528858]), 'ring': array([0.41997231, 8.6241941 , 0.55800929]), 'shell': array([0.41880432, 8.59419576, 0.55307549])}}
+blade_name = 'utd', case_name = 'LC1_gravity'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [utd] LC1_gravity uy: shell=-1.9312 beam=-1.7584 (rel=9.82%, tol=5%)
+E       assert np.float64(0.09823067084937807) < 0.05
+
+logs/check/l3/store-pass1/es0125_s2.py:162: AssertionError
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC2_tip_flap-utd] _
+
+self = <es0125_s2.TestS2StaticPrescribed object at 0x146cc2cdf080>
+s2_results = {'LC1_gravity': {'beam': array([-0.07841979, -1.75844718, -0.10549975]), 'ring': array([-0.14610422, -1.93424598, -0.1...47528858]), 'ring': array([0.41997231, 8.6241941 , 0.55800929]), 'shell': array([0.41880432, 8.59419576, 0.55307549])}}
+blade_name = 'utd', case_name = 'LC2_tip_flap'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [utd] LC2_tip_flap uy: shell=79.4566 beam=67.2197 (rel=18.20%, tol=5%)
+E       assert np.float64(0.18204364629280145) < 0.05
+
+logs/check/l3/store-pass1/es0125_s2.py:162: AssertionError
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC4_distributed-official] _
+
+self = <es0125_s2.TestS2StaticPrescribed object at 0x146cc2cdf500>
+s2_results = {'LC1_gravity': {'beam': array([-0.09205449, -1.96811813, -0.11198049]), 'ring': array([-0.16079206, -2.11836504, -0.1...48540247]), 'ring': array([0.4389018 , 8.56750003, 0.55590431]), 'shell': array([0.43661558, 8.52813627, 0.5492117 ])}}
+blade_name = 'official', case_name = 'LC4_distributed'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [official] LC4_distributed uy: shell=8.5281 BeamDyn p60=9.0626 (rel=5.90%, tol=5%)
+E       assert np.float64(0.05897787623023175) < 0.05
+
+logs/check/l3/store-pass1/es0125_s2.py:162: AssertionError
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC4_distributed-utd] _
+
+self = <es0125_s2.TestS2StaticPrescribed object at 0x146cc2cdf5c0>
+s2_results = {'LC1_gravity': {'beam': array([-0.07841979, -1.75844718, -0.10549975]), 'ring': array([-0.14610422, -1.93424598, -0.1...47528858]), 'ring': array([0.41997231, 8.6241941 , 0.55800929]), 'shell': array([0.41880432, 8.59419576, 0.55307549])}}
+blade_name = 'utd', case_name = 'LC4_distributed'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [utd] LC4_distributed uy: shell=8.5942 beam=7.1708 (rel=19.85%, tol=5%)
+E       assert np.float64(0.19850593995341537) < 0.05
+
+logs/check/l3/store-pass1/es0125_s2.py:162: AssertionError
+=============================== warnings summary ===============================
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-utd]
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+    rotVec = (theta / mag) * cp
+
+logs/check/l3/store-pass1/es0125_s2.py: 247677 warnings
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/core/mesh/generators.py:1412: DeprecationWarning: Setting thickness on MeshElement is deprecated. Use a 'properties' dict mapping element-set names to ShellProperty / CompositeShellProperty instead.
+    elem.thickness = thickness
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
+PASSED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official]
+PASSED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[utd]
+FAILED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+FAILED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-utd]
+FAILED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-utd]
+FAILED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
+FAILED logs/check/l3/store-pass1/es0125_s2.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-utd]
+========== 5 failed, 3 passed, 247679 warnings in 2196.46s (0:36:36) ===========
+Command exited with non-zero status 1
+elapsed 2201.94 s maxrss 13305560 kB

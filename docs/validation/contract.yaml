@@ -40,15 +40,19 @@ verdicts:
   - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
     class: physics
     verdict: rejected
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/run_s7_torsion.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
     arbiters:
-      - {kind: published_numerical, label: "BeamDyn blade deck K[5,5] of the official IEA 15 MW turbine, integrated by our own Timoshenko torsion integral"}
+      - {kind: reference_model, label: "BeamDyn blade deck K[5,5] of the official IEA 15 MW turbine (v1.1), integrated by our own Timoshenko torsion integral"}
     note: >-
-      B3-2 batch 1 (criterion K1-K6, odd/tasks/validation-l3-b3-audit.md, fixed before this
+      L3 store pass 1 (2026-10-27, `regression --group 34 --write`, SLURM 11625624): ratio 1.07171 at
+      es 0.25, error 7.17 %, 2.17 pp over the ceiling: rejected (K3a); was 1.0725 at d5d0fd2. The shell
+      now twists 7.2 % more than the beam (GJ soft), the side S-1 GJ reads (-10.74 % signed). Arbiter
+      reclassified to reference_model by the maintainer (l3-closure L12 (1)); the K[5,5] integral that
+      turns the deck into a twist is still our own code. Earlier record: B3-2 batch 1 (criterion K1-K6, odd/tasks/validation-l3-b3-audit.md, fixed before this
       verdict). Bound 0.30 -> 0.05 at 19ff1a3. Ratio 0.909073 at es 0.25 on the OML skin
       (`regression --write`, SLURM 11619654; reproduces the B3-1r head value), error 9.09 %, 4.09 pp
       over the ceiling: rejected (K3a). The shell twists 9.1 % less than the beam. Replaces the
@@ -2195,7 +2199,9 @@ verdicts:
       decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): the row fails
       its own declared comparison and could not have validated by passing. Replaces the `trusted`
       at 01d8805, which was measured on the OML skin and leaned on Bernardi 2025, whose blade version
-      is unverified. Follow-up: re-point the reference to a v1.1 source or drop the row.
+      is unverified. Follow-up: re-point the reference to a v1.1 source or drop the row. Dropped
+      2026-10-27: the maintainer chose to drop V-02 (odd/tasks/l3-closure.md L12 (2)); group 32 is on
+      no level, and this verdict is kept as the record.
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
     class: physics
     verdict: rejected
@@ -2208,99 +2214,126 @@ verdicts:
       blade, not an arbiter). Replaces the `rejected` at 01d8805 (OML, 10 % bound, +9.05 %). The
       S-4 parked 1E on the same mesh sits +0.20 % from OpenFAST BeamDyn p20 and -5.98 % from
       ElastoDyn: the deck disagreement, not this reference, is where the edgewise question lives.
+      Dropped with 1F, 2026-10-27 (L12 (2)); group 32 is on no level.
   - target: blade_sectional_distribution.s1_sectional_edgewise_ei
     class: physics
     verdict: rejected
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: published_numerical, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
+      - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
-      Mid-span mean |rel err| 12.71 % (signed -12.12 %, n=32), 7.71 pp over the ceiling (K3a).
+      L3 store pass 1 (2026-10-27, logs/check/l3/store-pass1/pyt-dump25.txt / pyt-dump125.txt, SLURM
+      11625628 / 11625627): mid-span mean |rel err| 8.01 % at es 0.25, 8.34 % at es 0.125 (signed -1.89
+      / -1.92 %, n=32), move 0.33 pp, converged (K7.2); 3.34 pp over the ceiling (K7.3). The small
+      signed mean against an 8 % absolute one says the error changes sign along the span. Arbiter
+      reclassified to reference_model (l3-closure L12 (1)). Earlier record: mid-span mean |rel err|
+      12.71 % (signed -12.12 %, n=32), 7.71 pp over the ceiling (K3a).
   - target: blade_sectional_distribution.s1_sectional_flapwise_ei
     class: physics
-    verdict: rejected
-    audited_rev: 9f72c6b
+    verdict: trusted
+    audited_rev: f1c9e91
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: published_numerical, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
+      - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
-      Mid-span mean |rel err| 5.31 % at es 0.125 (signed +4.09 %, n=32); the es 0.25 control
+      L3 store pass 1 (2026-10-27, logs/check/l3/store-pass1/pyt-dump25.txt / pyt-dump125.txt, SLURM
+      11625628 / 11625627): mid-span mean |rel err| 4.53 % at es 0.25, 4.86 % at es 0.125 (signed +3.87
+      / +4.61 %, n=32), move 0.33 pp, converged (K7.2); 0.14 pp inside the ceiling (K7.3): trusted, with
+      the thinnest margin in L3 and refinement moving it toward the ceiling (shell stiffer in flap).
+      Arbiter reference_model (L12 (1)). Earlier record: mid-span mean |rel err| 5.31 % at es 0.125 (signed +4.09 %, n=32); the es 0.25 control
       reproduces 5.17 % exactly and the move is 0.14 pp, inside the 1 pp envelope (K7.2), so 5.31 % is
       the converged value and 0.31 pp over the ceiling (K7.3). SLURM 11619975, 11619956.
   - target: blade_sectional_distribution.s1_sectional_mass
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: published_numerical, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
+      - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
-      Mid-span mean |rel err| 2.23 % (signed +0.73 %, n=31), 2.77 pp inside the ceiling (K3c). Single
+      L3 store pass 1 (2026-10-27, logs/check/l3/store-pass1/pyt-dump25.txt / pyt-dump125.txt, SLURM
+      11625628 / 11625627): mid-span mean |rel err| 3.54 % at es 0.25, 3.64 % at es 0.125 (signed +2.26
+      / +2.45 %, n=32), move 0.10 pp; 1.36 pp inside (K7.3). Arbiter reference_model (L12 (1)), so the
+      row is now arbitrated. Earlier record: mid-span mean |rel err| 2.23 % (signed +0.73 %, n=31), 2.77 pp inside the ceiling (K3c). Single
       published numerical arbiter: the contract reports it unarbitrated (level open).
   - target: blade_sectional_distribution.s1_sectional_gj
     class: physics
     verdict: rejected
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: published_numerical, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
+      - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
-      Mid-span mean |rel err| 6.22 % (signed -4.55 %, n=32), 1.22 pp over the ceiling (K3a).
+      L3 store pass 1 (2026-10-27, logs/check/l3/store-pass1/pyt-dump25.txt / pyt-dump125.txt, SLURM
+      11625628 / 11625627): mid-span mean |rel err| 10.74 % at es 0.25, 10.70 % at es 0.125 (signed
+      -10.74 / -10.70 %, n=32, the shell is softer at every station), move 0.04 pp, converged; 5.70 pp
+      over the ceiling (K7.3). Was 10.18 % at d5d0fd2 before the twist-read fixes d81931b/a4b3ca2.
+      Agrees in sign with S-7 (ratio 1.0717). Core-torsion investigation: odd/tasks/core-torsion.md.
+      Arbiter reference_model (L12 (1)). Earlier record: mid-span mean |rel err| 6.22 % (signed -4.55 %, n=32), 1.22 pp over the ceiling (K3a).
   - target: blade_sectional_distribution.s1_sectional_ea
     class: physics
     verdict: rejected
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: published_numerical, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
+      - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
-      Mid-span mean |rel err| 7.59 % (signed +7.57 %, n=32), 2.59 pp over the ceiling (K3a).
+      L3 store pass 1 (2026-10-27, logs/check/l3/store-pass1/pyt-dump25.txt / pyt-dump125.txt, SLURM
+      11625628 / 11625627): mid-span mean |rel err| 6.68 % at es 0.25, 6.83 % at es 0.125 (signed +6.56
+      / +6.72 %, n=32), move 0.15 pp, converged; 1.83 pp over the ceiling (K7.3). EA has no torque path
+      (S3). Arbiter reference_model (L12 (1)). Earlier record: mid-span mean |rel err| 7.59 % (signed +7.57 %, n=32), 2.59 pp over the ceiling (K3a).
   - target: blade_static_prescribed.s2_official_lc1_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
-      Tip uy -2.066107 m vs OpenFAST BeamDyn p60 -2.231483 m: -7.41 % at es 0.25, -7.20 % at es 0.125
-      (move 0.21 pp, converged, K9.2). Shell stiffer than BeamDyn by 7 %, 2.2 pp over the ceiling
-      (K9.3). Supersedes the in-house beam comparison (5.53 %), whose geometry came from the shell
-      mesh. Open: shell vs BD load-wrench equivalence (T4).
+      L3 store pass 1 (odd/tasks/l3-closure.md L12, 2026-10-27). Tip uy -2.114143 m vs OpenFAST BeamDyn
+      p60 -2.231483 m: -5.26 % at es 0.25 (SLURM 11625457), -5.28 % at es 0.125 (SLURM 11625461), move
+      0.02 pp, converged (K9.2); 0.28 pp over the ceiling (K9.3). The shell is still stiffer than
+      BeamDyn. Was -7.41 / -7.20 % at 9f72c6b: the blade input audit T9 tree (yaml webs, laminate per
+      row, T14/T15) closed 2.1 pp. Logs: logs/check/l3/store-pass1/pyt-s2*.txt. Open: shell vs BD
+      load-wrench equivalence (T4).
   - target: blade_static_prescribed.s2_official_lc2_tip_displacement
     class: physics
     verdict: undecided
-    audited_rev: 2eab2c6
+    audited_rev: f1c9e91
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
-      Tip uy 79.245028 m vs OpenFAST BeamDyn p60 82.273278 m: -3.68 % at es 0.25, -4.05 % at es 0.125
+      L3 store pass 1 (2026-10-27): tip node uy 80.186786 m vs 82.273278 m, -2.54 % at es 0.25 (SLURM
+      11625457); 79.345318 m, -3.56 % at es 0.125 (SLURM 11625461); move 1.02 pp, outside the 1 pp
+      envelope, and the shell gets softer with refinement. The maintainer chose the tip-ring mean as
+      the S-2 metric (l3-closure L12 (4)); the row stays undecided until the test asserts it (pass 2).
+      Earlier record: tip uy 79.245028 m vs OpenFAST BeamDyn p60 82.273278 m: -3.68 % at es 0.25, -4.05 % at es 0.125
       (move 0.37 pp). Inside 5 % but not a clean metric: node and ring tip uy differ 9-11 % from the
       local introduction of 1 MN over 16 cap nodes, which a beam does not have (T4 report). Printed,
       not asserted; stays undecided until measured on an inboard section or with a distributing tip
@@ -2308,27 +2341,33 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
-      Tip uy 8.498809 m vs OpenFAST BeamDyn p60 9.062631 m: -6.22 % at es 0.25, -6.24 % at es 0.125
-      (move 0.02 pp, converged, K9.2). 1.22 pp over the ceiling (K9.3). Supersedes the in-house beam
-      comparison (12.58 %). Open: shell vs BD load-wrench equivalence (T4).
+      L3 store pass 1 (2026-10-27). Tip uy 8.565719 m vs OpenFAST BeamDyn p60 9.062631 m: -5.48 % at es
+      0.25 (SLURM 11625457), -5.90 % at es 0.125 (8.528136 m, SLURM 11625461), move 0.42 pp, converged
+      (K9.2); 0.90 pp over the ceiling (K9.3). Finding: refinement moves the shell away from BeamDyn
+      (stiffer), as it does for LC1 (0.02 pp) and LC2 (1.02 pp), so the residual is not discretisation.
+      Was -6.22 / -6.24 % at 9f72c6b. Open: shell vs BD load-wrench equivalence (T4).
   - target: blade_rotating_modes.s4_parked_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: ed4acfe
+    audited_rev: f1c9e91
     files:
       - tools/run_s4_rotating_modal.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
     note: >-
-      Judged against OpenFAST v5.0.0 BeamDyn p20 on the official deck, which arbitrates blade
+      L3 store pass 1 (2026-10-27, SLURM 11625458, logs/check/l3/store-pass1/pyt-s4.txt) at es 0.25 vs
+      BeamDyn p20: 1F 0.518922 vs 0.507083 Hz +2.33 %, 1E 0.697231 vs 0.693376 Hz +0.56 %, 2F 1.483824
+      vs 1.480900 Hz +0.20 %; every value at least 2.6 pp inside the ceiling (K3c), no es 0.125 needed.
+      Moves since ed4acfe (input audit T9 tree): 1F -1.09, 1E +0.36, 2F -1.60 pp. ElastoDyn MBC3
+      (comparison): -4.61 / -5.65 / -7.84 %. Earlier record: judged against OpenFAST v5.0.0 BeamDyn p20 on the official deck, which arbitrates blade
       frequencies (K8.2); ElastoDyn MBC3 is printed as a comparison only. Per family vs BeamDyn at es
       0.25 / 0.125: 1F +3.42 / +3.31 %, 1E +0.20 / +0.29 %, 2F +1.80 / +1.66 %; every move is <= 0.14
       pp (K7.2) and every value is inside 5 % (K7.3). ElastoDyn disagrees with BeamDyn by 6-8 % on
@@ -2337,7 +2376,7 @@ verdicts:
   - target: blade_rotating_modes.s4_rated_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: ed4acfe
+    audited_rev: f1c9e91
     files:
       - tools/run_s4_rotating_modal.py
       - tools/bd_rotating_freevib.py
@@ -2346,7 +2385,13 @@ verdicts:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0 (rated 1E)"}
     note: >-
-      7.56 rpm vs BeamDyn p20 MBC3: 1F +2.83 %, 2F +1.62 % at es 0.25 (K8.2), reproduced at 2eab2c6
+      L3 store pass 1 (2026-10-27, SLURM 11625458) at 7.56 rpm, es 0.25: 1F 0.541819 vs 0.532003 Hz
+      +1.85 % (BeamDyn p20 MBC3), 1E 0.702508 vs 0.699413 Hz +0.44 % (BeamDyn driver), 2F 1.508960 vs
+      1.508057 Hz +0.06 % (MBC3); all >= 3.1 pp inside (K3c). Centrifugal shift parked -> rated, ours
+      vs BeamDyn: 1F +0.02290 vs +0.02492 Hz (-8.1 % of the shift), 1E +0.00528 vs +0.00604 Hz
+      (-12.6 %), 2F +0.02514 vs +0.02716 Hz (-7.4 %); the MBC3 1F/2F carry HubRad 3.97 m (K10.4, worth
+      +0.21 / +0.08 % of frequency, about half of the 1F shift deficit). No row asserts the shift yet
+      (gap rotating_modal_shift). Earlier record: 7.56 rpm vs BeamDyn p20 MBC3: 1F +2.83 %, 2F +1.62 % at es 0.25 (K8.2), reproduced at 2eab2c6
       (SLURM 11621312). Rated 1E vs the BeamDyn driver (dynamic free vibration, K10): +0.121 % es 0.25,
       +0.204 % es 0.125 (SLURM 11621097), move 0.08 pp <= 1 pp -> trusted (K10.5). The driver passes
       the K10.2 gate (uniform and box beams: parked <= 0.01 %, Southwell K <= 2.8 %) and K10.3 on this
@@ -2357,13 +2402,16 @@ verdicts:
   - target: blade_total_mass.v03_assembled_mass_vs_tabular
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: published_numerical, label: "IEA-15-240-RWT tabular xlsx declared blade mass, 67,921 kg"}
     note: >-
-      Assembled mass 66,682.346 kg vs 67,921 kg: -1.82 %, 3.18 pp inside the ceiling (K3c). Single
+      L3 store pass 1 (2026-10-27, SLURM 11625459, logs/check/l3/store-pass1/pyt-mass.txt): assembled
+      mass 67,150.0 kg vs 67,921 kg: -1.14 %, 3.86 pp inside the ceiling (K3c); +468 kg since 9f72c6b
+      (input audit T9 tree). The xlsx is not the BeamDyn deck, so the reference_model decision (L12 (1))
+      does not reach it. Earlier record: 66,682.346 kg, -1.82 %. Single
       published numerical arbiter (deck integrals of the same pipeline are not independent of it): the
       contract reports it unarbitrated (level open).
 
@@ -2572,7 +2620,7 @@ verdicts:
   - target: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
     class: identity
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: f1c9e91
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA15MW/reference/IEA-15-240-RWT_ElastoDyn_blade.dat
@@ -2581,6 +2629,8 @@ verdicts:
       BeamDyn transcription 4.605e10 (0.0023 %, bound 1 %), GKt 8.748569e10 vs 8.749e10 (0.0049 %, bound 1 %), decoupled EIxp vs
       ElastoDyn FlpStff +1.92 % and EIyp vs EdgStff +1.80 % (bound 2 %), re-measured at 6318955 (logs/check/b3-2e/k11-g20-inline.log;
       same margins as e1b7da7). Not independent evidence and no physics verdict; counts as identity.
+      Restamped 2026-10-27 at f1c9e91 (`regression --group 20 --write`, SLURM 11625625): four
+      comparisons same, margins unchanged.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.0
     class: physics
     verdict: undecided
@@ -2648,7 +2698,7 @@ verdicts:
   - target: blade_structural_properties.v05_assembled_mass_vs_beam_table
     class: physics
     verdict: trusted
-    audited_rev: ed4acfe
+    audited_rev: f1c9e91
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tools/beam_reference.py
@@ -2656,19 +2706,27 @@ verdicts:
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn summary mass of the official v1.1 deck (66,934.6 kg at p60), matched by the deck integral 66,996.9 kg within 0.093 %"}
     note: >-
+      L3 store pass 1 (2026-10-27, SLURM 11625459): shell 67,150.0 kg vs 66,996.9 kg, +0.23 % at es 0.25,
+      4.77 pp inside (K3c); the sign flipped with the +468 kg of the input audit T9 tree. Earlier record:
       K11.2 (D6). Shell 66,682.3 kg vs 66,996.9 kg: -0.4695 % at es 0.25 (SLURM 11621355), -0.3529 % at es 0.125 (SLURM 11621349),
       move 0.12 pp. Honesty note: predicted before measuring (about -0.3 % from G41 and the straight-axis 66,912 kg). G41 judges the
       same shell mass against the xlsx 67,921 kg; the two official representations differ by 1.4 %.
   - target: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
     class: physics
     verdict: undecided
+    audited_rev: f1c9e91
     files:
       - tools/bd_static_reference.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 case"}
     note: >-
-      K11.3 (D7). Shell tip ux 40.310002 m vs BeamDyn p60 34.469441 m: +16.94 % at es 0.25, +17.89 % at es 0.125 (move 0.95 pp).
+      L3 store pass 1 (2026-10-27): tip node ux 38.004389 m vs 34.469441 m, +10.26 % at es 0.25 (SLURM
+      11625457), 38.413383 m +11.44 % at es 0.125 (SLURM 11625461); tip-ring mean 37.574707 m (+9.01 %) /
+      37.842245 m (+9.78 %). The maintainer chose the ring mean as the metric (l3-closure L12 (4)); on it
+      the row would be rejected by 4.8 pp, but it stays undecided until the test asserts the ring mean
+      (pass 2). The shell stays ~10 % more flexible edgewise while LC1/LC4 are 5-6 % stiffer.
+      Earlier record: K11.3 (D7). Shell tip ux 40.310002 m vs BeamDyn p60 34.469441 m: +16.94 % at es 0.25, +17.89 % at es 0.125 (move 0.95 pp).
       Node vs tip-ring mean +1.19 % / +1.14 % > 0.5 %: not a clean metric, printed, not asserted (as LC2). The size of the gap
       (shell ~17 % more flexible edgewise, while LC1/LC4 are 6-7 % stiffer) is a finding for the model investigation, not explained
       by the 1.2 % node/ring spread. Open: an LC3 metric with a distributing tip load or an inboard section.

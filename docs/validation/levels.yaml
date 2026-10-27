@@ -92,7 +92,9 @@ levels:
       - '5'
       - '20'
       - '23'
-      - '32'
+      # '32' (V-02 vs NREL/TP-5000-75698) dropped by the maintainer 2026-10-26
+      # (odd/tasks/l3-closure.md L12 (2)): the report describes the v1.0 blade,
+      # the decks and the yaml are v1.1. The rows stay in the store, on no level.
       - '34'
       - '38'
       - '39'
