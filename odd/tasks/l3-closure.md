@@ -395,6 +395,19 @@ Measured at d50d64a / f1c9e91 (f1c9e91 touches only FSI/BEM, no L3 `depends_on`)
 - Not touched (pass 2 / user): group 23 CCX audit + second arbiter, Bernardi -> p20, group 5 (prints no residual; finding),
   the two absent sx files, S-2 ring-mean metric, missing capability rows (MAC, 1T/2E, delta-f, Campbell).
 
+## Handoff 5 (2026-10-27, session 14 close)
+
+**Resume.** Read "Store pass 1 result" and this handoff; Engram `l3/store-pass1`. Branch l3/core-torsion merged to main
+(this session's PR); the full suite never completed on it (SLURM 11625408 / 11625463 TIMEOUT at 4 h, 73 % / 71 %, no
+failures beyond the three known reds up to there): a full suite on main with `--time` 8 h is pending and is the first
+check of the next session (crates/ changed: rotor_fsi.rs, rotor_physics.rs).
+**Next, pass 2, in order.** 1. S-2 ring-mean metric (L12 (4)): the test asserts the tip-ring mean for LC1-LC4, then
+LC2/LC3 verdicts (LC3 ring +9.78 % at es 0.125 -> rejected). 2. Bernardi rows -> BeamDyn p20 modes (L12 (3)). 3. Group
+23 CCX rows: audit, second arbiter p20. 4. Group 5 prints no residual: make it print, then audit (finding: fails its own
+5 % at the finest mesh). 5. Absent sx_mesh_convergence / sx_campbell: import or declare out of scope (USER). 6. Capability
+rows: delta-f centrifugal shift (ours 7-13 % below BeamDyn), MAC per mode vs p20, 1T/2E, Campbell. Then T5 (declare reds
+with torque sensitivity), T6/T7 model work per core-torsion.md.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -410,3 +423,4 @@ Measured at d50d64a / f1c9e91 (f1c9e91 touches only FSI/BEM, no L3 `depends_on`)
 - L11 (2026-10-26, session 13) User: "si, eso que me estas proponiendo es lo que yo crei que estavamos haciendo desde que desarrolle el store de pruebas de validacion" and "ok puedes empezar con eso en paralelo?". Parent: L3 is closed from the store contract (restamp stale, audit unaudited, decide undecided, second arbiter CalculiX where single, missing capability rows such as mode shapes); store snapshot 2026-10-26: L1 closed (157 trusted), L2 closed (79), L3 open (undecided 10, stale 15, unaudited 9, absent 2, 28 single/no arbiter, 1 blocking gap), L4 open (20 stale), L5 open and blocked (unaudited 11, absent 8; one row touches coupling code). Core-torsion findings in `odd/tasks/core-torsion.md`. Read-only action map launched (explore).
 - L12 (2026-10-26, session 13) User decisions on the store action map, verbatim choices: (1) BeamDyn deck class: "reference_model en todas (recomendado)"; (2) V-02: "Darla de baja (recomendado)"; (3) group 23: "Bajarlas; Bernardi re-apuntado a p20 (recomendado)"; (4) S-2 metric: "Media del anillo de punta (recomendado)". Parent: pass 1 (measure at HEAD without --write, es 0.125 runs in the 1 pp band, new K3 verdicts, deck reclassified, V-02 and UTD/Escalera rows dropped, group 20 restamp, gap rotating_modal_shift bounded) by a worker; pass 2 (S-2 ring-mean metric, Bernardi -> p20, missing capability rows) after.
 - L13 (2026-10-27, session 14) User: "ya terminaron las tareas del hpc vamos a continuar cerrando l3". Parent: read the 12 pass-1 jobs, ran the S-1 metric dump at es 0.25 / 0.125 and `regression --write` for groups 20 and 34, wrote the pass-1 verdicts, bounded `rotating_modal_shift`, applied the L12 drops (section "Store pass 1 result").
+- L14 (2026-10-27, session 14) User: "si mezcla todo y vamos a otra sesion"; chose "Mergear ya (recomendado: dejo la falta escrita)" over running the full suite first. Parent: merged l3/core-torsion with the incomplete full suite recorded (Handoff 5).
