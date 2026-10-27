@@ -125,6 +125,18 @@ def run_name(case, order, scale, nodes=()):
     return f'{case}-p{order}-s{scale:g}' + ('-nodes' if nodes else '')
 
 
+def reference_points(path):
+    """Initial (x, y, z) of the BeamDyn motion-mesh nodes from the init VTK (``WrVTK`` 1), BD axes."""
+    text = path.read_text()
+    block = re.search(r'<Points>\s*<DataArray[^>]*>(.*?)</DataArray>', text, flags=re.S)
+    if block is None:
+        raise ValueError(f'no Points block in {path}')
+    values = [float(v) for v in block[1].split()]
+    if len(values) % 3:
+        raise ValueError(f'Points block of {path} is not 3 x n')
+    return [tuple(values[i:i + 3]) for i in range(0, len(values), 3)]
+
+
 def build(case, order, scale, nodes=()):
     name = run_name(case, order, scale, nodes)
     target = INPUTS / name
@@ -199,6 +211,22 @@ def main():
                   'tip_bd_m': tip, 'linear_shell_uy_m': tip['TipTDxr'] / args.scale,
                   'linear_shell_ux_m': -tip['TipTDyr'] / args.scale,
                   'binary': str(BINARY), 'geometry': str(GEOMETRY), 'properties': str(PROPERTIES)}
+        if nodes:
+            values = parse_output((output / 'driver.out').read_text(), node_channels(nodes))
+            points = reference_points(output / 'driver.BD_BldMotion_Reference.vtp')
+            if len(points) != args.order + 1:
+                raise ValueError(f'expected {args.order + 1} FE nodes in the reference mesh, got {len(points)}')
+            record['nodes'] = []
+            for k, node in enumerate(nodes, start=1):
+                td = [values[f'N{k}TD{a}r'] for a in 'xyz']
+                record['nodes'].append({'node': node, 'bd_xyz_init': points[node - 1], 'z': points[node - 1][2],
+                                        'td_bd_m': td, 'linear_shell_uy_m': td[0] / args.scale,
+                                        'linear_shell_ux_m': -td[1] / args.scale})
+            # Gauss quadrature: output nodes are FE nodes, so the last one is the tip (predeclared check)
+            last = record['nodes'][-1] if nodes[-1] == args.order + 1 else None
+            if last is not None and any(abs(a - tip[c]) > 1e-9 * max(1.0, abs(tip[c]))
+                                        for a, c in zip(last['td_bd_m'], CHANNELS, strict=True)):
+                raise ValueError('output node order_elem+1 does not reproduce TipTD*: nodes are not FE nodes')
         (output / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
         print(json.dumps(record))
 
