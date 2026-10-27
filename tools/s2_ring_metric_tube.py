@@ -106,8 +106,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--length", type=float, default=tube.LENGTH)
     ap.add_argument("--force", type=float, default=1.0e6)
+    ap.add_argument("--es", type=float, default=tube.ES, help="element size around and along [m]")
     ap.add_argument("--case", nargs="*", default=list(CASES), choices=list(CASES))
     args = ap.parse_args()
+    tube.ES = args.es  # ring_points and build_tube read the module constant
     for name in args.case:
         run(name, args.length, args.force)
 

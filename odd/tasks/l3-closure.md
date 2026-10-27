@@ -459,6 +459,38 @@ P4 (both blades): the 3.4 shows the same signs as the 15 for P2-P3. No verdict v
 verdicts are written after the metric decision (L12(4) revisited with these numbers).
 BeamDyn linearity gate (as K9): the two scales agree within 0.1 % per case, else that case has no 3.4 reference.
 
+## T10b RESULT (2026-10-27; SLURM 11625682-85 shell, 11625690 BeamDyn 3.4; `logs/check/l3/t10b/*.json|log`,
+`logs/check/bd_static/iea34/*/result.json`; tube refinement `logs/check/l3/t10a/L20-es*.log`)
+
+Signed error vs BeamDyn p60, node / tip-ring mean / sv (`saint_venant_tip`):
+
+| blade es | LC1 gravity | LC2 tip flap | LC3 tip edge | LC4 distributed |
+|---|---|---|---|---|
+| 15, 0.25 | -5.26 / -5.04 / -5.33 | -2.54 / +1.83 / +0.41 | +10.26 / +9.01 / +8.49 | -5.48 / -5.06 / -5.76 |
+| 15, 0.125 | -5.28 / -5.07 / -5.18 | -3.56 / +3.09 / +0.94 | +11.44 / +9.78 / +9.02 | -5.90 / -5.46 / -5.74 |
+| 3.4, 0.25 | +1.96 / +1.96 / +1.96 | +18.25 / +20.78 / +20.64 | +5.94 / +4.91 / +4.78 | -0.02 / +0.23 / +0.23 |
+| 3.4, 0.125 | +2.04 / +2.05 / +2.05 | +15.37 / +19.18 / +17.59 | +6.92 / +6.30 / +5.97 | -0.50 / -0.27 / -0.41 |
+
+BeamDyn 3.4 linearity gate: scales 1e-4 / 2e-4 agree within 0.04 % (LC2), < 0.001 % otherwise: PASS.
+- P1 **refuted**: `sv_far / sv` reaches -2.5 % (15 LC4 0.125), -1.9 % (15 LC3), +1.6 % (3.4 LC2 0.125). The arithmetic
+  ring mean steps where the ring node count changes (20 -> 26 nodes on the 15; same mechanism as core-torsion C6), and
+  the cubic extrapolation amplifies the steps. `sv` is not admissible on the blades as built.
+- P2 partly held: LC1 / LC4 ring vs sv within 0.3 % except 15 LC4 es 0.25 (+0.74 %).
+- P3 held on both blades: LC2 / LC3 ring above sv in all 8 (+0.1..+2.1 %), and the node-vs-ring spread grows with
+  refinement (15 LC2 node -2.5 -> -3.6 %, ring +1.8 -> +3.1 %). P4 held (same signs on the 3.4).
+- Theory (tube L 20, es 0.25 -> 0.125): circle tip-ring mean +0.40 -> +1.00 % vs closed form, node vs ring -0.89 ->
+  -1.26 %, ring 2 depths inboard -0.25 -> -0.04 %. Equal nodal forces are point loads on a Reissner-Mindlin shell
+  (local deflection log-singular): the tip-ring term grows under refinement while the interior converges. This is a
+  candidate cause of the pass-1 finding "refinement moves every S-2 case away from BeamDyn" for the tip-load cases;
+  LC1 (consistent body force) moves 0.02 pp only.
+- **Verdicts do not depend on the metric** (15, es 0.125, K3): LC1 rejected (5.07-5.28), LC2 in band (0.94-3.56),
+  LC3 rejected (9.0-11.4), LC4 rejected (5.46-5.90) under node, ring and sv. The metric moves LC2 / LC3 by up to 4 pp.
+- **Second-blade finding**: IEA-3.4 LC2 (tip flap) +15..+21 % softer than its BeamDyn, while its LC1 / LC4 flap agree
+  within 2 %; the 15 shows the opposite pattern (distributed flap stiff 5-6 %, tip flap in band). Tip loads weight the
+  outboard stiffness, distributed loads the inboard: the 3.4 outboard flap is soft (cf. T9c modes refuted). Not chased.
+- Slice note: commit 9814a37 is 322 authored lines; the other 1852 are generated BeamDyn inputs (precedent: the 15's
+  s1e-4 decks are tracked, other scales are not).
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
