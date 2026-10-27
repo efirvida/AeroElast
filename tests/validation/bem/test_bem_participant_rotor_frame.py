@@ -10,7 +10,8 @@ reads the fluid forces as global, applying ``forces_to_rotating`` = ``R^T``.
 The BEM participant works in the rotating (blade) frame, so with an inertial
 partner it must un-rotate what it reads and rotate back what it writes.  These
 tests pin the rotation sense against Rust, the round trip in both directions,
-and that the boundary helpers act only when ``partner_frame == "inertial"``.
+and that the boundary helpers always transform (the partner is always corotational,
+``partner_frame: rotating`` is rejected; see ``rotor/test_bem_partner_frame.py``).
 No preCICE, CCBlade or Rust backend is needed.
 """
 
@@ -70,7 +71,8 @@ def test_force_round_trip(axis, theta):
 def _bare_participant(partner_frame, omega=0.8, frame_theta=1.1, azimuth_deg=200.0):
     """A participant with only the frame state set (no mesh, preCICE or CCBlade)."""
     p = object.__new__(fp.BEMFSIParticipant)
-    p._partner_frame = fp._parse_partner_frame({"partner_frame": partner_frame})
+    cfg = {} if partner_frame is None else {"partner_frame": partner_frame}
+    p._partner_frame = fp._parse_partner_frame(cfg)
     p._rotation_axis = fp._parse_rotation_axis({})
     p._current_omega = omega
     p._frame_theta = frame_theta
@@ -78,7 +80,7 @@ def _bare_participant(partner_frame, omega=0.8, frame_theta=1.1, azimuth_deg=200
     return p
 
 
-def test_boundary_helpers_transform_only_for_inertial_partner():
+def test_boundary_helpers_always_transform():
     dt = 0.01
     omega, theta0 = 0.8, 1.1
     theta_end = theta0 + omega * dt  # Rust's theta_target
@@ -89,9 +91,9 @@ def test_boundary_helpers_transform_only_for_inertial_partner():
     f_written = inertial._forces_to_partner(VECS, dt)
     np.testing.assert_allclose(f_written @ _rust_rotation(AXIS_Y, theta_end), VECS, atol=1e-12)
 
-    rotating = _bare_participant("rotating", omega=omega, frame_theta=theta0)
-    np.testing.assert_array_equal(rotating._displacements_from_partner(VECS, dt), VECS)
-    np.testing.assert_array_equal(rotating._forces_to_partner(VECS, dt), VECS)
+    default = _bare_participant(None, omega=omega, frame_theta=theta0)
+    np.testing.assert_allclose(default._displacements_from_partner(u_read, dt), VECS, atol=1e-12)
+    np.testing.assert_allclose(default._forces_to_partner(VECS, dt), f_written, atol=1e-12)
 
 
 def test_frame_angle_ignores_bem_azimuth_offset():
@@ -101,10 +103,12 @@ def test_frame_angle_ignores_bem_azimuth_offset():
 
 
 def test_partner_frame_default_and_validation():
-    assert fp._parse_partner_frame({}) == "rotating"
+    assert fp._parse_partner_frame({}) == "inertial"
     assert fp._parse_partner_frame({"partner_frame": "Inertial"}) == "inertial"
     with pytest.raises(ValueError, match="partner_frame"):
         fp._parse_partner_frame({"partner_frame": "global"})
+    with pytest.raises(ValueError, match="corotational"):
+        fp._parse_partner_frame({"partner_frame": "rotating"})
     np.testing.assert_allclose(fp._parse_rotation_axis({}), AXIS_Y)
     np.testing.assert_allclose(fp._parse_rotation_axis({"rotation_axis": [0, 0, 2]}), [0, 0, 1])
     with pytest.raises(ValueError, match="rotation_axis"):

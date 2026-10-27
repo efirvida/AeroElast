@@ -164,6 +164,19 @@ fit on a non-rigid section); smoothing the last 3 strips moves torque -0.05..-0.
 ring fit (arc-length weighting) would shift T4; not started. C5 table unchanged by the fix.
 Note: the src fix landed while the full suite 11625408 was running (after collection); C1 measures 4809427+docs.
 
+## C8 D1 result (worker; not a measurement of past runs)
+
+`BEMFSIParticipant` always un-rotates read displacements and rotates written forces with R(theta_end) (the Rust
+corotational convention); `partner_frame: inertial` accepted and default; `rotating` rejected at load with the reason.
+RED 6 failed / 4 passed -> GREEN (`tests/validation/rotor/test_bem_partner_frame.py`: Rust R^T recovers F_rot and u at
+90 / 180 deg); participant + NaN tests 65 passed; deformed-geometry, torque-sense-vs-OpenFAST, wall-flow 18 passed;
+quick OK. Updated `tests/validation/bem/test_bem_participant_rotor_frame.py` (3 places relied on the rotating default).
+**Inventory: 67 BEM fluid YAMLs; 65 omitted `partner_frame` and so ran untransformed against the corotational
+solver** (29 dirs Rotor-only, e.g. `IEA15MW/frontiersin_2025_yaw`, `convergence_b1_b2`, `parked_v50`, `ab_test`,
+`smoke_fix/*`, `exp_*`, `zeta_sweep`; 37 dirs mixed with the inertial solver, e.g. `IEA15MW/ch6_prepared_cases`).
+**Every coupled BEM run made from those cases before this commit is suspect** (torque ~cos theta, BEM geometry
+from mixed u_x/u_z) and needs re-running before it is evidence.
+
 ## Log
 
 - L1 (2026-10-26) User: S1 verbatim (during the PR of l3/twist-p1, merged as #68 / 3a2d222).
