@@ -18,6 +18,11 @@
 # or pytest could not start. A known-red failure alone is exit 0 — that is the point of the
 # registry — but it is always printed.
 #
+# A skipped test is not a passing one. A full run or any --record needs .sources/ (the
+# reference decks; a9ca498 was recorded without it and three red guards read as green), and
+# --record also writes scripts/known-skip-<mode>.txt: a test outside it that skips is NEW-SKIP
+# (exit 1), because a test that ran before no longer runs.
+#
 # This is a smoke gate. It does not replace the physical validation anchors (S-2, S-4,
 # S-5, S-7) or a full-suite measurement before a merge.
 
@@ -48,7 +53,7 @@ QUICK_TESTS=(
 # Machine-readable pytest: the project addopts (`-v --tb=short`) triples the output of a
 # passing run and prints the per-test list nobody acts on. `--disable-warnings` drops the
 # summary block; the warning count still appears in the final line.
-PYTEST_OPTS=(-o addopts="" -q --tb=line --disable-warnings -p no:cacheprovider)
+PYTEST_OPTS=(-o addopts="" -q --tb=line --disable-warnings -p no:cacheprovider -rfEs --no-fold-skipped)
 
 mode=""
 record=0
@@ -58,7 +63,7 @@ for arg in "$@"; do
         --record) record=1 ;;
         --list) mode="list" ;;
         -h | --help)
-            sed -n '3,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '3,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -68,23 +73,38 @@ for arg in "$@"; do
     esac
 done
 mode="${mode:-quick}"
-KNOWN_RED="$REPO_ROOT/scripts/known-red-$mode.txt"
+# CHECK_REGISTRY_DIR and CHECK_SELECTION let tests/software/test_check_sources_guard.py run the
+# gate on a scratch registry and a two-test file; they are not for everyday use.
+REGISTRY_DIR="${CHECK_REGISTRY_DIR:-$REPO_ROOT/scripts}"
+KNOWN_RED="$REGISTRY_DIR/known-red-$mode.txt"
+KNOWN_SKIP="$REGISTRY_DIR/known-skip-$mode.txt"
 
-read_known_red() {
-    [ -f "$KNOWN_RED" ] || return 0
-    sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$KNOWN_RED" | grep -v '^$' || true
+read_registry() {
+    [ -f "$1" ] || return 0
+    sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$1" | grep -v '^$' || true
 }
+read_known_red() { read_registry "$KNOWN_RED"; }
 
 if [ "$mode" = "list" ]; then
     echo "quick selection (${#QUICK_TESTS[@]} files):"
     printf '  %s\n' "${QUICK_TESTS[@]}"
     echo
-    for candidate in "$REPO_ROOT"/scripts/known-red-*.txt; do
+    for candidate in "$REGISTRY_DIR"/known-red-*.txt "$REGISTRY_DIR"/known-skip-*.txt; do
         [ -f "$candidate" ] || continue
         echo "$(basename "$candidate"):"
-        KNOWN_RED="$candidate" read_known_red | sed 's/^/  /'
+        read_registry "$candidate" | sed 's/^/  /'
     done
     exit 0
+fi
+
+# ---- reference data -------------------------------------------------------------------
+# The BeamDyn/ElastoDyn decks sit in the git-ignored .sources/, which a worktree does not
+# have. Without it the reference tests skip, so a full measurement or a recorded registry
+# would be silently incomplete.
+SOURCES_DIR="${CHECK_SOURCES_DIR:-$REPO_ROOT/.sources}"
+if [ ! -d "$SOURCES_DIR" ] && { [ "$mode" = "full" ] || [ "$record" = "1" ]; }; then
+    echo "check: FAIL — $SOURCES_DIR is missing: the reference decks live there, so every test that needs one would skip and a full run or --record would read it as passing; link it (ln -s <main tree>/.sources) and rerun" >&2
+    exit 2
 fi
 
 log="$LOG_DIR/$mode-$(date +%Y%m%dT%H%M%S).log"
@@ -151,7 +171,9 @@ mkdir -p "$CHECK_TMP"
 export TMPDIR="$CHECK_TMP"
 
 # ---- pytest ---------------------------------------------------------------------------
-if [ "$mode" = "quick" ]; then
+if [ -n "${CHECK_SELECTION:-}" ]; then
+    read -ra selection <<<"$CHECK_SELECTION"
+elif [ "$mode" = "quick" ]; then
     selection=("${QUICK_TESTS[@]}")
 else
     selection=(tests/)
@@ -176,6 +198,11 @@ while IFS= read -r line; do
     [ -n "$line" ] && error_ids+=("${line#ERROR }")
 done < <(grep -E '^ERROR ' "$log" | sort -u || true)
 
+skipped_ids=()
+while IFS= read -r line; do
+    [ -n "$line" ] && skipped_ids+=("$line")
+done < <(grep -E '^SKIPPED ' "$log" | sed -e 's/^SKIPPED //' -e 's/ - .*$//' | sort -u || true)
+
 # ---- record ---------------------------------------------------------------------------
 # Record before classifying: a recorded run must not also report its own entries as new.
 if [ "$record" = "1" ]; then
@@ -188,6 +215,14 @@ if [ "$record" = "1" ]; then
         printf '%s\n' ${failed_ids[@]+"${failed_ids[@]}"}
     } >"$KNOWN_RED"
     echo "check[$mode]: recorded ${#failed_ids[@]} known-red entry(ies) in ${KNOWN_RED#"$REPO_ROOT"/}"
+    {
+        echo "# Known-skip registry for scripts/check.sh (mode: $mode)."
+        echo "# Re-derived automatically by: scripts/check.sh $mode --record"
+        echo "# Recorded: $(date -Iseconds) at revision $revision"
+        echo "# A test outside this list that skips is NEW-SKIP. Never hand-edit to make a run green."
+        printf '%s\n' ${skipped_ids[@]+"${skipped_ids[@]}"}
+    } >"$KNOWN_SKIP"
+    echo "check[$mode]: recorded ${#skipped_ids[@]} known-skip entry(ies) in ${KNOWN_SKIP#"$REPO_ROOT"/}"
 fi
 
 # ---- classify -------------------------------------------------------------------------
@@ -210,6 +245,20 @@ while IFS= read -r id; do
     printf '%s\n' ${failed_ids[@]+"${failed_ids[@]}"} | grep -qxF -- "$id" || healed+=("$id")
 done <<<"$known"
 
+# Skips are classified only against a recorded registry; without one they are just counted.
+new_skips=()
+unskipped=()
+if [ -f "$KNOWN_SKIP" ]; then
+    known_skip="$(read_registry "$KNOWN_SKIP")"
+    for id in ${skipped_ids[@]+"${skipped_ids[@]}"}; do
+        printf '%s\n' "$known_skip" | grep -qxF -- "$id" || new_skips+=("$id")
+    done
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        printf '%s\n' ${skipped_ids[@]+"${skipped_ids[@]}"} | grep -qxF -- "$id" || unskipped+=("$id")
+    done <<<"$known_skip"
+fi
+
 # ---- report ---------------------------------------------------------------------------
 echo "check[$mode]: ruff: $ruff_status"
 echo "check[$mode]: $(printf '%s\n' "$mesh_out" | tail -1)"
@@ -226,6 +275,12 @@ for id in ${new_failures[@]+"${new_failures[@]}"}; do
 done
 for id in ${healed[@]+"${healed[@]}"}; do
     echo "  now-passes $id   (re-record: scripts/check.sh $mode --record)"
+done
+for id in ${new_skips[@]+"${new_skips[@]}"}; do
+    echo "  NEW-SKIP   $id"
+done
+for id in ${unskipped[@]+"${unskipped[@]}"}; do
+    echo "  now-runs   $id   (re-record: scripts/check.sh $mode --record)"
 done
 
 if [ "$mesh_rc" -eq 2 ]; then
@@ -244,6 +299,10 @@ if [ "${#error_ids[@]}" -gt 0 ]; then
 fi
 if [ "${#new_failures[@]}" -gt 0 ]; then
     echo "check[$mode]: FAIL — ${#new_failures[@]} failure(s) outside ${KNOWN_RED#"$REPO_ROOT"/}"
+    exit 1
+fi
+if [ "${#new_skips[@]}" -gt 0 ]; then
+    echo "check[$mode]: FAIL — ${#new_skips[@]} test(s) skipped outside ${KNOWN_SKIP#"$REPO_ROOT"/} (a test that ran before no longer runs; missing reference data?)"
     exit 1
 fi
 if [ "$pytest_rc" -gt 1 ] || [ -z "$summary" ]; then
