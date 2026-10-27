@@ -14,12 +14,19 @@ Handoff 4. Branch `l3/core-torsion` from main 3a2d222.
   eta 0.65-0.85) is attributed to element or twist measure with closed-form evidence, and, if element, fixed with
   the element benchmarks (D-Tube, KO2017 3.5 twisted beam, thin tubes) and S-7 / S-4 re-measured.
 
+- S5 (user, verbatim): "es que no entiendo, yo siempre lo unico que he intercambiado desde el BEM hacia la estructura son fuerzas nodales, no se como es que ahora se intercambiamomento, la idea es recibir fuerzas nodales, porq es lo mismo que va a recibir cuando cambie el solver BEM por openfoam q entrega los vectores de fuerza en cada nodo"
+- S6 (user, verbatim): "si, pero eso que me cuentas es trabajo que tiene que hacer el solver bem a partir de los desplazamientos que recibe del solver estructural, la responsabilidad de adaptarlos a su problema es del solver aerodinamico, no del solver estrucutral, ademas ahora me viene a la zabeza que tambien hay que revisar q los marcos de referencia esten bien aplicados al hacer esas transformaciones"
+
+- S7 (user, verbatim, on how to fix D1): "el solver inercial va a ser descontinuado, el solver estructural siempre va a ser corrotacional"
+
 ## Tasks
 
 - C1 | S3 | parent | resubmitted | Baseline: full suite at d20911c (main 3a2d222 + tools/docs only) via `scripts/check_sbatch.sh full` (first try 11625395 failed: no git on the node), compare with known-red-full at a9ca498.
 - C2 | S3 S4 | parent | done (D-Tube, KO2017 green) | Collect the three symptoms with their current numbers: D-Tube torsion vs Bredt, KO2017 3.5 twisted beam (MITC4 thin, 8.5 % vs 1 %), 3.4 outboard 1.3x (`tools/l3_twist_integral.py`); IEA-15 S-7 1.072. Prediction of what an element defect vs a distortion measure would show in each.
 - C3 | S3 S4 | parent/worker | done e60b7ca: measure | Split element vs measure on the 3.4 at 0.65-0.85: rigid-fit residual per station; twist fitted on the box nodes (caps + webs) vs all nodes; element quality of the outboard rows (aspect, warp) and es 0.15 vs 0.10.
 - C4 | S3 S4 | parent/worker | done 4809427 as prismatic extrusion: core right | Tapered closed-form tube through MITC4 at es 0.15 with the 3.4 outboard perimeter, wall G t and taper (extend `tools/diagnose_s1_gj_tube.py` / `tests/test_s1_gj_tube.py`), RED first if it fails.
+- C7 | S6 | parent/explore | pending | Frame audit of the coupling transformations: structure-published displacements and received forces (frame, units), `BEMFSIParticipant._displacements_from_partner` / `_forces_to_partner` / `_frame_theta_end`, radius/twist extraction, `ForceProjector` rotor-plane frame; each step mapped to a test with an independent reference, gaps listed.
+- C8 | S6 S7 | worker (after C6) | pending | D1 fix: the BEM participant always exchanges with a corotational structure that publishes R u and reads inertial forces: remove the `rotating` partner frame (a YAML declaring it fails at load with the reason), the inertial transform is always on; RED test first (participant round trip against the Rust convention at theta = 90 / 180 deg); migrate in-tree BEM YAMLs; then D3, D2, D4 with RED tests; D5 recorded for the OpenFOAM interface.
 - C5 | S4 | parent | revised: twist-definition sensitivity done d20911c; user decision pending | If element: fix (test first), then element benchmarks, S-7, S-4 on both blades; if measure: fix the twist extraction and re-measure S-1 GJ / S-7.
 
 ## C2 result (main 3a2d222, login, 54 s; `logs/check/core-torsion/c2-benchmarks.log`, 14 passed)
@@ -121,6 +128,42 @@ definition is worth 0.25-0.46 % of rated torque (5 % acceptance; twist alone 3.2
 Side findings, not chased: the BEM prints `NaNs at 0/50` lines in this run; the tip-strip rings give erratic
 rotations in every definition. **Goes to the user** (thesis-level choice) with these numbers.
 
+## C7 result (explore, read-only, code + YAML; consequences inferred, not measured)
+
+Path: Rust rotor (rotating frame, X0 = inertial at theta 0) reads Force as **inertial** and applies R^T(theta_target)
+(`rotor_fsi.rs:799-815`), writes Displacement as R(theta_target) u, elastic only (`:955-958`); BEM participant reads u,
+un-rotates only if `partner_frame == "inertial"`, **default "rotating" = no transform** (`fsi_participant.py:275-280`,
+`:557-567`, theta_end same time level as Rust); ForceProjector Np +y, Tp +x toward the LE, torque about +y positive
+(`test_force_projection_tangential_sense.py:75-82`); pitch/cone/tilt only on the BEM side, all 0 in-tree.
+Suspected defects, by consequence for torque (parent spot-checked D1 in the code):
+- **D1** only 6 YAMLs declare `partner_frame`; the ~38 BEM cases paired with the Rust rotor solver (e.g.
+  `IEA15MW/frontiersin_2025_yaw/fluid_yaw_*.yaml`) run with the silent default: the structure receives
+  R^T(theta) F_rot (torque ~cos theta, reversed at 180 deg) and the BEM sees u_x/u_z mixed (radius, twist). No guard.
+- **D2** power/CP/CQ sign stale since T7c (Tp +x, tau_aero > 0): `rotor_physics.rs:836-845`, `rotor.py:1846-1853`,
+  `:2246-2250` negate it.
+- **D3** Python step callback rotates the already-rotating X0 again (`rotor.py:2164-2171`, `:2185`): reported torques
+  modulated ~cos theta, disagree with the Rust tau that drives omega.
+- **D4** theta integrated separately on both sides (preCICE exchanges omega, not theta): drift on restart, without an
+  omega mesh, and in computed-omega mode at iteration 0.
+- **D5** written displacement is R u, not the total R(X+u) - X: right for the BEM, wrong for a partner (OpenFOAM)
+  expecting total displacement; the inertial solver's total mode pairs wrongly with the BEM `inertial` mode.
+Gaps (no independent check): theta agreement across participants; partner_frame declared for Rust pairs; Python vs
+Rust torque and the CP/power sign; BEM integrated torque vs torque of the nodal forces; CCBlade azimuth sense
+(yaw cases); no precurve to CCBlade (prebend ignored); rotation-axis defaults disagree (`config.py:344` [1,0,0],
+`rotor.py:223` (0,0,1), `fsi_participant.py:285` [0,1,0]).
+
+## C6 result (worker; jobs 11625411 base, 11625421 final; `logs/check/core-torsion/tip/`)
+
+**NaN: defect, fixed.** Deformed root strip (r 3.97, chord 5.2) came back at Rhub - 8e-6 m (second-order span
+shortening > first-order stretch); CCBlade hub loss flips sign, residual NaN, strip 0 load silently zeroed (Np 0 vs
+115 N/m rigid). Fix: `_rebuild_bem_solver` holds r at Rhub. RED -> GREEN `tests/validation/rotor/test_bem_nan_inputs.py`
+(2 tests); `test_bem_fsi_deformed_geometry.py` + `test_bem_participant_rotor_frame.py` 61 passed; quick OK. Deformed
+torque -0.0008 %, T4 numbers unchanged, 0 NaN lines. **Tip strips: benign.** Right rings (tip row z 117.0, 16 nodes;
+114.61, 26; 112.22, 30); the production rotation steps 0.1-0.34 deg where the ring node count changes (least-squares
+fit on a non-rigid section); smoothing the last 3 strips moves torque -0.05..-0.13 %. Open: a node-count-independent
+ring fit (arc-length weighting) would shift T4; not started. C5 table unchanged by the fix.
+Note: the src fix landed while the full suite 11625408 was running (after collection); C1 measures 4809427+docs.
+
 ## Log
 
 - L1 (2026-10-26) User: S1 verbatim (during the PR of l3/twist-p1, merged as #68 / 3a2d222).
@@ -129,3 +172,7 @@ rotations in every definition. **Goes to the user** (thesis-level choice) with t
   and D-Tube element reds); mode shapes unmeasured (T8). Recommendation: core torsion first, then T8.
 - L3 (2026-10-26) User: S2 verbatim.
 - L4 (2026-10-26) User: "continua en esta sesion". Parent: C2 (benchmarks green), C3 (measure), C4 (prismatic: core right).
+- L5 (2026-10-26) User chose, on the twist definition for the BEM: "Primero arreglar punta y NaN, después decidir" (over keep (a) and declare, chord line, box).
+- L6 (2026-10-26) User: S5. Parent: BEM -> structure is nodal forces only (`ForceProjector`, the pitching moment as a force couple); the twist definition is the structure -> BEM geometric reduction, needed only by a strip model; OpenFOAM takes nodal displacements.
+- L7 (2026-10-26) User: S6. Parent: the reduction already lives in the BEM participant (`fsi_participant.py:297`, reads `Displacement` :628, writes `Force` :688); the structure only publishes displacements; C7 added (frame audit).
+- L8 (2026-10-26) User: S7 (custom answer to the D1 fix options). Parent: single structural partner -> BEM always inertial, `rotating` mode removed; C8.

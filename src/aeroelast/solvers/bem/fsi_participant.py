@@ -967,10 +967,16 @@ class BEMFSIParticipant:
         """
         ba = self._blade_aero
 
+        # The root station may land a few micrometres inside the hub (the second-order
+        # span shortening exceeds its first-order stretch).  CCBlade's hub-loss factor
+        # exp(-B/2 (r - Rhub) / (Rhub sin phi)) then turns positive-exponent, the residual
+        # is NaN at the lower phi bracket and the strip's load is silently zeroed
+        # ("NaNs at 0/50").  A station never sits inside the hub, so it is held at Rhub,
+        # which is where the rigid path puts the root and carries a finite load.
         new_stations = [
             AeroStation(
                 span_fraction=st.span_fraction,
-                r=float(r_def[k]),
+                r=max(float(r_def[k]), float(ba.hub_radius)),
                 chord=st.chord,
                 twist=float(twist_def[k]),
                 pitch_axis=st.pitch_axis,
