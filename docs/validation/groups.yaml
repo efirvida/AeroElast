@@ -726,6 +726,13 @@ groups:
           describe a different blade from the official v1.1 yaml the model is
           built from, so they are not an independent reference for it. The
           tests stay as they are; the store carries no row for them.
+      - tests:
+          - test_blade_static_tip_deflection_matches_ccx
+        reason: >-
+          Declared non-validation by the maintainer, 2026-10-27
+          (odd/tasks/l3-closure.md L23 (1)): its load matches no BeamDyn case
+          and the static blade comparison is closed by S-2. The test stays as
+          it is; the store carries no row for it.
 
     provenance_note: >-
       The tight comparison is AeroElast against CalculiX S8R on the same mesh

@@ -140,34 +140,6 @@ rows:
       digest: 417cb33c0e0d4d22
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_static_tip_deflection_matches.single
-  group: '23'
-  title: test_blade_static_tip_deflection_matches_ccx
-  tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_static_tip_deflection_matches_ccx
-  validates: Static flapwise tip deflection agrees with CCX S8R on the same load.
-  comparisons:
-  - label: rtol at line 526
-    asserted: true
-    reference:
-      kind: code
-      label: CalculiX S8R (binary version in the run log), the same mesh and composite properties
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:526
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: null
-      margin_pct: 0.3674
-      text: 'static tip deflection vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.3674% (bound: 5.0000%)'
-      digest: 8ab338690530a136
-  flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.3
   group: '23'
   title: test_blade_modal_frequencies_match_beamdyn_p20[3]

@@ -41,3 +41,5 @@ $E python tools/validation_matrix.py check && $E python tools/validation_matrix.
 ```
 `regression --write` re-executes the test file, so it may be submitted instead of reading the job log (the job 11625842
 only gives the numbers to compare with this prediction and to write the verdicts).
+
+- 2026-10-27 (L23 (1)): `test_blade_static_tip_deflection_matches_ccx` is now non-validation (load matches no BeamDyn case; S-2 covers static); no row, no contract entry. 10 group 23 rows remain.

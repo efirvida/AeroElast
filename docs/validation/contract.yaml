@@ -2791,22 +2791,6 @@ verdicts:
       only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
       Second arbiter: BeamDyn p20 parked, expected family p20 3F (row beamd.4), valid only if the run shows shell mode 5
       is that family (PREDICTION.md; no local mode below it). Verdict after the run.
-  - target: blade_iea15mw.test_blade_static_tip_deflection_matches.single
-    class: physics
-    verdict: undecided
-    files:
-      - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/support/ccx_io.py
-    arbiters:
-      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
-    note: >-
-      L3 T13 audit (2026-10-27). Same mesh, properties, S8R and clamp as the modal rows; load = a uniform flapwise nodal force on
-      every non-root node scaled so the root moment is 90.4 MNm, a mesh-dependent proxy of the Escalera DLC 1.4 load (UTD input,
-      disowned). Metric = |tip y shell - tip y CCX| / |CCX| on the mean of the tip-ring nodes. No second arbiter: the BeamDyn
-      static references (`tools/bd_static_reference.py`, `tests/IEA15MW/bd_static/`, LC1 gravity, LC2/LC3 tip point load, LC4
-      line load 5 kN/m per projected z) load the blade differently, and none reproduces this per-node uniform force; the S-2
-      rows (group 39) cover those cases. It stays a single produced-numerical arbiter (code parity), so it cannot be trusted
-      on its own; it is a candidate to declare non-validation in favour of S-2. The label said 2.23 but the binary is 2.20.
   - target: blade_structural_properties.v05_assembled_mass_vs_beam_table
     class: physics
     verdict: trusted
