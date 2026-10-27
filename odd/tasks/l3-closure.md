@@ -39,7 +39,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
-- T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6) | S-2 tip-ring-mean metric: (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
+- T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
@@ -548,6 +548,30 @@ Known so far (T10b, metric-independent at es 0.125): 15 LC1 rejected, LC2 in ban
 rejected; 3.4 LC2 +15..+21 % soft (tip flap) while its LC1 / LC4 agree within 2 %: second-blade finding for T9 / T6.
 Then the priority list of L15 continues: delta-f centrifugal (HubRad), then twist (S8 box) re-measure, modes, T6/T7.
 
+## T10c-station predeclaration (written before any station number, 2026-10-27, session 16, at c5bf453)
+
+**Stations.** BeamDyn p60 single member, Gauss quadrature: its output nodes are the GLL FE nodes (checked in the run:
+node 61 must reproduce `TipTD*`). Rule: the two GLL nodes nearest the tip whose tip distance is >= 2 tip chords (tip
+chord = `tip_ring_scale`, 0.499 m on the 15, 0.199 m on the 3.4; T10c tube: interior rings >= 2 depths converge).
+Geometry only (GLL in arc length, before any run): 15 nodes 57 / 56 at ~1.41 / 2.16 m (2.8 / 4.3 chords); 3.4 nodes 58 /
+57 at ~0.44 / 0.76 m (2.2 / 3.8 chords). Nodes 53-61 are written for the profile; the station z is the node's initial z
+from the BeamDyn reference mesh (VTK at init), not the GLL estimate.
+**Shell metric.** Arc-weighted ring mean (`ring_mean_at(weighting="arc")`), linear in z between the two rings that
+bracket the BeamDyn node z. Component: uy for LC1 / LC2 / LC4, ux for LC3; BeamDyn node uy = `N#TDxr`, ux = -`N#TDyr`
+(same frame map as the tip). Linear response: displacement / scale, scales 1e-4 and 2e-4 must agree (gate as T10b).
+**Load introduction.** Primary: tip `distribution: arc`, LC4 `area` (defined tractions, independent of the ring node
+count that stepped in T10b). Secondary, same job: `equal` for LC2 / LC3 / LC4, to test that an interior station does not
+care (Saint-Venant). LC1 is a body force (one run).
+**Gates and tolerance.** Verdict per case on the 15 at es 0.125 with K3 (5 %; within 1 pp of 5 % stays undecided only if
+es 0.25 -> 0.125 crosses the band). Convergence gate: the station error moves < 0.5 pp between es 0.25 and 0.125; a case
+that fails it is a finding, not a verdict. The two stations must agree within 0.5 pp (a residual load-introduction
+term would show as a station dependence); both are reported, the verdict uses the inner one (more chords from the tip).
+**Predictions (from T10b, before any station number).** P1: arc vs equal at the stations within 0.3 pp in every case
+(both blades, both sizes). P2: the convergence gate holds for all four cases on both blades (tip ring moved up to 1.3 pp
+on the 15 LC2). P3: the 15 verdicts do not change: LC1 about -5.1..-5.3 rejected, LC2 within +-2 % in band, LC3 about
++8.5..+9.5 rejected, LC4 about -5.5..-5.8 rejected. P4: the 3.4 keeps LC2 at +15..+21 % (outboard flap soft) and LC1 /
+LC4 within 2 %. Refutation of P1 or P2 sends the metric back to the user before any verdict is written.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -569,3 +593,4 @@ Then the priority list of L15 continues: delta-f centrifugal (HubRad), then twis
 - L17 (2026-10-27, session 15) User: "si" + S10; decisions S8, S9. Parent: worktree `../wt/l3-pass2` on branch l3/pass2-s2-ring from origin/main 4b29bc2; T10, T11 added. Finding: the S-2 "shell" value is `argmax(z)`, the first tip-ring node in mesh order (`tools/run_s2_static_cases.py:119`), an arbitrary material point, while the tip load is split equally over the ring.
 - L18 (2026-10-27, session 15) Parent: T10b numbers and the metric question; user chose S11. The solver has no MPC / rigid tip coupling, so BeamDyn's axis point load cannot be reproduced exactly; the line traction is the non-singular substitute.
 - L19 (2026-10-27, session 15) Parent: S11 cure refuted on the tube (T10c); user chose S12. Session closed at ~200 k with Handoff 6.
+- L20 (2026-10-27, session 16) User, verbatim: "1. Revisar el resultado de la suite completa contra scripts/known-red-full.txt. 2. Hacer la comparación en estación interior siguiendo el Handoff 6, en las dos palas, y recién ahí pasarla al test y escribir los veredictos. 3. Después sigue la lista de prioridades: Δf centrífugo (HubRad), re-medir el twist con el cajón, modos, T6/T7. La importación de los sx (T11) va en su propia sesión." Parent: full suite 11625665 still running (1 h 27 min of 8 h at session start), item 2 started in the worktree meanwhile; station rule predeclared.
