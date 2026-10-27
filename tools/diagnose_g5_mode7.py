@@ -39,44 +39,16 @@ sys.path.insert(0, str(ROOT))
 from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
 from tests.conftest import ccx_bin_or_skip  # noqa: E402
 from tests.support.ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
+from tests.support.modal_pairing import (  # noqa: E402
+    check_corner_nodes_first,
+    mac_matrix,
+    parse_frd_mode_translations,
+)
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_val  # noqa: E402
-
-
-def parse_frd_mode_translations(frd: Path, n_nodes: int, n_modes: int) -> np.ndarray:
-    """Return (n_modes, n_nodes, 3) translations of nodes 1..n_nodes from every DISP block."""
-    modes: list[np.ndarray] = []
-    current: np.ndarray | None = None
-    with open(frd, encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            stripped = line.strip()
-            if stripped.startswith("-4") and "DISP" in stripped.upper():
-                current = np.zeros((n_nodes, 3))
-                continue
-            if current is None:
-                continue
-            if stripped.startswith("-3"):
-                modes.append(current)
-                current = None
-                if len(modes) == n_modes:
-                    break
-                continue
-            if not stripped.startswith("-1"):
-                continue
-            node_id = int(line[3:13])
-            if 1 <= node_id <= n_nodes:
-                current[node_id - 1] = [float(line[13:25]), float(line[25:37]), float(line[37:49])]
-    return np.array(modes)
-
-
-def mac_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """MAC between the rows of ``a`` (n_a, m) and of ``b`` (n_b, m)."""
-    num = np.abs(a @ b.T) ** 2
-    den = np.outer(np.einsum("ij,ij->i", a, a), np.einsum("ij,ij->i", b, b))
-    return num / np.maximum(den, 1e-300)
 
 
 def solve_mesh(element_size: float, n_modes: int, workdir: Path, ccx_bin: str) -> dict:
@@ -130,17 +102,7 @@ def solve_mesh(element_size: float, n_modes: int, workdir: Path, ccx_bin: str) -
     )
     # Corner nodes keep their index: check the first coordinates written to the deck.
     # The main deck *INCLUDEs the mesh file, which holds the *NODE block.
-    with open(inp.with_suffix(".msh"), encoding="utf-8") as handle:
-        lines = handle.readlines()
-    start = next(i for i, ln in enumerate(lines) if ln.upper().startswith("*NODE,"))
-    deck = np.array(
-        [[float(v) for v in ln.split(",")[1:4]] for ln in lines[start + 1 : start + 1 + n_nodes]]
-    )
-    coord_err = float(np.max(np.abs(deck - coords)))
-    if coord_err > 1e-4 * float(np.max(np.abs(coords))):
-        raise RuntimeError(
-            f"corner nodes are not first in the CCX deck (max coord err {coord_err})"
-        )
+    check_corner_nodes_first(inp.with_suffix(".msh"), coords)
 
     result = run_ccx(inp, ccx_bin)
     if result.returncode != 0:
