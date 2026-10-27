@@ -21,3 +21,6 @@ Context: T29 (SLURM 11623984) read CCX mode 7 as 0.89 / 1.01 / 1.01 % (unsigned)
 ## Jobs
 - 11625834 diag (sequana_cpu, 8 tasks): logs/check/l3/g5/diag-11625834.log, mac.json
 - 11625835 test -s (sequana_cpu_bigmem, 8 tasks): logs/check/l3/g5/test-11625835.log
+
+## Note added after submission, before any result (2026-10-27)
+The cluster `ccx` resolved by `ccx_bin_or_skip()` is `/scratch/leahk/eduardo.donestevez/venv/bin/ccx`, **Version 2.20** (T13 audit). The test docstring and store label say 2.23, and issue #8 measured the high-mode worst gap 4.03 % under 2.20 vs 2.12 % under 2.23. Both jobs above, and T29 11623984, run 2.20: a mode 7/8 reading must be checked against the CCX version before it is called element physics.
