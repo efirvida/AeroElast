@@ -2631,70 +2631,182 @@ verdicts:
       same margins as e1b7da7). Not independent evidence and no physics verdict; counts as identity.
       Restamped 2026-10-27 at f1c9e91 (`regression --group 20 --write`, SLURM 11625625): four
       comparisons same, margins unchanged.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.0
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.3
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.1
+      L3 T13 (2026-10-27, user L12 (3) "Bajarlas; Bernardi re-apuntado a p20"). Re-pointed from Bernardi et al. 2026 Table B1
+      (whose Fig. B1 cannot be tied to the v1.1 blade, D8/K11.4) to the BeamDyn p20 parked mode 2E (2.136560 Hz), reference mode 4
+      of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
+      asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
+      (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.4
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.2
+      L3 T13 (2026-10-27, user L12 (3) "Bajarlas; Bernardi re-apuntado a p20"). Re-pointed from Bernardi et al. 2026 Table B1
+      (whose Fig. B1 cannot be tied to the v1.1 blade, D8/K11.4) to the BeamDyn p20 parked mode 3F (2.935456 Hz), reference mode 5
+      of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
+      asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
+      (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.5
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.3
+      L3 T13 (2026-10-27, user L12 (3) "Bajarlas; Bernardi re-apuntado a p20"). Re-pointed from Bernardi et al. 2026 Table B1
+      (whose Fig. B1 cannot be tied to the v1.1 blade, D8/K11.4) to the BeamDyn p20 parked mode 1T (4.093666 Hz), reference mode 6
+      of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
+      asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
+      (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.6
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.4
+      L3 T13 (2026-10-27, user L12 (3) "Bajarlas; Bernardi re-apuntado a p20"). Re-pointed from Bernardi et al. 2026 Table B1
+      (whose Fig. B1 cannot be tied to the v1.1 blade, D8/K11.4) to the BeamDyn p20 parked mode 3E (4.379791 Hz), reference mode 7
+      of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
+      asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
+      (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.7
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.5
+      L3 T13 (2026-10-27, user L12 (3) "Bajarlas; Bernardi re-apuntado a p20"). Re-pointed from Bernardi et al. 2026 Table B1
+      (whose Fig. B1 cannot be tied to the v1.1 blade, D8/K11.4) to the BeamDyn p20 parked mode 4F (4.844770 Hz), reference mode 8
+      of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
+      asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
+      (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.0
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.6
+      L3 T13 audit (2026-10-27). Provenance read from the code: the CCX deck is written from the same `BladeMesh` and properties as
+      the shell (ELEMENT_SIZE 0.25, mid-surface skin), quadratic S8R/S6 via `write_ccx_mesh(quadratic=True, span_direction=(0,0,1))`,
+      root clamped; metric = |f_ae - f_ccx| / f_ccx after a one-to-one Hungarian pairing over 10 modes each. DEFECT FOUND and fixed: the
+      helper returned the n smallest gaps, so row `.k` was the k-th best pair of 10, not CCX mode k+1 (a green-biased selection); rows
+      now are CCX modes 1-5, so the 2026-10-24 values (0.01-0.12 %) are superseded. The binary is not 2.23: `ccx -v` of the
+      only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
+      Second arbiter: BeamDyn p20 parked, expected family p20 1F (S-4 asserts it, group 40), valid only if the run shows shell mode 1
+      is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.1
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
-  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.7
+      L3 T13 audit (2026-10-27). Provenance read from the code: the CCX deck is written from the same `BladeMesh` and properties as
+      the shell (ELEMENT_SIZE 0.25, mid-surface skin), quadratic S8R/S6 via `write_ccx_mesh(quadratic=True, span_direction=(0,0,1))`,
+      root clamped; metric = |f_ae - f_ccx| / f_ccx after a one-to-one Hungarian pairing over 10 modes each. DEFECT FOUND and fixed: the
+      helper returned the n smallest gaps, so row `.k` was the k-th best pair of 10, not CCX mode k+1 (a green-biased selection); rows
+      now are CCX modes 1-5, so the 2026-10-24 values (0.01-0.12 %) are superseded. The binary is not 2.23: `ccx -v` of the
+      only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
+      Second arbiter: BeamDyn p20 parked, expected family p20 1E (S-4 asserts it), valid only if the run shows shell mode 2
+      is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.2
     class: physics
     verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
-      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
-      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
-      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
-      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+      L3 T13 audit (2026-10-27). Provenance read from the code: the CCX deck is written from the same `BladeMesh` and properties as
+      the shell (ELEMENT_SIZE 0.25, mid-surface skin), quadratic S8R/S6 via `write_ccx_mesh(quadratic=True, span_direction=(0,0,1))`,
+      root clamped; metric = |f_ae - f_ccx| / f_ccx after a one-to-one Hungarian pairing over 10 modes each. DEFECT FOUND and fixed: the
+      helper returned the n smallest gaps, so row `.k` was the k-th best pair of 10, not CCX mode k+1 (a green-biased selection); rows
+      now are CCX modes 1-5, so the 2026-10-24 values (0.01-0.12 %) are superseded. The binary is not 2.23: `ccx -v` of the
+      only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
+      Second arbiter: BeamDyn p20 parked, expected family p20 2F (S-4 asserts it), valid only if the run shows shell mode 3
+      is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.3
+    class: physics
+    verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
+    note: >-
+      L3 T13 audit (2026-10-27). Provenance read from the code: the CCX deck is written from the same `BladeMesh` and properties as
+      the shell (ELEMENT_SIZE 0.25, mid-surface skin), quadratic S8R/S6 via `write_ccx_mesh(quadratic=True, span_direction=(0,0,1))`,
+      root clamped; metric = |f_ae - f_ccx| / f_ccx after a one-to-one Hungarian pairing over 10 modes each. DEFECT FOUND and fixed: the
+      helper returned the n smallest gaps, so row `.k` was the k-th best pair of 10, not CCX mode k+1 (a green-biased selection); rows
+      now are CCX modes 1-5, so the 2026-10-24 values (0.01-0.12 %) are superseded. The binary is not 2.23: `ccx -v` of the
+      only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
+      Second arbiter: BeamDyn p20 parked, expected family p20 2E (row beamd.3), valid only if the run shows shell mode 4
+      is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.4
+    class: physics
+    verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
+    note: >-
+      L3 T13 audit (2026-10-27). Provenance read from the code: the CCX deck is written from the same `BladeMesh` and properties as
+      the shell (ELEMENT_SIZE 0.25, mid-surface skin), quadratic S8R/S6 via `write_ccx_mesh(quadratic=True, span_direction=(0,0,1))`,
+      root clamped; metric = |f_ae - f_ccx| / f_ccx after a one-to-one Hungarian pairing over 10 modes each. DEFECT FOUND and fixed: the
+      helper returned the n smallest gaps, so row `.k` was the k-th best pair of 10, not CCX mode k+1 (a green-biased selection); rows
+      now are CCX modes 1-5, so the 2026-10-24 values (0.01-0.12 %) are superseded. The binary is not 2.23: `ccx -v` of the
+      only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
+      Second arbiter: BeamDyn p20 parked, expected family p20 3F (row beamd.4), valid only if the run shows shell mode 5
+      is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+  - target: blade_iea15mw.test_blade_static_tip_deflection_matches.single
+    class: physics
+    verdict: undecided
+    files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster)"}
+    note: >-
+      L3 T13 audit (2026-10-27). Same mesh, properties, S8R and clamp as the modal rows; load = a uniform flapwise nodal force on
+      every non-root node scaled so the root moment is 90.4 MNm, a mesh-dependent proxy of the Escalera DLC 1.4 load (UTD input,
+      disowned). Metric = |tip y shell - tip y CCX| / |CCX| on the mean of the tip-ring nodes. No second arbiter: the BeamDyn
+      static references (`tools/bd_static_reference.py`, `tests/IEA15MW/bd_static/`, LC1 gravity, LC2/LC3 tip point load, LC4
+      line load 5 kN/m per projected z) load the blade differently, and none reproduces this per-node uniform force; the S-2
+      rows (group 39) cover those cases. It stays a single produced-numerical arbiter (code parity), so it cannot be trusted
+      on its own; it is a candidate to declare non-validation in favour of S-2. The label said 2.23 but the binary is 2.20.
   - target: blade_structural_properties.v05_assembled_mass_vs_beam_table
     class: physics
     verdict: trusted
