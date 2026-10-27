@@ -347,6 +347,37 @@ quality of the 3.4 outboard rows (aspect ratio, warp of the quads at the TE / LE
 0.04-0.18 EI_edge: yaml-side EI (line integral E t about the elastic centre) vs mesh vs FE. 3. Then T6/T7 on both
 blades, T8. The 15 at 0.8: mesh Bredt +11 % over yaml (stiffer TE cell), noted, not chased.
 
+## Store action map (session 13, explore; built from docs/validation/*.yaml and validation_matrix.py logic)
+
+All 34 L3 rows are blade structure only (no BEM/FSI file in L1-L3 `depends_on`; to confirm with
+`git log 4809427..HEAD -- <depends_on>`). Row files were re-measured at d5d0fd2 but `contract.yaml` verdict notes cite
+older values, so **14 of 15 stale rows changed value: new verdict, never restamp** (`validation-l3-b3-audit.md:23`);
+only group 20 (identity) is a pure restamp. The full suite (`check.sh -q`) prints no residuals: values come from
+`regression --group G --scope S` (groups 5, 20, 23, 32, 34) and `pytest -s` / `tools/run_*` (38-42).
+Next action per non-trusted row (K3: > 5 % by >= 1 pp rejected; within 1 pp of 5 % without es 0.125 undecided):
+- S-1 (38): EI_edge 8.01 rejected; EI_flap 4.53 in band -> es 0.125 then verdict; mass 3.54 trusted; GJ 10.18 rejected; EA 6.68 rejected.
+- S-2 (39): LC1 5.26, LC4 5.48 -> es 0.125 then verdict; LC2 (2.54 row) and LC3 (+17 % edgewise) undecided: USER (metric: tip node vs ring spread 9-11 %).
+- S-4 (40): parked 2.33/0.56/0.20, rated 1.85/0.44/0.06 -> new verdicts trusted; then gap `rotating_modal_shift` -> bounded with both row ids.
+- V-03 (41) 1.14 trusted; V-05 (42) +0.23 trusted (sign flipped); S-7 (34) 7.25 rejected.
+- V-02 (32) 7.09 / 8.84 vs TP-75698 (v1.0 blade): USER (v1.1 source or drop).
+- Anchor beam (20): pure restamp after `regression --group 20`.
+- Group 23: mass vs Escalera = UTD conversion (disowned): USER keep/drop; CCX modes 0-4 (0.01-0.12 %) and static (0.37 %) audit then second arbiter (BeamDyn p20 modes, `tools/bd_static_reference.py`); Escalera DLC 1.4 (xfail 13.2 %): USER drop/pin; Bernardi modes undecided: USER drop / re-point to p20.
+- Group 5 mesh convergence: fails its own 5 % at the finest mesh (high modes): finding, USER before audit.
+- Absent `sx_mesh_convergence`, `sx_campbell` (ElastoDyn targets): import or out of scope; Campbell re-point to p20 per rpm.
+Single/no arbiter (28): S-1 x5, S-7, V-02 x2, V-03, group 5, group 23 x16, 2 absent. CalculiX can be a second arbiter
+only for S-7 (`tools/ccx_blade_twist_arbitration.py` at es 0.25, not its 1.0 default; `test_blade_ccx_parity.py`
+torsion); S-1 are section integrals (no FE). USER: does the official BeamDyn deck count as `reference_model`
+(it does in 39, 40, 42 but is `published numerical` in 34, 38)? That alone settles S-1/S-7 arbitration.
+`test_blade_ccx_parity.py` (6 static cases vs CCX) has no row nor group. L3 cannot print CLOSED with rejected rows:
+it closes by S5 (every open entry listed with cause and torque sensitivity).
+Missing capability rows (tolerances to fix before measuring): MAC per mode parked/rated vs BeamDyn p20 eigenvectors
+(to generate) and CCX (`postprocess_ccx_modal.py:201`); 1T and 2E frequencies; centrifugal shift delta-f; Campbell 3-11
+rpm vs p20; blade-only transient vs BeamDyn dynamic driver; damping per mode vs deck mu; ply stress if used; rated
+twist vs Zhou (group 27, on no level): USER.
+Procedure: verdicts are hand entries in `contract.yaml` (target, class, verdict, audited_rev, files, arbiters, note);
+values by `regression --group G [--scope S] --write`; new rows: test, `extract --group G --write`, `regression --write`,
+plus `groups.yaml`, `residual-patterns.json`, `levels.yaml`; gate `contract --level L3 --rows`.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -359,3 +390,5 @@ blades, T8. The 15 at 0.8: mesh Bredt +11 % over yaml (stiffer TE cell), noted, 
 - L8 (2026-10-26, session 12) User: Handoff 2 items 1-4 in order, verbatim: "1. Probar H6 con la predicción escrita antes: una copia del yaml con las capas en rampa en vez de escalón, y volver a correr modos y S-1. 2. Corregir la auditoría para que una capa valga cero fuera de su grilla, test primero. 3. Bredt de la 3.4 contra el GJ del deck antes de culpar al cierre del borde de fuga. 4. Recién después, T6 y T7 sobre las dos palas." Then asked whether the two blades behave consistently and whether the inconsistencies are model, solver or element; parent: model conventions and reference sampling, solver core unlikely, torsion still open between mesher, extraction and element.
 - L9 (2026-10-26, session 13) User: "continuamos". Parent: Handoff 3 items 1-2 (mesh Bredt, H7 deck check), then the twist integral (worker); Handoff 4.
 - L10 (2026-10-26, session 13) User, verbatim: "recuerda que no es que yo quiera arreglar el modelo de una u otra pala, yo quero que aeroelast sea cientificamente confiable para el proposito que te di". Parent: the blades are instruments to find code defects; the 3.4 outboard torsional softness (1.3x its own section) is a core-reliability question (element or section-distortion measure), which is why Handoff 4 item 1 comes before any blade-model work. Also asked for one PR of l3/twist-p1 to main.
+- L11 (2026-10-26, session 13) User: "si, eso que me estas proponiendo es lo que yo crei que estavamos haciendo desde que desarrolle el store de pruebas de validacion" and "ok puedes empezar con eso en paralelo?". Parent: L3 is closed from the store contract (restamp stale, audit unaudited, decide undecided, second arbiter CalculiX where single, missing capability rows such as mode shapes); store snapshot 2026-10-26: L1 closed (157 trusted), L2 closed (79), L3 open (undecided 10, stale 15, unaudited 9, absent 2, 28 single/no arbiter, 1 blocking gap), L4 open (20 stale), L5 open and blocked (unaudited 11, absent 8; one row touches coupling code). Core-torsion findings in `odd/tasks/core-torsion.md`. Read-only action map launched (explore).
+- L12 (2026-10-26, session 13) User decisions on the store action map, verbatim choices: (1) BeamDyn deck class: "reference_model en todas (recomendado)"; (2) V-02: "Darla de baja (recomendado)"; (3) group 23: "Bajarlas; Bernardi re-apuntado a p20 (recomendado)"; (4) S-2 metric: "Media del anillo de punta (recomendado)". Parent: pass 1 (measure at HEAD without --write, es 0.125 runs in the 1 pp band, new K3 verdicts, deck reclassified, V-02 and UTD/Escalera rows dropped, group 20 restamp, gap rotating_modal_shift bounded) by a worker; pass 2 (S-2 ring-mean metric, Bernardi -> p20, missing capability rows) after.
