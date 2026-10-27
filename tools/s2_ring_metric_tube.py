@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import diagnose_s1_gj_tube as tube  # noqa: E402
-from run_s2_static_cases import run_shell_case, saint_venant_tip, tip_ring_scale  # noqa: E402
+from run_s2_static_cases import ring_mean_at, run_shell_case, saint_venant_tip, tip_ring_scale  # noqa: E402
 
 CASES = {  # name: (shape, load axis index in the section plane: 0 = x, 1 = y)
     "rect-flap": ("rect", 1),  # load along the 2 m walls (H)
@@ -51,7 +51,7 @@ def section_constants(shape, axis):
     return i_over_t, shear_over_t
 
 
-def run(name, length, force):
+def run(name, length, force, distribution="equal"):
     shape, axis = CASES[name]
     n_layers = int(round(length / tube.ES))
     mesh, props, _zl = tube.build_tube(
@@ -59,7 +59,11 @@ def run(name, length, force):
     )
     f = [0.0, 0.0, 0.0]
     f[axis] = force
-    u = np.asarray(run_shell_case(mesh, props, {"type": "tip", "value": tuple(f)})).reshape(-1, 6)
+    u = np.asarray(
+        run_shell_case(
+            mesh, props, {"type": "tip", "value": tuple(f), "distribution": distribution}
+        )
+    ).reshape(-1, 6)
 
     coords = mesh.coords_array
     ring = np.nonzero(coords[:, 2] >= coords[:, 2].max() - 1e-6)[0]
@@ -78,6 +82,10 @@ def run(name, length, force):
         f"   closed form {ref:.6f} m (bending {bend:.6f}, shear {shear:.6f}; EI {ei:.4e}, G A_s {gas:.4e})"
     )
     print(f"   ring mean   {ring_mean:.6f} m  ({ring_mean / ref - 1:+.4%} vs closed form)")
+    arc = ring_mean_at(mesh, u.ravel(), length, "arc")[1][axis]
+    print(
+        f"   arc mean    {arc:.6f} m  ({arc / ref - 1:+.4%} vs closed form; tip load distribution {distribution})"
+    )
     print(
         f"   node {node:6d} {u[node, axis]:.6f} m  ({u[node, axis] / ring_mean - 1:+.4%} vs ring mean)"
     )
@@ -107,11 +115,14 @@ def main():
     ap.add_argument("--length", type=float, default=tube.LENGTH)
     ap.add_argument("--force", type=float, default=1.0e6)
     ap.add_argument("--es", type=float, default=tube.ES, help="element size around and along [m]")
+    ap.add_argument(
+        "--distribution", choices=("equal", "arc"), default="equal", help="tip load split (T10c)"
+    )
     ap.add_argument("--case", nargs="*", default=list(CASES), choices=list(CASES))
     args = ap.parse_args()
     tube.ES = args.es  # ring_points and build_tube read the module constant
     for name in args.case:
-        run(name, args.length, args.force)
+        run(name, args.length, args.force, args.distribution)
 
 
 if __name__ == "__main__":

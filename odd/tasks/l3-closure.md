@@ -14,6 +14,7 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S8 (user choice for core-torsion C5, verbatim): "Cajón para validar L3; el BEM se decide en L5 (recomendado)" — S-7, S-1 GJ and twist vs Zhou are measured with the box rigid fit; the BEM feedback twist is decided at L5 with the C5 numbers.
 - S9 (user choice, verbatim): "Importar ambos; Campbell contra BeamDyn p20 (recomendado)" — `sx_campbell` re-pointed to BeamDyn p20 per rpm, `sx_mesh_convergence` with its artifact regenerated at HEAD.
 - S10 (user, verbatim): "recuerda que puedes usar las dos palas ademas de ejemplos teoricos para comprobar los analisi hechos" — every L3 analysis is checked on IEA-15 and IEA-3.4 plus a closed-form case.
+- S11 (user choice, verbatim): "Arreglar la introducción de carga primero (recomendado)" — "Tracción de borde equivalente en trabajo, ponderada por longitud de arco, y media del anillo también por arco. Primero se valida en el tubo que converja al refinar; después se re-corren las dos palas y recién ahí van los veredictos."
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -491,6 +492,37 @@ BeamDyn 3.4 linearity gate: scales 1e-4 / 2e-4 agree within 0.04 % (LC2), < 0.00
 - Slice note: commit 9814a37 is 322 authored lines; the other 1852 are generated BeamDyn inputs (precedent: the 15's
   s1e-4 decks are tracked, other scales are not).
 
+## T10c prediction (written before the run, 2026-10-27, session 15)
+
+Load introduction (`tools/run_s2_static_cases.py`): tip load `distribution: arc` = uniform line traction on the free tip
+edge (nodal forces by arc-length weight, `ring_arc_weights`); LC4 `distribution: area` = uniform surface traction per
+slice (tributary-area nodal forces), included because its equal per-node forces are the same point-load defect.
+Metric: arc-weighted tip-ring mean. Tube (L 20, es 0.25 -> 0.125): circle arc mean within 0.3 % of the closed form at
+both sizes and moving < 0.2 pp between them (converges; equal-split moved +0.6 pp); rect flap keeps a local flange
+term (physical for a line load on a free flat wall) but moves < 0.5 % of itself between sizes. Blades (T10c run):
+arc tip mean moves < 0.5 pp between es 0.25 and 0.125 in LC2 / LC3 (equal-split ring moved 1.3 pp on the 15 LC2).
+Refuted if the circle still drifts > 0.2 pp: then the line traction is not the cure and the metric goes back to the user.
+
+## T10c RESULT, tube (2026-10-27, login; logs `logs/check/l3/t10a/L20-arc-es*.log`, `L117-sv.log`, `L117-es0125.log`)
+
+**Prediction refuted, and the T10b mechanism with it.** On a uniformly spaced ring the arc-weighted line traction gives
+exactly the equal nodal split (identical numbers to 6 digits), so the circle's +0.40 -> +1.00 % at L 20 is not a
+point-load singularity. Reading: any edge load not tangent to the wall has an out-of-plane component on the free edge
+(uniform y-traction on a circle: normal part ~ sin theta); its transverse-shear edge layer is of order t (0.02 m) and
+es 0.25 / 0.125 do not resolve it, so the tip-ring value is mesh dependent under any non-tangent edge load.
+L 117, es 0.25 -> 0.125, vs closed form:
+
+| tube | tip ring | ring 1 depth inboard | ring 2 depths inboard |
+|---|---|---|---|
+| rect flap | +1.24 -> **+1.54** | -0.18 -> +0.10 | -0.43 -> -0.15 |
+| rect edge | +0.08 -> **+0.29** | -0.31 -> -0.11 | -0.31 -> -0.12 |
+| circle | -0.27 -> -0.09 | -0.28 -> -0.10 | -0.28 -> -0.10 |
+
+Interior rings at >= 2 section depths converge to the closed form (error / 3 per halving); the tip ring on flat walls
+grows. Without MPC (no rigid tip coupling) and without a shear-flow (wall-tangent) tip traction, the converging
+comparison is at an interior station against BeamDyn's own displacement at that station. LC4 `area` weighting and
+`ring_arc_weights` stay (they remove the node-count steps of T10b on non-uniform blade rings); not yet run on blades.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -510,3 +542,4 @@ BeamDyn 3.4 linearity gate: scales 1e-4 / 2e-4 agree within 0.04 % (LC2), < 0.00
 - L15 (2026-10-27, session 15) User: "dame un orden de prioridad a resolver de los reds de L3". Parent: order 0 full suite, 1 S-2 ring mean, 2 delta-f centrifugal (HubRad), 3 twist definition then S-7/GJ re-measure, 4 modes (group 5, MAC, 1T/2E, Campbell), 5 T6 then T7, 6 EI_edge (extractor vs W), 7 store hygiene, 8 T5.
 - L16 (2026-10-27, session 15) User: "ok vamos a correr la suite completa, para dejar el estado actual, pero como son 8h parado podemos hacer otras cosas en paralelo, dime cuales?". Parent: full suite already running (SLURM 11625665, 8 h, 3185da6 = origin/main tree); parallel work only in a separate worktree, no maturin rebuild (shared venv `_aeroelast`).
 - L17 (2026-10-27, session 15) User: "si" + S10; decisions S8, S9. Parent: worktree `../wt/l3-pass2` on branch l3/pass2-s2-ring from origin/main 4b29bc2; T10, T11 added. Finding: the S-2 "shell" value is `argmax(z)`, the first tip-ring node in mesh order (`tools/run_s2_static_cases.py:119`), an arbitrary material point, while the tip load is split equally over the ring.
+- L18 (2026-10-27, session 15) Parent: T10b numbers and the metric question; user chose S11. The solver has no MPC / rigid tip coupling, so BeamDyn's axis point load cannot be reproduced exactly; the line traction is the non-singular substitute.
