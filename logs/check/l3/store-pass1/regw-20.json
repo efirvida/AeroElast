@@ -1,0 +1,64 @@
+wrote 4 measurement(s) and the source digest
+[
+  {
+    "row": "blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single",
+    "comparison": 0,
+    "label": "rtol at line 259",
+    "verdict": "same",
+    "baseline": 0.0023,
+    "current": 0.0023,
+    "delta": 0.0,
+    "digest": "4ec740a8369633c1",
+    "stored_digest": "4ec740a8369633c1",
+    "value": null,
+    "expected": null,
+    "text": "anchor axial stiffness vs the official IEA-15-240-RWT BeamDyn deck, EA: 0.0023% (bound: 1.0000%)"
+  },
+  {
+    "row": "blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single",
+    "comparison": 1,
+    "label": "rtol at line 266",
+    "verdict": "same",
+    "baseline": 0.0049,
+    "current": 0.0049,
+    "delta": 0.0,
+    "digest": "cae435f6ec341e9a",
+    "stored_digest": "cae435f6ec341e9a",
+    "value": null,
+    "expected": null,
+    "text": "anchor torsional stiffness vs the official IEA-15-240-RWT BeamDyn deck, GKt: 0.0049% (bound: 1.0000%)"
+  },
+  {
+    "row": "blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single",
+    "comparison": 2,
+    "label": "rtol at line 280",
+    "verdict": "same",
+    "baseline": 1.9239,
+    "current": 1.9239,
+    "delta": 0.0,
+    "digest": "7b67c3d8ed3c4085",
+    "stored_digest": "7b67c3d8ed3c4085",
+    "value": null,
+    "expected": null,
+    "text": "anchor flapwise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, FlpStff: 1.9239% (bound: 2.0000%)"
+  },
+  {
+    "row": "blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single",
+    "comparison": 3,
+    "label": "rtol at line 287",
+    "verdict": "same",
+    "baseline": 1.8011,
+    "current": 1.8011,
+    "delta": 0.0,
+    "digest": "30fddc0f491a75d1",
+    "stored_digest": "30fddc0f491a75d1",
+    "value": null,
+    "expected": null,
+    "text": "anchor edgewise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, EdgStff: 1.8011% (bound: 2.0000%)"
+  },
+  {
+    "row": null,
+    "verdict": "declared_non_validation",
+    "detail": "tests/validation/blade/test_blade_twist_anchor_beam.py::test_anchor_beam_arbitrates_the_shell_section_rotation"
+  }
+]

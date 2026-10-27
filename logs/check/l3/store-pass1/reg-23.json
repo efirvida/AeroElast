@@ -1,0 +1,181 @@
+[
+  {
+    "row": "blade_iea15mw.test_blade_mass_matches_published_models.single",
+    "comparison": 0,
+    "label": "rtol at line 328",
+    "verdict": "same",
+    "baseline": 1.3599,
+    "current": 1.3599,
+    "delta": 0.0,
+    "digest": "95ee2eb6f32364ff",
+    "stored_digest": "95ee2eb6f32364ff",
+    "value": null,
+    "expected": null,
+    "text": "blade mass vs Escalera Mendoza et al. 2023, AIAA 2023-2093, blade mass: 1.3599% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_ccx.0",
+    "comparison": 0,
+    "label": "rtol at line 355",
+    "verdict": "same",
+    "baseline": 0.0096,
+    "current": 0.0096,
+    "delta": 0.0,
+    "digest": "752877322bbdd8dd",
+    "stored_digest": "752877322bbdd8dd",
+    "value": null,
+    "expected": null,
+    "text": "matched blade mode 0 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0096% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_ccx.1",
+    "comparison": 0,
+    "label": "rtol at line 355",
+    "verdict": "same",
+    "baseline": 0.0465,
+    "current": 0.0465,
+    "delta": 0.0,
+    "digest": "6ded5a3a01c78004",
+    "stored_digest": "6ded5a3a01c78004",
+    "value": null,
+    "expected": null,
+    "text": "matched blade mode 1 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0465% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_ccx.2",
+    "comparison": 0,
+    "label": "rtol at line 355",
+    "verdict": "same",
+    "baseline": 0.0473,
+    "current": 0.0473,
+    "delta": 0.0,
+    "digest": "729094e56cfc61c6",
+    "stored_digest": "729094e56cfc61c6",
+    "value": null,
+    "expected": null,
+    "text": "matched blade mode 2 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0473% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_ccx.3",
+    "comparison": 0,
+    "label": "rtol at line 355",
+    "verdict": "same",
+    "baseline": 0.0475,
+    "current": 0.0475,
+    "delta": 0.0,
+    "digest": "57f59a14ebab866e",
+    "stored_digest": "57f59a14ebab866e",
+    "value": null,
+    "expected": null,
+    "text": "matched blade mode 3 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0475% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_ccx.4",
+    "comparison": 0,
+    "label": "rtol at line 355",
+    "verdict": "same",
+    "baseline": 0.1202,
+    "current": 0.1202,
+    "delta": 0.0,
+    "digest": "417cb33c0e0d4d22",
+    "stored_digest": "417cb33c0e0d4d22",
+    "value": null,
+    "expected": null,
+    "text": "matched blade mode 4 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.1202% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_static_tip_deflection_matches.single",
+    "comparison": 0,
+    "label": "rtol at line 464",
+    "verdict": "same",
+    "baseline": 0.3674,
+    "current": 0.3674,
+    "delta": 0.0,
+    "digest": "8ab338690530a136",
+    "stored_digest": "8ab338690530a136",
+    "value": null,
+    "expected": null,
+    "text": "static tip deflection vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.3674% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_static_deflection_matches_art.single",
+    "verdict": "unmapped",
+    "detail": "0 printed residual(s) for 1 asserted comparison(s)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.0",
+    "comparison": 0,
+    "label": "rtol at line 516",
+    "verdict": "same",
+    "baseline": 1.3791,
+    "current": 1.3791,
+    "delta": 0.0,
+    "digest": "f67468b1069b45e8",
+    "stored_digest": "f67468b1069b45e8",
+    "value": null,
+    "expected": null,
+    "text": "mode 0 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 1.3791% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.1",
+    "comparison": 0,
+    "label": "rtol at line 516",
+    "verdict": "same",
+    "baseline": 3.3485,
+    "current": 3.3485,
+    "delta": 0.0,
+    "digest": "30c1f38a7c45993c",
+    "stored_digest": "30c1f38a7c45993c",
+    "value": null,
+    "expected": null,
+    "text": "mode 1 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 3.3485% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.2",
+    "comparison": 0,
+    "label": "rtol at line 516",
+    "verdict": "same",
+    "baseline": 4.0552,
+    "current": 4.0552,
+    "delta": 0.0,
+    "digest": "058e85f2d04f7e3f",
+    "stored_digest": "058e85f2d04f7e3f",
+    "value": null,
+    "expected": null,
+    "text": "mode 2 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 4.0552% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.3",
+    "comparison": 0,
+    "label": "rtol at line 516",
+    "verdict": "same",
+    "baseline": 4.4589,
+    "current": 4.4589,
+    "delta": 0.0,
+    "digest": "600309c8db69c771",
+    "stored_digest": "600309c8db69c771",
+    "value": null,
+    "expected": null,
+    "text": "mode 3 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 4.4589% (bound: 5.0000%)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.4",
+    "verdict": "unmapped",
+    "detail": "0 printed residual(s) for 1 asserted comparison(s)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.5",
+    "verdict": "unmapped",
+    "detail": "0 printed residual(s) for 1 asserted comparison(s)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.6",
+    "verdict": "unmapped",
+    "detail": "0 printed residual(s) for 1 asserted comparison(s)"
+  },
+  {
+    "row": "blade_iea15mw.test_blade_modal_frequencies_match_berna.7",
+    "verdict": "unmapped",
+    "detail": "0 printed residual(s) for 1 asserted comparison(s)"
+  }
+]

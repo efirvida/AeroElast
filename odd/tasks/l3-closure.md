@@ -26,9 +26,9 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 
 ## Tasks
 
-- T1 | S2 S4 | parent, SLURM | measured, restamp pending | Re-measure stale groups at HEAD (`regression --group G --scope <row nodes>`, no `--write`): 38 S-1, 34 S-7, 39 S-2, 40 S-4, 41 V-03, 42 V-05, 32 V-02, 20 anchor beam; restamp unchanged rows, report moved ones.
+- T1 | S2 S4 | parent, SLURM | done (store pass 1, 2026-10-27; see "Store pass 1 result") | Re-measure stale groups at HEAD (`regression --group G --scope <row nodes>`, no `--write`): 38 S-1, 34 S-7, 39 S-2, 40 S-4, 41 V-03, 42 V-05, 32 V-02, 20 anchor beam; restamp unchanged rows, report moved ones.
 - T2 | S2 S4 | parent | pending | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
-- T3 | S5 | parent | pending | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
+- T3 | S5 | parent | done: gap bounded with both S-4 rows; shift delta-f 7-13 % below BeamDyn noted | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
 - T4 | S2 S3 | parent | done: twist +0.34 %, flap -0.34 %, edge 0.005 % torque | Sensitivity tool: rigid BEM at rated with the twist distribution perturbed by each red's effect; torque/power deltas.
 - T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; mesh Bredt 863ff38 (mesh = yaml), H7 refuted, FE torsionally soft 0.65-0.85 (twist integral); element vs distortion open (Handoff 4) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
@@ -347,6 +347,67 @@ quality of the 3.4 outboard rows (aspect ratio, warp of the quads at the TE / LE
 0.04-0.18 EI_edge: yaml-side EI (line integral E t about the elastic centre) vs mesh vs FE. 3. Then T6/T7 on both
 blades, T8. The 15 at 0.8: mesh Bredt +11 % over yaml (stiffer TE cell), noted, not chased.
 
+## Store action map (session 13, explore; built from docs/validation/*.yaml and validation_matrix.py logic)
+
+All 34 L3 rows are blade structure only (no BEM/FSI file in L1-L3 `depends_on`; to confirm with
+`git log 4809427..HEAD -- <depends_on>`). Row files were re-measured at d5d0fd2 but `contract.yaml` verdict notes cite
+older values, so **14 of 15 stale rows changed value: new verdict, never restamp** (`validation-l3-b3-audit.md:23`);
+only group 20 (identity) is a pure restamp. The full suite (`check.sh -q`) prints no residuals: values come from
+`regression --group G --scope S` (groups 5, 20, 23, 32, 34) and `pytest -s` / `tools/run_*` (38-42).
+Next action per non-trusted row (K3: > 5 % by >= 1 pp rejected; within 1 pp of 5 % without es 0.125 undecided):
+- S-1 (38): EI_edge 8.01 rejected; EI_flap 4.53 in band -> es 0.125 then verdict; mass 3.54 trusted; GJ 10.18 rejected; EA 6.68 rejected.
+- S-2 (39): LC1 5.26, LC4 5.48 -> es 0.125 then verdict; LC2 (2.54 row) and LC3 (+17 % edgewise) undecided: USER (metric: tip node vs ring spread 9-11 %).
+- S-4 (40): parked 2.33/0.56/0.20, rated 1.85/0.44/0.06 -> new verdicts trusted; then gap `rotating_modal_shift` -> bounded with both row ids.
+- V-03 (41) 1.14 trusted; V-05 (42) +0.23 trusted (sign flipped); S-7 (34) 7.25 rejected.
+- V-02 (32) 7.09 / 8.84 vs TP-75698 (v1.0 blade): USER (v1.1 source or drop).
+- Anchor beam (20): pure restamp after `regression --group 20`.
+- Group 23: mass vs Escalera = UTD conversion (disowned): USER keep/drop; CCX modes 0-4 (0.01-0.12 %) and static (0.37 %) audit then second arbiter (BeamDyn p20 modes, `tools/bd_static_reference.py`); Escalera DLC 1.4 (xfail 13.2 %): USER drop/pin; Bernardi modes undecided: USER drop / re-point to p20.
+- Group 5 mesh convergence: fails its own 5 % at the finest mesh (high modes): finding, USER before audit.
+- Absent `sx_mesh_convergence`, `sx_campbell` (ElastoDyn targets): import or out of scope; Campbell re-point to p20 per rpm.
+Single/no arbiter (28): S-1 x5, S-7, V-02 x2, V-03, group 5, group 23 x16, 2 absent. CalculiX can be a second arbiter
+only for S-7 (`tools/ccx_blade_twist_arbitration.py` at es 0.25, not its 1.0 default; `test_blade_ccx_parity.py`
+torsion); S-1 are section integrals (no FE). USER: does the official BeamDyn deck count as `reference_model`
+(it does in 39, 40, 42 but is `published numerical` in 34, 38)? That alone settles S-1/S-7 arbitration.
+`test_blade_ccx_parity.py` (6 static cases vs CCX) has no row nor group. L3 cannot print CLOSED with rejected rows:
+it closes by S5 (every open entry listed with cause and torque sensitivity).
+Missing capability rows (tolerances to fix before measuring): MAC per mode parked/rated vs BeamDyn p20 eigenvectors
+(to generate) and CCX (`postprocess_ccx_modal.py:201`); 1T and 2E frequencies; centrifugal shift delta-f; Campbell 3-11
+rpm vs p20; blade-only transient vs BeamDyn dynamic driver; damping per mode vs deck mu; ply stress if used; rated
+twist vs Zhou (group 27, on no level): USER.
+Procedure: verdicts are hand entries in `contract.yaml` (target, class, verdict, audited_rev, files, arbiters, note);
+values by `regression --group G [--scope S] --write`; new rows: test, `extract --group G --write`, `regression --write`,
+plus `groups.yaml`, `residual-patterns.json`, `levels.yaml`; gate `contract --level L3 --rows`.
+
+## Store pass 1 result (2026-10-27, session 14, logs/check/l3/store-pass1/)
+
+Measured at d50d64a / f1c9e91 (f1c9e91 touches only FSI/BEM, no L3 `depends_on`). Verdicts in `contract.yaml`:
+- S-1 (es 0.25 / 0.125, mean |rel|): EI_edge 8.01 / 8.34 rejected; EI_flap 4.53 / 4.86 **trusted** (0.14 pp
+  margin, refinement moves toward the ceiling); mass 3.54 / 3.64 trusted; GJ 10.74 / 10.70 rejected (signed -10.7,
+  shell soft everywhere; was 10.18 before d81931b/a4b3ca2); EA 6.68 / 6.83 rejected. Arbiter -> reference_model.
+- S-2 vs BeamDyn p60: LC1 -5.26 / -5.28 rejected; LC4 -5.48 / -5.90 rejected; LC2 node -2.54 / -3.56 and LC3 node
+  +10.26 / +11.44 (ring mean +9.01 / +9.78) undecided until the test asserts the ring mean (pass 2). **Finding:** refinement
+  moves every S-2 case away from BeamDyn, so the residual is not discretisation.
+- S-4 parked +2.33 / +0.56 / +0.20 %, rated +1.85 / +0.44 / +0.06 % (1F/1E/2F) trusted. Centrifugal shift parked -> rated
+  7-13 % below BeamDyn (1F -8.1 %, half of it the MBC3 HubRad 3.97 m): gap `rotating_modal_shift` bounded, delta-f row is pass 2.
+- S-7 1.07171 (7.17 %) rejected, arbiter reference_model. V-03 -1.14 % trusted (xlsx, still single arbiter). V-05 +0.23 % trusted.
+- Group 20 restamped (identity, margins same). V-02: group 32 removed from L3 (`levels.yaml`). Group 23: the two Escalera/UTD
+  tests declared `non_validation_tests` and their rows removed by `extract --group 23 --write` (14 rows left).
+- Not touched (pass 2 / user): group 23 CCX audit + second arbiter, Bernardi -> p20, group 5 (prints no residual; finding),
+  the two absent sx files, S-2 ring-mean metric, missing capability rows (MAC, 1T/2E, delta-f, Campbell).
+
+## Handoff 5 (2026-10-27, session 14 close)
+
+**Resume.** Read "Store pass 1 result" and this handoff; Engram `l3/store-pass1`. Branch l3/core-torsion merged to main
+(this session's PR); the full suite never completed on it (SLURM 11625408 / 11625463 TIMEOUT at 4 h, 73 % / 71 %, no
+failures beyond the three known reds up to there): a full suite on main with `--time` 8 h is pending and is the first
+check of the next session (crates/ changed: rotor_fsi.rs, rotor_physics.rs).
+**Next, pass 2, in order.** 1. S-2 ring-mean metric (L12 (4)): the test asserts the tip-ring mean for LC1-LC4, then
+LC2/LC3 verdicts (LC3 ring +9.78 % at es 0.125 -> rejected). 2. Bernardi rows -> BeamDyn p20 modes (L12 (3)). 3. Group
+23 CCX rows: audit, second arbiter p20. 4. Group 5 prints no residual: make it print, then audit (finding: fails its own
+5 % at the finest mesh). 5. Absent sx_mesh_convergence / sx_campbell: import or declare out of scope (USER). 6. Capability
+rows: delta-f centrifugal shift (ours 7-13 % below BeamDyn), MAC per mode vs p20, 1T/2E, Campbell. Then T5 (declare reds
+with torque sensitivity), T6/T7 model work per core-torsion.md.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -359,3 +420,7 @@ blades, T8. The 15 at 0.8: mesh Bredt +11 % over yaml (stiffer TE cell), noted, 
 - L8 (2026-10-26, session 12) User: Handoff 2 items 1-4 in order, verbatim: "1. Probar H6 con la predicción escrita antes: una copia del yaml con las capas en rampa en vez de escalón, y volver a correr modos y S-1. 2. Corregir la auditoría para que una capa valga cero fuera de su grilla, test primero. 3. Bredt de la 3.4 contra el GJ del deck antes de culpar al cierre del borde de fuga. 4. Recién después, T6 y T7 sobre las dos palas." Then asked whether the two blades behave consistently and whether the inconsistencies are model, solver or element; parent: model conventions and reference sampling, solver core unlikely, torsion still open between mesher, extraction and element.
 - L9 (2026-10-26, session 13) User: "continuamos". Parent: Handoff 3 items 1-2 (mesh Bredt, H7 deck check), then the twist integral (worker); Handoff 4.
 - L10 (2026-10-26, session 13) User, verbatim: "recuerda que no es que yo quiera arreglar el modelo de una u otra pala, yo quero que aeroelast sea cientificamente confiable para el proposito que te di". Parent: the blades are instruments to find code defects; the 3.4 outboard torsional softness (1.3x its own section) is a core-reliability question (element or section-distortion measure), which is why Handoff 4 item 1 comes before any blade-model work. Also asked for one PR of l3/twist-p1 to main.
+- L11 (2026-10-26, session 13) User: "si, eso que me estas proponiendo es lo que yo crei que estavamos haciendo desde que desarrolle el store de pruebas de validacion" and "ok puedes empezar con eso en paralelo?". Parent: L3 is closed from the store contract (restamp stale, audit unaudited, decide undecided, second arbiter CalculiX where single, missing capability rows such as mode shapes); store snapshot 2026-10-26: L1 closed (157 trusted), L2 closed (79), L3 open (undecided 10, stale 15, unaudited 9, absent 2, 28 single/no arbiter, 1 blocking gap), L4 open (20 stale), L5 open and blocked (unaudited 11, absent 8; one row touches coupling code). Core-torsion findings in `odd/tasks/core-torsion.md`. Read-only action map launched (explore).
+- L12 (2026-10-26, session 13) User decisions on the store action map, verbatim choices: (1) BeamDyn deck class: "reference_model en todas (recomendado)"; (2) V-02: "Darla de baja (recomendado)"; (3) group 23: "Bajarlas; Bernardi re-apuntado a p20 (recomendado)"; (4) S-2 metric: "Media del anillo de punta (recomendado)". Parent: pass 1 (measure at HEAD without --write, es 0.125 runs in the 1 pp band, new K3 verdicts, deck reclassified, V-02 and UTD/Escalera rows dropped, group 20 restamp, gap rotating_modal_shift bounded) by a worker; pass 2 (S-2 ring-mean metric, Bernardi -> p20, missing capability rows) after.
+- L13 (2026-10-27, session 14) User: "ya terminaron las tareas del hpc vamos a continuar cerrando l3". Parent: read the 12 pass-1 jobs, ran the S-1 metric dump at es 0.25 / 0.125 and `regression --write` for groups 20 and 34, wrote the pass-1 verdicts, bounded `rotating_modal_shift`, applied the L12 drops (section "Store pass 1 result").
+- L14 (2026-10-27, session 14) User: "si mezcla todo y vamos a otra sesion"; chose "Mergear ya (recomendado: dejo la falta escrita)" over running the full suite first. Parent: merged l3/core-torsion with the incomplete full suite recorded (Handoff 5).

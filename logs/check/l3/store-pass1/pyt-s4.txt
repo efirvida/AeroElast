@@ -1,0 +1,74 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.9, pytest-9.0.3, pluggy-1.6.0 -- /scratch/leahk/eduardo.donestevez/venv/bin/python
+rootdir: /scratch/leahk/eduardo.donestevez/fem-shell
+configfile: pyproject.toml
+plugins: anyio-4.13.0
+collecting ... collected 2 items
+
+tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0] --------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6015
+--------------------------------------------------------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+inset: 26656 nodes, sign -1 (votes -26876), mean half-thickness 23.3 mm, max 54.4 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 33827 nodes, 35012 elements
+S-4 parked 1st flap [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not asserted): 0.518922 vs 0.544 (signed error: -4.6099%)
+S-4 parked 1st flap [Hz] vs OpenFAST v5.0.0 BeamDyn p20: 0.518922 vs 0.507083 (signed error: +2.3348%, bound: 5.0000%)
+S-4 parked 1st edge [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not asserted): 0.697231 vs 0.739 (signed error: -5.6521%)
+S-4 parked 1st edge [Hz] vs OpenFAST v5.0.0 BeamDyn p20: 0.697231 vs 0.693376 (signed error: +0.5559%, bound: 5.0000%)
+S-4 parked 2nd flap [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not asserted): 1.483824 vs 1.61 (signed error: -7.8370%)
+S-4 parked 2nd flap [Hz] vs OpenFAST v5.0.0 BeamDyn p20: 1.483824 vs 1.480900 (signed error: +0.1974%, bound: 5.0000%)
+PASSED
+tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]       Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+inset: 26656 nodes, sign -1 (votes -26876), mean half-thickness 23.3 mm, max 54.4 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 33827 nodes, 35012 elements
+S-4 rotating 1st flap [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not asserted): 0.541819 vs 0.5666 (signed error: -4.3735%)
+S-4 rotating 1st flap [Hz] vs OpenFAST v5.0.0 BeamDyn p20: 0.541819 vs 0.532003 (signed error: +1.8451%, bound: 5.0000%)
+S-4 rotating 1st edge [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not asserted): 0.702508 vs 0.7461 (signed error: -5.8427%)
+S-4 rotating 1st edge [Hz] vs OpenFAST v5.0.0 BeamDyn driver p20: 0.702508 vs 0.699413 (signed error: +0.4424%, bound: 5.0000%)
+S-4 rotating 2nd flap [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not asserted): 1.508960 vs 1.6372 (signed error: -7.8329%)
+S-4 rotating 2nd flap [Hz] vs OpenFAST v5.0.0 BeamDyn p20: 1.508960 vs 1.508057 (signed error: +0.0598%, bound: 5.0000%)
+PASSED
+
+=============================== warnings summary ===============================
+tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0]
+tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+    rotVec = (theta / mag) * cp
+
+tests/test_iea15mw_s4_rotating_modal.py: 70024 warnings
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/core/mesh/generators.py:1412: DeprecationWarning: Setting thickness on MeshElement is deprecated. Use a 'properties' dict mapping element-set names to ShellProperty / CompositeShellProperty instead.
+    elem.thickness = thickness
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0]
+PASSED tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]
+================ 2 passed, 70026 warnings in 822.09s (0:13:42) =================
+elapsed 825.27 s maxrss 5300960 kB

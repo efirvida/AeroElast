@@ -713,6 +713,19 @@ groups:
     citation: bernardi2025
     source_files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
+    # Dropped from L3 by the maintainer, 2026-10-26 (odd/tasks/l3-closure.md L12 (3)).
+    non_validation_tests:
+      - tests:
+          - test_blade_mass_matches_published_models
+          - test_blade_static_deflection_matches_article_dlc
+        reason: >-
+          Escalera Mendoza 2023 (escalera2023) models the UTD NuMAD conversion
+          of the blade, which this repository disowns as an input
+          (docs/blade_input_divergence_utd_vs_official.md: 30-75 % thinner
+          outboard TE reinforcement). Its mass and its DLC 1.4 static tip
+          describe a different blade from the official v1.1 yaml the model is
+          built from, so they are not an independent reference for it. The
+          tests stay as they are; the store carries no row for them.
 
     provenance_note: >-
       Four references on purpose: the tight comparison is AeroElast against

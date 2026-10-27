@@ -1,0 +1,132 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.9, pytest-9.0.3, pluggy-1.6.0 -- /scratch/leahk/eduardo.donestevez/venv/bin/python
+rootdir: /scratch/leahk/eduardo.donestevez/fem-shell
+configfile: pyproject.toml
+plugins: anyio-4.13.0
+collecting ... collected 6 items
+
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn --------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont6077
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+inset: 26656 nodes, sign -1 (votes -26876), mean half-thickness 23.3 mm, max 54.4 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 33827 nodes, 35012 elements
+FAILED
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_flapwise_ei_within_band PASSED
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_mass_distribution_matches_beamdyn PASSED
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_gj_distribution_matches_beamdyn FAILED
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_ea_clt_distribution_matches_beamdyn FAILED
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_zz_dump_metrics S1DUMP ei_edge: mean|rel| 8.0088% signed -1.8938% n=32
+S1DUMP ei_flap: mean|rel| 4.5318% signed +3.8693% n=32
+S1DUMP gj: mean|rel| 10.7402% signed -10.7402% n=32
+S1DUMP ea: mean|rel| 6.6779% signed +6.5626% n=32
+S1DUMP mass: mean|rel| 3.5359% signed +2.2600% n=32
+PASSED
+
+=================================== FAILURES ===================================
+__________ TestS1SectionalProperties.test_edgewise_ei_matches_beamdyn __________
+
+self = <s1dump_025.TestS1SectionalProperties object at 0x14add5eb3d10>
+s1_results = {'ea': array([4.36197937e+10, 3.88591094e+10, 3.39656170e+10, 3.02822280e+10,
+       2.80595853e+10, 2.63886944e+10, 2...8, 1.32674751e+08,
+       7.53763790e+07, 5.49882250e+07, 3.53295219e+07, 1.87983397e+07,
+       6.73504462e+06]), ...}
+
+    def test_edgewise_ei_matches_beamdyn(self, s1_results):
+        """EI_edge mid-span mean |rel err| vs the BeamDyn elastic-centre EI below 5 %."""
+        m = s1_results["mid"]
+        rel = np.abs(s1_results["ei_edge"][m] / s1_results["ei_edge_bd"][m] - 1)
+        err = float(np.nanmean(rel))
+>       assert err < 0.05, (
+            f"EI_edge mid-span mean |rel err| = {err:.2%} (tol 5%)"
+        )
+E       AssertionError: EI_edge mid-span mean |rel err| = 8.01% (tol 5%)
+E       assert 0.08008797138108473 < 0.05
+
+logs/check/l3/store-pass1/s1dump_025.py:119: AssertionError
+________ TestS1SectionalProperties.test_gj_distribution_matches_beamdyn ________
+
+self = <s1dump_025.TestS1SectionalProperties object at 0x14add5752180>
+s1_results = {'ea': array([4.36197937e+10, 3.88591094e+10, 3.39656170e+10, 3.02822280e+10,
+       2.80595853e+10, 2.63886944e+10, 2...8, 1.32674751e+08,
+       7.53763790e+07, 5.49882250e+07, 3.53295219e+07, 1.87983397e+07,
+       6.73504462e+06]), ...}
+
+    def test_gj_distribution_matches_beamdyn(self, s1_results):
+        """GJ(r) mid-span mean |rel err| vs BeamDyn below 5 %.
+    
+        Static-response torsion test: the tip torque about the local pre-bent span tangent is applied as
+        the end ring's Saint-Venant wall shear flow (``section_torque_wall_forces``) and the twist rate is
+        the local-quadratic derivative of the rigid-fit theta (blade-input-audit T40; before, a
+        ``t x r_perp`` couple and an absolute smoothing spline, T39).
+        """
+        z, gj, gjb = s1_results["z"], s1_results["gj"], s1_results["gj_bd"]
+        mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
+        rel = np.abs(gj[mid] / gjb[mid] - 1)
+        err = float(np.nanmean(rel))
+>       assert err < 0.05, (
+            f"GJ(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
+        )
+E       AssertionError: GJ(r) mid-span mean |rel err| = 10.74% (tol 5%)
+E       assert 0.10740218301111949 < 0.05
+
+logs/check/l3/store-pass1/s1dump_025.py:154: AssertionError
+______ TestS1SectionalProperties.test_ea_clt_distribution_matches_beamdyn ______
+
+self = <s1dump_025.TestS1SectionalProperties object at 0x14add57524b0>
+s1_results = {'ea': array([4.36197937e+10, 3.88591094e+10, 3.39656170e+10, 3.02822280e+10,
+       2.80595853e+10, 2.63886944e+10, 2...8, 1.32674751e+08,
+       7.53763790e+07, 5.49882250e+07, 3.53295219e+07, 1.87983397e+07,
+       6.73504462e+06]), ...}
+
+    def test_ea_clt_distribution_matches_beamdyn(self, s1_results):
+        """EA(r) from the direct CLT section integral, mid-span mean |rel err| vs BeamDyn below 5 %.
+    
+        The CLT path (sum of A11(layup) per element, reciprocal-Poisson reduced stiffness) is
+        immune to the pre-bend bending contamination of the global-response extraction.
+        """
+        z, ea, eab = s1_results["z"], s1_results["ea"], s1_results["ea_bd"]
+        mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
+        rel = np.abs(ea[mid] / eab[mid] - 1)
+        err = float(np.nanmean(rel))
+>       assert err < 0.05, (
+            f"EA(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
+        )
+E       AssertionError: EA(r) mid-span mean |rel err| = 6.68% (tol 5%)
+E       assert 0.06677887100442526 < 0.05
+
+logs/check/l3/store-pass1/s1dump_025.py:168: AssertionError
+=============================== warnings summary ===============================
+logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+    rotVec = (theta / mag) * cp
+
+logs/check/l3/store-pass1/s1dump_025.py: 35012 warnings
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/core/mesh/generators.py:1412: DeprecationWarning: Setting thickness on MeshElement is deprecated. Use a 'properties' dict mapping element-set names to ShellProperty / CompositeShellProperty instead.
+    elem.thickness = thickness
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_flapwise_ei_within_band
+PASSED logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_mass_distribution_matches_beamdyn
+PASSED logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_zz_dump_metrics
+FAILED logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn
+FAILED logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_gj_distribution_matches_beamdyn
+FAILED logs/check/l3/store-pass1/s1dump_025.py::TestS1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
+=========== 3 failed, 3 passed, 35013 warnings in 315.10s (0:05:15) ============
+Command exited with non-zero status 1
+elapsed 318.91 s maxrss 5452408 kB

@@ -56,6 +56,9 @@
         uses the live rotor speed. Initialized at t=0 so BEM receives ω before
         the first time window. -->
   <data:scalar name="AngularVelocity" />
+  <!--  Theta: scalar [rad] — end-of-window rotor angle the structure rotates forces and
+        displacements with; the BEM takes its frame rotation and CCBlade azimuth from it. -->
+  <data:scalar name="Theta" />
 
   <!-- ─── Meshes ──────────────────────────────────────────────────────────── -->
   <!--  Fluid-Mesh and Solid-Mesh are generated from the same BladeMesh
@@ -81,10 +84,12 @@
         exchange. Nearest-neighbor mapping is trivially exact for single-vertex meshes. -->
   <mesh name="GlobalFluidMesh" dimensions="3">
     <use-data name="AngularVelocity" />
+    <use-data name="Theta" />
   </mesh>
 
   <mesh name="GlobalSolidMesh" dimensions="3">
     <use-data name="AngularVelocity" />
+    <use-data name="Theta" />
   </mesh>
 
   <!-- ─── Participants ─────────────────────────────────────────────────────── -->
@@ -111,6 +116,7 @@
     <receive-mesh name="GlobalSolidMesh" from="Solid" />
 
     <read-data name="AngularVelocity" mesh="GlobalFluidMesh" />
+    <read-data name="Theta" mesh="GlobalFluidMesh" />
 
     <mapping:nearest-neighbor direction="read"
                                from="GlobalSolidMesh" to="GlobalFluidMesh"
@@ -129,6 +135,7 @@
     <provide-mesh name="GlobalSolidMesh" />
 
     <write-data name="AngularVelocity" mesh="GlobalSolidMesh" />
+    <write-data name="Theta" mesh="GlobalSolidMesh" />
   </participant>
 
   <!-- ─── Communication ───────────────────────────────────────────────────── -->
@@ -158,6 +165,7 @@
     <!--  initialize="true": Solid writes ω at t=0 so BEM has a valid speed
           before computing the first time window. -->
     <exchange data="AngularVelocity" mesh="GlobalSolidMesh"  from="Solid" to="Fluid" initialize="true" />
+    <exchange data="Theta" mesh="GlobalSolidMesh"  from="Solid" to="Fluid" initialize="true" />
 
     <max-iterations value="30" />
 

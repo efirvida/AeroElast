@@ -834,15 +834,14 @@ pub fn compute_performance_coefficients(
     let denom_power = q_dyn * area * flow_velocity;
     let denom_torque = q_dyn * area * radius;
 
-    // Sign convention: the structural solver uses RHR around +Y (omega > 0,
-    // clockwise from -Y). The driving tangential force projects onto -X, so
-    // tau_aero < 0 and power_aero < 0 for a wind-turbine extracting energy.
-    // Ct, Cp, Cq are reported as positive quantities (standard HAWT convention)
-    // by negating tau and power before normalisation.
-    // Thrust projects onto +Y (axial) and is already positive — no sign flip.
+    // Sign convention: the structural solver uses RHR around the rotation axis
+    // (omega > 0). Since T7c the tangential load points to the leading edge and
+    // drives the rotor with tau_aero > 0, so power_aero = tau_aero * omega > 0 for
+    // a wind turbine extracting energy and Ct, Cp, Cq are taken as they are.
+    // Thrust projects onto the axis and is already positive.
     let ct = if denom_force.abs() > min_denom { thrust / denom_force } else { 0.0 };
-    let cp = if denom_power.abs() > min_denom { -power_aero / denom_power } else { 0.0 };
-    let cq = if denom_torque.abs() > min_denom { -torque_aero / denom_torque } else { 0.0 };
+    let cp = if denom_power.abs() > min_denom { power_aero / denom_power } else { 0.0 };
+    let cq = if denom_torque.abs() > min_denom { torque_aero / denom_torque } else { 0.0 };
     let tsr = if flow_velocity.abs() > min_denom {
         omega.abs() * radius / flow_velocity
     } else {
@@ -853,6 +852,59 @@ pub fn compute_performance_coefficients(
 }
 
 // ── OmegaProvider ──────────────────────────────────────────────────────────────
+
+/// Rotor angle θ shared with the partner through preCICE (D4, `odd/tasks/core-torsion.md`).
+///
+/// One value per coupling window, the end-of-window angle `theta_target`, serves three
+/// uses: it rotates the forces read from the partner, it rotates the displacements
+/// written back, and it is published next to ω so the partner (BEM, OpenFOAM) rotates
+/// with exactly the same angle.  `committed` is θ at the start of the window and
+/// advances only when the window converges; a checkpoint restore returns to it.
+#[derive(Debug, Clone, Copy)]
+pub struct RotorAngle {
+    committed: f64,
+    checkpoint: f64,
+    target: f64,
+}
+
+impl RotorAngle {
+    /// Angle at the start of the run (`theta0` of a restart, 0 otherwise).
+    pub fn new(theta0: f64) -> Self {
+        Self { committed: theta0, checkpoint: theta0, target: theta0 }
+    }
+
+    /// θ at the start of the current window.
+    pub fn committed(&self) -> f64 {
+        self.committed
+    }
+
+    /// Remember the window-start angle (preCICE `requires_writing_checkpoint`).
+    pub fn save_checkpoint(&mut self) {
+        self.checkpoint = self.committed;
+    }
+
+    /// End-of-window angle for the given increment; call every sub-iteration.
+    pub fn begin_window(&mut self, theta_increment: f64) -> f64 {
+        self.target = self.committed + theta_increment;
+        self.target
+    }
+
+    /// The value to write to the partner: the angle returned by [`Self::begin_window`].
+    pub fn published(&self) -> f64 {
+        self.target
+    }
+
+    /// Roll back to the window start (preCICE `requires_reading_checkpoint`).
+    pub fn restore(&mut self) {
+        self.committed = self.checkpoint;
+        self.target = self.checkpoint;
+    }
+
+    /// The window converged: its end-of-window angle becomes the committed one.
+    pub fn commit(&mut self) {
+        self.committed = self.target;
+    }
+}
 
 /// Saved state for checkpoint/restore of an `OmegaProvider`.
 #[derive(Debug, Clone)]
@@ -1356,6 +1408,64 @@ pub fn max_radial_deflection_ratio(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One window of the coupling loop as `RotorFsiSolver::solve` runs it: the angle the
+    /// forces are rotated with, the displacements are rotated with and the value written
+    /// to the partner must be the same number, in every sub-iteration and after a restore.
+    #[test]
+    fn published_theta_is_the_angle_used_for_the_frame_rotation() {
+        let transforms = RotorTransforms::new([0.0, 1.0, 0.0], [0.0, 0.0, 0.0]);
+        let (theta0, dtheta) = (4.2, 0.007);
+        let mut angle = RotorAngle::new(theta0);
+        assert_eq!(angle.committed(), theta0);
+
+        angle.save_checkpoint();
+        for _iteration in 0..3 {
+            let target = angle.begin_window(dtheta);
+            let published = angle.published();
+            assert_eq!(published, target);
+            assert_eq!(published, theta0 + dtheta);
+            // Forces the partner wrote in inertial axes with `published` come back as the
+            // rotating-frame forces; displacements go out with the same rotation.
+            let f_rot = [3.0, -2.0, 11.0];
+            let f_global = transforms.disps_to_inertial(&f_rot, published);
+            let back = transforms.forces_to_rotating(&f_global, target);
+            for k in 0..3 {
+                assert!((back[k] - f_rot[k]).abs() < 1e-12);
+            }
+            angle.restore();
+            assert_eq!(angle.committed(), theta0, "restore must return to the window start");
+        }
+
+        let target = angle.begin_window(dtheta);
+        angle.commit();
+        assert_eq!(angle.committed(), target);
+        assert_eq!(angle.published(), target);
+        // The next window starts from the committed angle.
+        angle.save_checkpoint();
+        assert!((angle.begin_window(dtheta) - (theta0 + 2.0 * dtheta)).abs() < 1e-15);
+        angle.restore();
+        assert_eq!(angle.committed(), theta0 + dtheta);
+    }
+
+    #[test]
+    fn rotor_angle_defaults_to_zero_without_restart() {
+        let angle = RotorAngle::new(0.0);
+        assert_eq!(angle.committed(), 0.0);
+        assert_eq!(angle.published(), 0.0);
+    }
+
+    #[test]
+    fn driving_torque_reports_positive_cp_and_cq() {
+        // Since T7c the tangential load drives the rotor with tau_aero > 0 about +axis,
+        // so power = tau * omega > 0 and Cp, Cq > 0 at omega > 0.
+        let (rho, v, r, tau, omega) = (1.225, 10.0, 60.0, 2.0e6, 1.0);
+        let p = compute_performance_coefficients(1.0e5, tau * omega, tau, omega, r, rho, v);
+        let q_area = 0.5 * rho * v * v * std::f64::consts::PI * r * r;
+        assert!(p.cp > 0.0 && p.cq > 0.0, "cp={} cq={}", p.cp, p.cq);
+        assert!((p.cp - tau * omega / (q_area * v)).abs() < 1e-12);
+        assert!((p.cq - tau / (q_area * r)).abs() < 1e-12);
+    }
 
     #[test]
     fn rotation_matrix_identity_at_zero() {

@@ -1,0 +1,126 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.9, pytest-9.0.3, pluggy-1.6.0 -- /scratch/leahk/eduardo.donestevez/venv/bin/python
+rootdir: /scratch/leahk/eduardo.donestevez/fem-shell
+configfile: pyproject.toml
+plugins: anyio-4.13.0
+collecting ... collected 4 items
+
+tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official] --------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6015
+--------------------------------------------------------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+inset: 26656 nodes, sign -1 (votes -26876), mean half-thickness 23.3 mm, max 54.4 mm
+      Renumbering mesh using rcm algorithm...
+      Blade mesh generated: 33827 nodes, 35012 elements
+S-2 LC1_gravity uy [m]: shell -2.114143 vs OpenFAST BeamDyn p60 -2.231483 (signed error: -5.2584%, bound: 5.0000%); in-house EB beam -1.988006 (+6.3449%, comparison, not asserted)
+FAILED
+tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official] S-2 LC2_tip_flap uy [m]: shell 80.186786 vs OpenFAST BeamDyn p60 82.273278 (signed error: -2.5361%, bound: 5.0000%); in-house EB beam 68.398892 (+17.2340%, comparison, not asserted)
+PASSED
+tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official] S-2 LC3_tip_edge ux [m]: shell 38.004389 vs OpenFAST BeamDyn p60 34.469441 (signed error: +10.2553%, bound: 5.0000%); tip ring mean 37.574707 (node vs ring +1.1435%); in-house EB beam 32.460697 (ratio 1.1708, comparison, not asserted)
+PASSED
+tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official] S-2 LC4_distributed uy [m]: shell 8.565719 vs OpenFAST BeamDyn p60 9.062631 (signed error: -5.4831%, bound: 5.0000%); in-house EB beam 7.581687 (+12.9791%, comparison, not asserted)
+FAILED
+
+=================================== FAILURES ===================================
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC1_gravity-official] _
+
+self = <tests.test_iea15mw_s2_static_prescribed.TestS2StaticPrescribed object at 0x151239134a70>
+s2_results = {'LC1_gravity': {'beam': array([-0.09111801, -1.98800601, -0.11266614]), 'ring': array([-0.15925209, -2.11904428, -0.1...48667174]), 'ring': array([0.43580913, 8.60402188, 0.5582546 ]), 'shell': array([0.4338209 , 8.56571854, 0.55265335])}}
+blade_name = 'official', case_name = 'LC1_gravity'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [official] LC1_gravity uy: shell=-2.1141 BeamDyn p60=-2.2315 (rel=5.26%, tol=5%)
+E       assert np.float64(0.052584028655099084) < 0.05
+
+tests/test_iea15mw_s2_static_prescribed.py:162: AssertionError
+_ TestS2StaticPrescribed.test_dominant_component_matches_beam[LC4_distributed-official] _
+
+self = <tests.test_iea15mw_s2_static_prescribed.TestS2StaticPrescribed object at 0x15122b86ccb0>
+s2_results = {'LC1_gravity': {'beam': array([-0.09111801, -1.98800601, -0.11266614]), 'ring': array([-0.15925209, -2.11904428, -0.1...48667174]), 'ring': array([0.43580913, 8.60402188, 0.5582546 ]), 'shell': array([0.4338209 , 8.56571854, 0.55265335])}}
+blade_name = 'official', case_name = 'LC4_distributed'
+
+    @pytest.mark.parametrize("case_name", ["LC1_gravity", "LC2_tip_flap", "LC4_distributed"])
+    def test_dominant_component_matches_beam(self, s2_results, blade_name, case_name):
+        spec = _DOMINANT[case_name]
+        comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
+        d_shell = s2_results[case_name]["shell"][comp_idx]
+        d_beam = s2_results[case_name]["beam"][comp_idx]
+        tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
+>       assert rel < tol, (
+            f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+        )
+E       AssertionError: [official] LC4_distributed uy: shell=8.5657 BeamDyn p60=9.0626 (rel=5.48%, tol=5%)
+E       assert np.float64(0.05483092766931733) < 0.05
+
+tests/test_iea15mw_s2_static_prescribed.py:162: AssertionError
+=============================== warnings summary ===============================
+tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+    rotVec = (theta / mag) * cp
+
+tests/test_iea15mw_s2_static_prescribed.py: 35012 warnings
+  /scratch/leahk/eduardo.donestevez/fem-shell/src/aeroelast/core/mesh/generators.py:1412: DeprecationWarning: Setting thickness on MeshElement is deprecated. Use a 'properties' dict mapping element-set names to ShellProperty / CompositeShellProperty instead.
+    elem.thickness = thickness
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
+PASSED tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official]
+FAILED tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+FAILED tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
+=========== 2 failed, 2 passed, 35013 warnings in 198.10s (0:03:18) ============
+Command exited with non-zero status 1
+elapsed 200.88 s maxrss 3645952 kB

@@ -1,0 +1,7 @@
+[
+  {
+    "row": "blade_mesh_convergence.test_blade_modal_gap_converges_with_mesh.single",
+    "verdict": "unmapped",
+    "detail": "0 printed residual(s) for 2 asserted comparison(s)"
+  }
+]

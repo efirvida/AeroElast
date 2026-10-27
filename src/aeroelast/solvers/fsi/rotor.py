@@ -1834,6 +1834,61 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         torque_scalar = float(np.dot(torque_local, self._coord_transforms.axis))
         return torque_global, torque_scalar
 
+    def _window_torques(
+        self,
+        iface_coords,
+        iface_u_local,
+        iface_force_local,
+        all_node_coords,
+        u_nodes_local,
+        f_inertial_nodes_local,
+        f_gravity_nodes_local,
+        f_total_nodes_local,
+        theta: float,
+        tau_aero_rust: float = 0.0,
+    ):
+        """Axis torques of one converged window: aero, inertial, gravity and total.
+
+        The mesh coordinates are already rotating-frame coordinates (X0 is the
+        inertial position at theta = 0), as are the displacements and forces, so
+        no frame change applies; Rust uses them unrotated as well.
+        """
+        tau_aero_global, tau_aero = self._compute_axis_torque(
+            iface_coords, iface_u_local, iface_force_local, theta
+        )
+        if abs(tau_aero) <= _MIN_DENOMINATOR and abs(tau_aero_rust) > _MIN_DENOMINATOR:
+            tau_aero = float(tau_aero_rust)
+            # Reconstruct consistent global torque vector: assume torque is
+            # primarily axial (standard for rotors) so the global vector is
+            # just the axis scaled by the scalar projected onto it.
+            tau_aero_global = self._coord_transforms.to_inertial(
+                self._coord_transforms.axis * tau_aero_rust, theta
+            )
+        _, tau_inertial = self._compute_axis_torque(
+            all_node_coords, u_nodes_local, f_inertial_nodes_local, theta
+        )
+        _, tau_gravity = self._compute_axis_torque(
+            all_node_coords, u_nodes_local, f_gravity_nodes_local, theta
+        )
+        tau_total_global, tau_total = self._compute_axis_torque(
+            all_node_coords, u_nodes_local, f_total_nodes_local, theta
+        )
+        return (
+            tau_aero_global,
+            tau_aero,
+            tau_inertial,
+            tau_gravity,
+            tau_total_global,
+            tau_total,
+        )
+
+    @staticmethod
+    def _aerodynamic_powers(
+        tau_aero: float, tau_total: float, omega: float
+    ) -> Tuple[float, float]:
+        """Aerodynamic and total power of the window [W]."""
+        return tau_aero * omega, tau_total * omega
+
     def _compute_performance_coefficients(
         self,
         thrust: float,
@@ -1845,21 +1900,16 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
 
         Sign convention note
         --------------------
-        The structural solver uses RHR around +Y (omega > 0, clockwise from -Y).
-        The driving tangential force projects onto -X in the structural frame, so
-        ``tau_aero = r × F · ŷ < 0`` for a powered wind turbine and
-        ``power_aero = tau_aero * omega < 0`` (energy extracted *from* the fluid).
-
-        Ct, Cp, Cq are reported as positive quantities (standard wind-turbine
-        convention) by negating ``tau_aero`` and ``power_aero`` before
-        normalisation.  Thrust projects onto +Y (axial direction = rotation axis)
-        and is already positive, so Ct needs no sign correction.
+        Since T7c the driving tangential force points to the leading edge, so
+        ``tau_aero = r × F · axis > 0`` for a powered wind turbine and
+        ``power_aero = tau_aero * omega > 0`` (energy extracted *from* the fluid).
+        Ct, Cp and Cq follow without sign correction; thrust projects onto the
+        rotation axis and is already positive.
         """
         area = np.pi * radius * radius
         q_dyn = 0.5 * self._fluid_density * self._flow_velocity * self._flow_velocity
-        # Negate: tau_aero < 0 and power_aero < 0 for energy-extracting rotor
-        power_extracted = -torque_aero * omega
-        torque_extracted = -torque_aero
+        power_extracted = torque_aero * omega
+        torque_extracted = torque_aero
 
         denom_force = q_dyn * area
         denom_power = q_dyn * area * self._flow_velocity
@@ -2161,77 +2211,24 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 f_aero_nodes_local + f_inertial_nodes_local + f_gravity_nodes_local
             )
 
-            # interface_coords_nodes are stored in the global (inertial) frame.
-            # iface_u_local and iface_force_local are already in the rotating frame.
-            # Convert reference coords to the rotating frame before computing r×F
-            # so that rel_pos = coords_local + disps_local - center is consistent.
-            iface_coords_local = self._coord_transforms.to_rotating(interface_coords_nodes, theta)
-            # interface_coords_nodes are stored in the global (inertial) frame.
-            # iface_u_local and iface_force_local are already in the rotating frame.
-            # Convert reference coords to the rotating frame before computing r×F
-            # so that rel_pos = coords_local + disps_local - center is consistent.
-            iface_coords_local = self._coord_transforms.to_rotating(interface_coords_nodes, theta)
-            tau_aero_global, tau_aero = self._compute_axis_torque(
-                iface_coords_local,
+            (
+                tau_aero_global,
+                tau_aero,
+                tau_inertial,
+                tau_gravity,
+                tau_total_global,
+                tau_total,
+            ) = self._window_torques(
+                interface_coords_nodes,
                 iface_u_local,
                 iface_force_local,
-                theta,
-            )
-            if abs(tau_aero) <= _MIN_DENOMINATOR and abs(tau_aero_rust) > _MIN_DENOMINATOR:
-                tau_aero = float(tau_aero_rust)
-                # Reconstruct consistent global torque vector: assume torque is
-                # primarily axial (standard for rotors) so the global vector is
-                # just the axis scaled by the scalar projected onto it.
-                tau_aero_global = self._coord_transforms.to_inertial(
-                    self._coord_transforms.axis * tau_aero_rust, theta
-                )
-
-            all_node_coords_local = self._coord_transforms.to_rotating(all_node_coords_nodes, theta)
-            _, tau_inertial = self._compute_axis_torque(
-                all_node_coords_local,
+                all_node_coords_nodes,
                 u_nodes_local,
                 f_inertial_nodes_local,
-                theta,
-            )
-            _, tau_gravity = self._compute_axis_torque(
-                all_node_coords_local,
-                u_nodes_local,
                 f_gravity_nodes_local,
-                theta,
-            )
-            tau_total_global, tau_total = self._compute_axis_torque(
-                all_node_coords_local,
-                u_nodes_local,
                 f_total_nodes_local,
                 theta,
-            )
-            if abs(tau_aero) <= _MIN_DENOMINATOR and abs(tau_aero_rust) > _MIN_DENOMINATOR:
-                tau_aero = float(tau_aero_rust)
-                # Reconstruct consistent global torque vector: assume torque is
-                # primarily axial (standard for rotors) so the global vector is
-                # just the axis scaled by the scalar projected onto it.
-                tau_aero_global = self._coord_transforms.to_inertial(
-                    self._coord_transforms.axis * tau_aero_rust, theta
-                )
-
-            all_node_coords_local = self._coord_transforms.to_rotating(all_node_coords_nodes, theta)
-            _, tau_inertial = self._compute_axis_torque(
-                all_node_coords_local,
-                u_nodes_local,
-                f_inertial_nodes_local,
-                theta,
-            )
-            _, tau_gravity = self._compute_axis_torque(
-                all_node_coords_local,
-                u_nodes_local,
-                f_gravity_nodes_local,
-                theta,
-            )
-            tau_total_global, tau_total = self._compute_axis_torque(
-                all_node_coords_local,
-                u_nodes_local,
-                f_total_nodes_local,
-                theta,
+                tau_aero_rust,
             )
 
             thrust = float(np.dot(np.sum(iface_force_local, axis=0), self._coord_transforms.axis))
@@ -2244,11 +2241,9 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             )
 
             torque_non_aero = tau_total - tau_aero
-            # tau_aero < 0 for a wind turbine in this frame convention (driving
-            # force in -X, rotation_axis = +Y). Negate for physically meaningful
-            # reporting: power_aero > 0 means energy extracted from the wind.
-            power_aero = -tau_aero * omega_window
-            power_total = -tau_total * omega_window
+            # Since T7c the driving force points to +X (leading edge), so tau_aero > 0
+            # for a wind turbine: power_aero > 0 means energy extracted from the wind.
+            power_aero, power_total = self._aerodynamic_powers(tau_aero, tau_total, omega_window)
             structural_efficiency = (
                 float(np.clip(-torque_non_aero / tau_aero, 0.0, 1.0))
                 if abs(tau_aero) > _MIN_DENOMINATOR

@@ -1,0 +1,40 @@
+contract: physics ceiling 5% relative; a level closes only when nothing is open
+L3 [open] IEA 15 MW blade structure against published models and CalculiX
+    undecided 10, stale 15, unaudited 9, absent 2; over ceiling 0; single or no arbiter 28; gaps 1 blocking / 1
+      unaudited  blade_mesh_convergence.test_blade_modal_gap_converges_with_mesh.single  arbiters: produced_numerical:the CalculiX frequencies for the same blade and mesh
+      stale      blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      unaudited  blade_iea15mw.test_blade_mass_matches_published_models.single  arbiters: published_numerical:escalera2023
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.0  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.1  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.2  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.3  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_modal_frequencies_match_ccx.4  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_static_tip_deflection_matches.single  arbiters: produced_numerical:CalculiX 2.23 S8R, the same mesh and composite properties
+      unaudited  blade_iea15mw.test_blade_static_deflection_matches_art.single  arbiters: published_numerical:escalera2023
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.0  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.1  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.2  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.3  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.4  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.5  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.6  arbiters: published_numerical:bernardi2025
+      undecided  blade_iea15mw.test_blade_modal_frequencies_match_berna.7  arbiters: published_numerical:bernardi2025
+      stale      blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single  arbiters: published_numerical:gaertner2020  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single  arbiters: published_numerical:gaertner2020  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single  arbiters: published_numerical:BeamDyn blade deck K[5,5] of the official IEA 15 MW turbine, integrated by our own Timoshenko torsion integral  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_sectional_distribution.s1_sectional_edgewise_ei  arbiters: published_numerical:BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_sectional_distribution.s1_sectional_flapwise_ei  arbiters: published_numerical:BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_sectional_distribution.s1_sectional_mass  arbiters: published_numerical:BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_sectional_distribution.s1_sectional_gj  arbiters: published_numerical:BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_sectional_distribution.s1_sectional_ea  arbiters: published_numerical:BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_static_prescribed.s2_official_lc1_tip_displacement  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      undecided  blade_static_prescribed.s2_official_lc2_tip_displacement
+      undecided  blade_static_prescribed.s2_official_lc3_tip_edge_displacement
+      stale      blade_static_prescribed.s2_official_lc4_distributed_tip_displacement  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_rotating_modes.s4_parked_openfast_modes  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_rotating_modes.s4_rated_openfast_modes  stale by: 94237f7 188c997 d81931b a4b3ca2 e6327ec
+      stale      blade_total_mass.v03_assembled_mass_vs_tabular  arbiters: published_numerical:IEA-15-240-RWT tabular xlsx declared blade mass, 67,921 kg  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      stale      blade_structural_properties.v05_assembled_mass_vs_beam_table  stale by: 188c997 d81931b a4b3ca2 e6327ec d5d0fd2
+      absent     tests/test_iea15mw_sx_mesh_convergence.py  arbiters: none
+      absent     tests/test_iea15mw_sx_campbell.py  arbiters: none
+      gap        rotating_modal_shift (not_validated)
