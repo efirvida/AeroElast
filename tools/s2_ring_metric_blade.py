@@ -102,7 +102,10 @@ def main():
     ap.add_argument("--element-size", type=float, default=0.25)
     ap.add_argument("--out", required=True)
     ap.add_argument("--profile-depth", type=float, default=6.0, help="ring profile kept within this distance of the tip [m]")
+    ap.add_argument("--cases", nargs="+", help="run only these case names (default: all), e.g. LC1_gravity LC4_distributed")
     args = ap.parse_args()
+    if args.cases and not set(args.cases) <= {name for name, _ in CASES}:
+        raise SystemExit(f"--cases: unknown {sorted(set(args.cases) - {name for name, _ in CASES})}")
     if args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
 
@@ -136,6 +139,8 @@ def main():
     )
 
     for name, load in CASES:
+        if args.cases and name not in args.cases:
+            continue
         u = np.asarray(run_shell_case(mesh, props, load))
         node = shell_tip_displacement(mesh, u)
         _z, ring, _n = ring_mean_at(mesh, u, z_tip)

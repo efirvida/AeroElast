@@ -16,6 +16,8 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S10 (user, verbatim): "recuerda que puedes usar las dos palas ademas de ejemplos teoricos para comprobar los analisi hechos" — every L3 analysis is checked on IEA-15 and IEA-3.4 plus a closed-form case.
 - S11 (user choice, verbatim): "Arreglar la introducción de carga primero (recomendado)" — "Tracción de borde equivalente en trabajo, ponderada por longitud de arco, y media del anillo también por arco. Primero se valida en el tubo que converja al refinar; después se re-corren las dos palas y recién ahí van los veredictos."
 - S12 (user choice, verbatim, supersedes the metric of L12(4) and the cure of S11): "Estación interior vs nodo BeamDyn (recomendado)" — BeamDyn exports the displacement of a node 2-3 tip chords inboard; it is compared with the shell's arc-weighted ring mean at that same z, on both blades.
+- S13 (user choice, verbatim, after P2 refuted in T10c-station): "LC1+LC4 en estación; LC2/LC3 diagnóstico (Recomendado)" — S-2 asserts LC1 and LC4 at the interior station vs BeamDyn p60 with K3 5 %; LC2 / LC3 are printed as diagnostics with the reason (point-load introduction without MPC, P2 refuted) written in the test and the store.
+- S14 (user choice, verbatim): "Una corrida es 0.0625 de LC1/LC4 (Recomendado)" — same predeclared rule one mesh level finer; outside 5 % -> rejected, crossing again -> stays undecided.
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -589,6 +591,36 @@ Predictions: P1 refuted (H1 holds: pairing), P2 refuted as worded (CCX 7 is not 
 edgewise mode is), P3 n/a, P4 held (0.625 -> 0.829). P5 pending (11625835). Consequence (predeclared): the test pairs by
 shape. Caveat: CCX 2.20, not 2.23.
 
+## T10c-station RESULT (2026-10-27, session 18; shell 11625753/54/55/74 at 8bc5ce7, BeamDyn nodes 11625750; `tools/s2_station_compare.py`, `logs/check/l3/t10c-station/{iea15,iea34}-compare.json`)
+
+Signed % shell (arc ring mean, linear in z) vs BeamDyn p60 node; BeamDyn scales 1e-4 / 2e-4 agree (<= 3.9e-4 rel).
+Inner (verdict) station: 15 node 56 (z 114.845, 4.32 chords), 3.4 node 57 (z 62.239, 3.82 chords); outer: 15 node 57,
+3.4 node 58. Gates: conv = |es 0.25 - es 0.125|, stations = |inner - outer| at es 0.125, arc-eq at the inner station.
+
+| blade case | es 0.25 | es 0.125 | conv (< 0.5) | stations (< 0.5) | arc-eq (< 0.3) |
+|---|---|---|---|---|---|
+| 15 LC1 | -4.883 | -4.894 | 0.01 | 0.05 | - |
+| 15 LC2 | -1.416 | -1.932 | **0.52** | 0.43 | 0.13 |
+| 15 LC3 | +6.601 | +6.731 | 0.13 | **0.55** | 0.03 |
+| 15 LC4 | -4.728 | -5.046 | 0.32 | 0.21 | 0.10 |
+| 3.4 LC1 | +1.990 | +2.086 | 0.10 | 0.10 | - |
+| 3.4 LC2 | +5.466 | +4.464 | **1.00** | **4.06** | 0.16 |
+| 3.4 LC3 | +2.443 | +3.123 | **0.68** | **0.66** | 0.01 |
+| 3.4 LC4 | -0.836 | -0.818 | 0.02 | 0.09 | 0.18 |
+
+Profile (es 0.125, primary): 15 LC2 -4.18 (node 53, 10.6 chords) -> -1.93 (56) -> +4.28 (tip); 15 LC3 +4.50 -> +6.73 ->
++9.84; 3.4 LC2 +0.94 / +1.70 / -0.28 (nodes 53-55, 8-14 chords) -> +4.46 (57) -> +20.7 (tip); distributed LC1 / LC4 flat
+within 0.2-0.7 pp from 10 chords to the tip on both blades.
+**Predictions.** P1 held but for one cell (3.4 LC4 outer station es 0.25, 0.43 pp). **P2 refuted** (15 LC2, 3.4 LC2,
+3.4 LC3; the tip-load cases move 0.5-1 pp with refinement at every station, 8-14 chords included). P3: LC1 refuted
+(-4.89, inside the band by 0.11 pp, predicted rejected), LC2 held (in band), LC3 held in kind (rejected) at +6.7 not
++8.5..+9.5, LC4 at the edge (-5.05; es 0.25 -> 0.125 crosses the band: undecided by the rule). **P4 refuted:** the 3.4
+LC2 +15..+21 % lives in the last ~1.5 m (2 chords); at >= 8 chords it is within +-1.7 %, so it is a tip-zone effect, not
+an outboard flap stiffness deficit.
+**Consequence (predeclared):** P2 is refuted, so the metric goes back to the user; no verdict, test or store row is
+written. Distributed loads (LC1, LC4) pass every gate on both blades; the tip point loads (LC2, LC3) do not converge to
+0.5 pp and keep a station dependence 2-4 chords inboard (no MPC / rigid tip coupling, L18).
+
 ## T14 delta-f prediction (written before any delta-f run, 2026-10-27, session 17)
 
 Inputs (no new run): shell S-4 pass 1 (1F/1E parked +2.33 / +0.56 %, rated +1.85 / +0.44 %; parked vs BD p20 MBC3
@@ -631,3 +663,4 @@ Run to confirm: shell parked + rated at es 0.25 / 0.125, Southwell K for 1F/1E/2
 - L21 (2026-10-27, session 17) User asked what to run in parallel while SLURM 11625665 (full suite) and 11625754/56 (T10c-station es 0.125) run; parent listed: station test draft (T10 step 4), group 5 residual print + audit, Bernardi -> p20, group 23 audit + second arbiter, delta-f prediction, worktree hygiene. User, verbatim: "ok haz todo eso". Parent: the `sx` question was already answered (S9, T11 in its own session per L20); the station test is drafted against S12 but not committed until P1/P2 hold (L20: test after the comparison).
 - L22 (2026-10-27, session 17) User, verbatim: "mira  aver si puedes mover tareas a otras colas". Parent: multi-partition requests are refused (partition set in the association); `--test-only` estimates a new equivalent job at 31/10-27/11 on the other partitions vs today 17:56-19:56 for the queued bigmem jobs, so nothing moved; a hedge copy of t10cs-iea34-es0125 went to `sequana_cpu_dev` (11625874, 20 min, own output `iea34-es0125dev.json`); if it completes, the bigmem twin 11625756 is cancelled. The v14asm jobs (turbinesFoam, other project) were not touched.
 - L23 (2026-10-27, session 17) User, verbatim: "si a las 3 desiciones que tenia que tomar". Decisions: (1) the group 23 static CCX row (`test_blade_static_tip_deflection_matches_ccx`) is declared non-validation (its load matches no BeamDyn case; S-2 covers static); (2) a p20 row of group 23 above 5 % stays red and `known-red-full.txt` is re-recorded (`check.sh full --record`), no xfail; (3) the S-2 station test keeps the BeamDyn scale 1e-4 vs 2e-4 linearity gate at 0.1 %.
+- L24 (2026-10-27, session 18) User, verbatim: "podemos hacerlo en esta sesion" (pass 2 resumed here after the full-suite review of 11625665 and the check gate fix, branch check/sources-guard). Parent: read T10c-station (section "T10c-station RESULT"): P2 refuted, metric back to the user; user chose S13 and S14.
