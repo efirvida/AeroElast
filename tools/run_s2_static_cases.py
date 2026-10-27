@@ -120,6 +120,36 @@ def shell_tip_displacement(mesh, u: np.ndarray) -> np.ndarray:
     return np.asarray(u[tip_idx * dpn : tip_idx * dpn + 3], dtype=np.float64)
 
 
+def ring_mean_at(mesh, u: np.ndarray, z_target: float) -> tuple[float, np.ndarray, int]:
+    """Mean translation of the node ring on the mesh z-plane nearest ``z_target``: (z, mean u, node count)."""
+    z = mesh.coords_array[:, 2]
+    z_s = float(z[np.argmin(np.abs(z - z_target))])
+    ring = np.nonzero(np.abs(z - z_s) < 1e-6)[0]
+    return z_s, np.asarray(u).reshape(-1, 6)[ring, :3].mean(axis=0), len(ring)
+
+
+def saint_venant_tip(mesh, u: np.ndarray, scale: float, depths=(1.0, 1.5, 2.0, 2.5, 3.0), degree=3) -> np.ndarray:
+    """Tip translation extrapolated from ring means ``depths * scale`` inboard of the tip (l3-closure T10a).
+
+    A tip load split equally over the tip ring bends flat walls out of their plane; that local term decays within
+    about one section depth (Saint-Venant), so the rings inboard carry the beam translation. A polynomial in z
+    through them, evaluated at the tip, estimates the beam-equivalent tip translation. ``scale`` is the section
+    size that sets the decay length (the largest tip-ring extent).
+    """
+    z_tip = float(mesh.coords_array[:, 2].max())
+    pts = [ring_mean_at(mesh, u, z_tip - d * scale) for d in depths]
+    zs = np.array([p[0] for p in pts])
+    us = np.array([p[1] for p in pts])
+    return np.array([np.polyval(np.polyfit(zs - z_tip, us[:, k], degree), 0.0) for k in range(3)])
+
+
+def tip_ring_scale(mesh) -> float:
+    """Largest in-plane extent of the tip ring [m] (the chord at a blade tip)."""
+    c = mesh.coords_array
+    ring = c[c[:, 2] >= c[:, 2].max() - 1e-6, :2]
+    return float(np.max(np.linalg.norm(ring[:, None, :] - ring[None, :, :], axis=-1)))
+
+
 def beam_tip_displacement(beam: BeamReference, load) -> np.ndarray:
     if load["type"] == "gravity":
         u = beam.solve_gravity(load["value"])

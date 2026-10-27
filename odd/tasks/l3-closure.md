@@ -11,6 +11,9 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S4 (repository physics discipline): no pass band widened; a moved anchor is a finding; `regression --write` never over a moved residual without reporting it.
 - S6 (user L4, verbatim): "si hay opcion de mejorar el modelo hay que mejorarlo. Las formas modales son muy importantes porque luego voy a necesitar hacer analisis de frecuencias en rotacion para ver como esas viraciones modifican o no la se~nal de torque. una pala 10% mas blanda (no se contra que referencia) hace que sus oscilaciones sean diferente 10% diferentes a la respuesta fisica"
 - S7 (user L5/L6): second blade from the official repositories to tell model defects from solver-core defects; option chosen verbatim: "1. IEA-3.4 antes de T6 (recomendado)".
+- S8 (user choice for core-torsion C5, verbatim): "Cajón para validar L3; el BEM se decide en L5 (recomendado)" — S-7, S-1 GJ and twist vs Zhou are measured with the box rigid fit; the BEM feedback twist is decided at L5 with the C5 numbers.
+- S9 (user choice, verbatim): "Importar ambos; Campbell contra BeamDyn p20 (recomendado)" — `sx_campbell` re-pointed to BeamDyn p20 per rpm, `sx_mesh_convergence` with its artifact regenerated at HEAD.
+- S10 (user, verbatim): "recuerda que puedes usar las dos palas ademas de ejemplos teoricos para comprobar los analisi hechos" — every L3 analysis is checked on IEA-15 and IEA-3.4 plus a closed-form case.
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -34,6 +37,8 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
+- T10 | S10 S4 L12(4) | parent, SLURM | in progress (branch l3/pass2-s2-ring) | S-2 tip-ring-mean metric: (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
+- T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -408,6 +413,52 @@ LC2/LC3 verdicts (LC3 ring +9.78 % at es 0.125 -> rejected). 2. Bernardi rows ->
 rows: delta-f centrifugal shift (ours 7-13 % below BeamDyn), MAC per mode vs p20, 1T/2E, Campbell. Then T5 (declare reds
 with torque sensitivity), T6/T7 model work per core-torsion.md.
 
+## T10a prediction (written before the run, 2026-10-27, session 15, at 4b29bc2)
+
+Closed-form check of the S-2 metric on prismatic thin-wall tubes (`tools/s2_ring_metric_tube.py`, the S-2 load
+introduction of `tools/run_s2_static_cases.py`: tip force split equally over the tip-ring nodes, root ring clamped, es
+0.25, L 117 m, isotropic wall). Reference: Timoshenko cantilever `P L^3 / (3 EI) + P L / (G A_s)` with the thin-wall
+mid-line EI (exact segment integral) and A_s the walls parallel to the load (rect) or A/2 (circle). Cases: rect 4 x 2 m,
+t 0.02, load along the 2 m (flap-like) and along the 4 m (edge-like); circle of the same perimeter, one direction.
+Prediction: tip-ring mean within 1 % of the closed form in every case; the first-ring node (`argmax z`, the metric the
+test used) within 1 % of the ring mean, and the ring max-min spread of the load-direction displacement < 2 %.
+Refuted if the ring mean misses 1 %: then the ring mean is not the beam-equivalent translation and the L12(4) metric
+needs a different estimator (finding, back to the user). A node-vs-ring spread > 1 % on a prismatic tube means local
+load introduction alone produces the blade's 9-11 % node-vs-ring spread order, not the blade section.
+
+## T10a RESULT (2026-10-27, login, `tools/s2_ring_metric_tube.py`, logs `logs/check/l3/t10a/L20.log`, `L117.log`, `L117-sv.log`)
+
+| tube (L 117 m, 1 MN) | tip ring mean vs closed form | node `argmax z` vs ring | ring 1 depth inboard | Saint-Venant tip |
+|---|---|---|---|---|
+| rect flap (load normal to the 4 m walls) | **+1.241 %** | -1.654 % | -0.181 % | -0.424 % |
+| rect edge (load normal to the 2 m walls) | +0.080 % | -0.390 % | -0.312 % | -0.308 % |
+| circle | -0.274 % | -0.005 % | -0.279 % | -0.279 % |
+
+L 20 m (0.1 MN): tip ring mean +322 % (flap), +74 % (edge), +0.40 % (circle); 2 depths inboard +2.8 / -0.01 / -0.25 %.
+**Prediction refuted for the flat-walled tube.** A tip force split equally over the ring pushes flat walls out of
+their plane (no end diaphragm); the tip ring mean carries that plate bending (~0.55 m on the 4 m flange, independent
+of L), which decays within about one section depth (Saint-Venant). The circle (no flat wall normal to the load) holds
+the prediction. The `argmax z` node is a corner of the rect tube: close to the beam by luck, not by construction.
+Estimator `saint_venant_tip` (`tools/run_s2_static_cases.py`): ring means at 1, 1.5, 2, 2.5, 3 x the tip-ring extent
+inboard, cubic in z, evaluated at the tip: within 0.43 % of the closed form in all three; its residual equals the
+inboard rings' uniform -0.2..-0.4 % (element / thin-wall), not the estimator. Consequence for L12(4): the tip-ring mean
+is the beam-equivalent for distributed loads (LC1, LC4) but not for the tip loads (LC2, LC3) on a flat-walled section;
+T10b measures the size of that term on both blades before the metric goes back to the user.
+
+## T10b prediction (written before any blade number, 2026-10-27, session 15; jobs 11625682-85 + BeamDyn 3.4 chained)
+
+`tools/s2_ring_metric_blade.py` on IEA-15 and IEA-3.4, es 0.25 / 0.125: node, tip-ring mean, `sv` (rings 1-3 tip chords
+inboard) and `sv_far` (3-6 chords); IEA-3.4 reference: BeamDyn v5 p60 static, scales 1e-4 / 2e-4
+(`tools/bd_static_reference.py --blade iea34`). Tip chord 0.50 m (15, tip ring 16 nodes), 0.20 m (3.4, 12 nodes).
+P1 (estimator stable): `sv_far / sv - 1` within 1 % in every case, blade and mesh; else the decay is longer than the
+tip chord and `sv` is not admissible on that blade (finding).
+P2 (distributed loads): LC1 and LC4 tip-ring mean within 0.5 % of `sv` (no load introduction at the tip).
+P3 (tip loads): LC2 and LC3 tip-ring mean above `sv` (same sign as the tube), by the local term; node vs `sv` moves with
+the node's position on the ring, so the known node-vs-ring 9-11 % (LC2) is mostly that local term.
+P4 (both blades): the 3.4 shows the same signs as the 15 for P2-P3. No verdict vs BeamDyn is predicted here; the S-2
+verdicts are written after the metric decision (L12(4) revisited with these numbers).
+BeamDyn linearity gate (as K9): the two scales agree within 0.1 % per case, else that case has no 3.4 reference.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -424,3 +475,6 @@ with torque sensitivity), T6/T7 model work per core-torsion.md.
 - L12 (2026-10-26, session 13) User decisions on the store action map, verbatim choices: (1) BeamDyn deck class: "reference_model en todas (recomendado)"; (2) V-02: "Darla de baja (recomendado)"; (3) group 23: "Bajarlas; Bernardi re-apuntado a p20 (recomendado)"; (4) S-2 metric: "Media del anillo de punta (recomendado)". Parent: pass 1 (measure at HEAD without --write, es 0.125 runs in the 1 pp band, new K3 verdicts, deck reclassified, V-02 and UTD/Escalera rows dropped, group 20 restamp, gap rotating_modal_shift bounded) by a worker; pass 2 (S-2 ring-mean metric, Bernardi -> p20, missing capability rows) after.
 - L13 (2026-10-27, session 14) User: "ya terminaron las tareas del hpc vamos a continuar cerrando l3". Parent: read the 12 pass-1 jobs, ran the S-1 metric dump at es 0.25 / 0.125 and `regression --write` for groups 20 and 34, wrote the pass-1 verdicts, bounded `rotating_modal_shift`, applied the L12 drops (section "Store pass 1 result").
 - L14 (2026-10-27, session 14) User: "si mezcla todo y vamos a otra sesion"; chose "Mergear ya (recomendado: dejo la falta escrita)" over running the full suite first. Parent: merged l3/core-torsion with the incomplete full suite recorded (Handoff 5).
+- L15 (2026-10-27, session 15) User: "dame un orden de prioridad a resolver de los reds de L3". Parent: order 0 full suite, 1 S-2 ring mean, 2 delta-f centrifugal (HubRad), 3 twist definition then S-7/GJ re-measure, 4 modes (group 5, MAC, 1T/2E, Campbell), 5 T6 then T7, 6 EI_edge (extractor vs W), 7 store hygiene, 8 T5.
+- L16 (2026-10-27, session 15) User: "ok vamos a correr la suite completa, para dejar el estado actual, pero como son 8h parado podemos hacer otras cosas en paralelo, dime cuales?". Parent: full suite already running (SLURM 11625665, 8 h, 3185da6 = origin/main tree); parallel work only in a separate worktree, no maturin rebuild (shared venv `_aeroelast`).
+- L17 (2026-10-27, session 15) User: "si" + S10; decisions S8, S9. Parent: worktree `../wt/l3-pass2` on branch l3/pass2-s2-ring from origin/main 4b29bc2; T10, T11 added. Finding: the S-2 "shell" value is `argmax(z)`, the first tip-ring node in mesh order (`tools/run_s2_static_cases.py:119`), an arbitrary material point, while the tip load is split equally over the ring.

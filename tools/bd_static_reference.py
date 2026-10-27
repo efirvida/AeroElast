@@ -6,6 +6,7 @@ python tools/bd_static_reference.py post --case LC2 --order 60 --scale .0001
 
 Run `run` on a compute node (sbatch -p sequana_cpu --ntasks=1). Build writes
 inputs only under tests/IEA15MW/bd_static; run/post write logs/check/bd_static.
+--blade iea34 uses the IEA-3.4 deck (tests/IEA34/bd_static, logs/check/bd_static/iea34).
 Use distinct order/scale combinations to preserve prior evidence. No overwrite.
 
 Frame: BD (x,y,z) -> shell (-y,x,z). The published prebend in BD x maps to
@@ -46,6 +47,13 @@ PROPERTIES = ROOT / 'tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat'
 BINARY = BASE / 'tools/openfast-env/bin/beamdyn_driver'
 INPUTS = ROOT / 'tests/IEA15MW/bd_static'
 LOGS = ROOT / 'logs/check/bd_static'
+# Second official blade (l3-closure T10b): same OpenFAST v5 deck chain, its own inputs and logs.
+BLADES = {
+    'iea15': (GEOMETRY, PROPERTIES, INPUTS, LOGS),
+    'iea34': (ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn.dat',
+              ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat',
+              ROOT / 'tests/IEA34/bd_static', ROOT / 'logs/check/bd_static/iea34'),
+}
 CHANNELS = ('TipTDxr', 'TipTDyr', 'TipTDzr')
 
 
@@ -131,7 +139,10 @@ def main():
     parser.add_argument('--case', choices=('LC1', 'LC2', 'LC3', 'LC4'), required=True)
     parser.add_argument('--order', type=int, default=60, help='single member polynomial order, >=10 (default: 60)')
     parser.add_argument('--scale', type=float, default=.0001, help='positive load scale (default: .0001); check linearity across scales')
+    parser.add_argument('--blade', choices=tuple(BLADES), default='iea15', help='official deck (default: iea15)')
     args = parser.parse_args()
+    global GEOMETRY, PROPERTIES, INPUTS, LOGS
+    GEOMETRY, PROPERTIES, INPUTS, LOGS = BLADES[args.blade]
     case_loads(args.case, args.scale)
     if args.order < 10:
         parser.error('order must be >=10')
