@@ -33,6 +33,19 @@ if not yaml_files:
 yaml_file_ids = [os.path.basename(f) for f in yaml_files]
 
 
+# Measured at 3185da6 (logs/check/blade-mesh-pins-20261027.log). The single 9277-node pin
+# went stale with the blade-input-audit mesh fixes (2026-10-23..25, deliberate: TE band to
+# the yaml width, cap arcs) and then matched no yaml; IEA-3.4 arrived with 188c997.
+PINNED_COUNTS = {
+    "IEA-15-240-RWT.yaml": (
+        10637, 11248, {"RootNodes": 37, "allOuterShellNods": 9446, "allShearWebNods": 2413}),
+    "IEA-15-240-RWT_rigid.yaml": (
+        10637, 11248, {"RootNodes": 37, "allOuterShellNods": 9446, "allShearWebNods": 2413}),
+    "IEA-3.4-130-RWT.yaml": (
+        4453, 4795, {"RootNodes": 20, "allOuterShellNods": 4081, "allShearWebNods": 1002}),
+}
+
+
 @pytest.fixture(autouse=True)
 def reset_counters():
     """Fixture to reset ID counters before each test"""
@@ -51,17 +64,16 @@ def test_blade_mesh_generation(blade_file):
     mesh = blade.mesh
     assert mesh is not None, f"{blade_file}: generate_mesh() left blade.mesh unset"
 
-    # Exact counts for the reference blade at element_size=0.5, so a silent mesh
-    # change fails here instead of passing on `> 0`.
-    assert mesh.node_count == 9277, f"{blade_file}: {mesh.node_count} nodes, expected 9277"
-    assert mesh.elements_count == 9867, (
-        f"{blade_file}: {mesh.elements_count} elements, expected 9867"
+    # Exact counts per blade at element_size=0.5, so a silent mesh change fails here instead
+    # of passing on `> 0`. A yaml without an entry fails: pin it when it is added.
+    name = os.path.basename(blade_file)
+    assert name in PINNED_COUNTS, f"{name}: no pinned mesh counts; add them to PINNED_COUNTS"
+    nodes, elements, sets = PINNED_COUNTS[name]
+    assert mesh.node_count == nodes, f"{blade_file}: {mesh.node_count} nodes, expected {nodes}"
+    assert mesh.elements_count == elements, (
+        f"{blade_file}: {mesh.elements_count} elements, expected {elements}"
     )
-    for name, expected in (
-        ("RootNodes", 37),
-        ("allOuterShellNods", 8204),
-        ("allShearWebNods", 2277),
-    ):
+    for name, expected in sets.items():
         assert name in mesh.node_sets, f"{blade_file} missing '{name}' node set"
         assert len(mesh.node_sets[name].node_ids) == expected, (
             f"{blade_file}: '{name}' has {len(mesh.node_sets[name].node_ids)} nodes, expected {expected}"
