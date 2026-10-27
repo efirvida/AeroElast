@@ -19,6 +19,8 @@ Handoff 4. Branch `l3/core-torsion` from main 3a2d222.
 
 - S7 (user, verbatim, on how to fix D1): "el solver inercial va a ser descontinuado, el solver estructural siempre va a ser corrotacional"
 
+- S8 (user choice for D4, verbatim): "La estructura publica θ por preCICE (recomendado)" - Rust writes theta_end with omega; the BEM uses it for the frame rotation and as the CCBlade azimuth; one source of truth, the same OpenFOAM will need for its mesh motion.
+
 ## Tasks
 
 - C1 | S3 | parent | resubmitted | Baseline: full suite at d20911c (main 3a2d222 + tools/docs only) via `scripts/check_sbatch.sh full` (first try 11625395 failed: no git on the node), compare with known-red-full at a9ca498.
@@ -202,3 +204,4 @@ Rust test needs RUSTFLAGS="-L /scratch/app/openmpi/4.1.4_gnu/lib -C link-arg=-lm
 - L6 (2026-10-26) User: S5. Parent: BEM -> structure is nodal forces only (`ForceProjector`, the pitching moment as a force couple); the twist definition is the structure -> BEM geometric reduction, needed only by a strip model; OpenFOAM takes nodal displacements.
 - L7 (2026-10-26) User: S6. Parent: the reduction already lives in the BEM participant (`fsi_participant.py:297`, reads `Displacement` :628, writes `Force` :688); the structure only publishes displacements; C7 added (frame audit).
 - L8 (2026-10-26) User: S7 (custom answer to the D1 fix options). Parent: single structural partner -> BEM always inertial, `rotating` mode removed; C8.
+- L9 (2026-10-26) D3 ab46009, D2 df5a3e2 committed; user chose S8 for D4.
