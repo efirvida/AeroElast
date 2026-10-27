@@ -10,6 +10,11 @@ writes, per case, the three tip estimators of the shell translation:
 plus the ring node counts used, so the extrapolation's stations can be audited. The BeamDyn reference is not read
 here; compare with ``tools/bd_static_reference.py post`` (``--blade iea34`` for the 3.4).
 
+Interior station (l3-closure S12, T10c-station): every case also stores ``profile``, the arc-weighted mean translation
+of each node ring within ``--profile-depth`` metres of the tip, so ``tools/s2_station_compare.py`` can interpolate it at
+the BeamDyn output nodes' z. The tip cases run with ``distribution: arc`` and ``equal``, LC4 with ``area`` and
+``equal`` (keys ``LC2_tip_flap``, ``LC2_tip_flap@equal``, ...); node / ring / sv are kept for the record.
+
 Usage:  scripts/aeroenv.sh python tools/s2_ring_metric_blade.py --yaml tests/IEA-15-240-RWT.yaml \\
             --element-size 0.25 --out logs/check/l3/t10b/iea15-es025.json
 """
@@ -37,14 +42,58 @@ from run_s2_static_cases import (  # noqa: E402
     tip_ring_scale,
 )
 
+_TIP_FLAP = {"type": "tip", "value": (0.0, TIP_FORCE_N, 0.0)}
+_TIP_EDGE = {"type": "tip", "value": (TIP_FORCE_N, 0.0, 0.0)}
+_DISTRIBUTED = {"type": "distributed", "value": (0.0, DISTRIB_Q_NM, 0.0), "n_slices": 60}
+# Primary load introduction first (defined tractions, T10c-station predeclaration), then the equal split.
 CASES = [
     ("LC1_gravity", {"type": "gravity", "value": GRAVITY}),
-    ("LC2_tip_flap", {"type": "tip", "value": (0.0, TIP_FORCE_N, 0.0)}),
-    ("LC3_tip_edge", {"type": "tip", "value": (TIP_FORCE_N, 0.0, 0.0)}),
-    ("LC4_distributed", {"type": "distributed", "value": (0.0, DISTRIB_Q_NM, 0.0), "n_slices": 60}),
+    ("LC2_tip_flap", {**_TIP_FLAP, "distribution": "arc"}),
+    ("LC3_tip_edge", {**_TIP_EDGE, "distribution": "arc"}),
+    ("LC4_distributed", {**_DISTRIBUTED, "distribution": "area"}),
+    ("LC2_tip_flap@equal", _TIP_FLAP),
+    ("LC3_tip_edge@equal", _TIP_EDGE),
+    ("LC4_distributed@equal", _DISTRIBUTED),
 ]
 DEPTHS = (1.0, 1.5, 2.0, 2.5, 3.0)
 DEPTHS_FAR = (3.0, 4.0, 5.0, 6.0)  # stability check: a longer distortional decay would move sv
+
+
+def ring_profile(mesh, z_min):
+    """Arc-length weights of every node ring with z >= ``z_min``: (ring z, node indices, weights) per ring.
+
+    Same weights as ``ring_arc_weights`` (half of each element side with both corners on the ring), built from one
+    pass over the elements instead of one per ring.
+    """
+    coords = mesh.coords_array
+    zr = np.round(coords[:, 2], 6)
+    levels = np.unique(zr[zr >= z_min - 1e-6])
+    ring_of = np.full(len(zr), -1)
+    sel = zr >= z_min - 1e-6
+    ring_of[sel] = np.searchsorted(levels, zr[sel])
+    idx = mesh.node_id_to_index
+    edges = set()
+    for e in mesh.elements:
+        nodes = [idx[n.id] for n in e.nodes]
+        for a, b in zip(nodes, nodes[1:] + nodes[:1], strict=True):
+            if ring_of[a] >= 0 and ring_of[a] == ring_of[b]:
+                edges.add((min(a, b), max(a, b)))
+    e = np.array(sorted(edges), dtype=int)
+    half = 0.5 * np.linalg.norm(coords[e[:, 0]] - coords[e[:, 1]], axis=1)
+    w = np.zeros(len(zr))
+    np.add.at(w, e[:, 0], half)
+    np.add.at(w, e[:, 1], half)
+    rings = []
+    for k, zk in enumerate(levels):
+        nodes = np.nonzero((ring_of == k) & (w > 0))[0]
+        rings.append((float(zk), nodes, w[nodes]))
+    return rings
+
+
+def profile_means(rings, u):
+    """Arc-weighted mean translation per ring: list of [z, ux, uy, uz, node count]."""
+    uu = np.asarray(u).reshape(-1, 6)[:, :3]
+    return [[z, *((uu[n] * w[:, None]).sum(axis=0) / w.sum()).tolist(), int(len(n))] for z, n, w in rings]
 
 
 def main():
@@ -52,6 +101,7 @@ def main():
     ap.add_argument("--yaml", required=True)
     ap.add_argument("--element-size", type=float, default=0.25)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--profile-depth", type=float, default=6.0, help="ring profile kept within this distance of the tip [m]")
     args = ap.parse_args()
     if args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
@@ -74,8 +124,10 @@ def main():
         "tip_ring_nodes": int(np.sum(z >= z_tip - 1e-6)),
         "tip_scale_m": scale,
         "sv_stations": [{"z": s[0], "nodes": s[2]} for s in stations],
+        "profile_depth_m": args.profile_depth,
         "cases": {},
     }
+    rings = ring_profile(mesh, z_tip - args.profile_depth)
     print(
         f"S-2 metrics {Path(args.yaml).name} es {args.element_size}: {out['n_nodes']} nodes, tip z {z_tip:.3f}, "
         f"tip ring {out['tip_ring_nodes']} nodes, scale {scale:.3f} m, stations "
@@ -94,17 +146,18 @@ def main():
             "ring": ring.tolist(),
             "sv": sv.tolist(),
             "sv_far": sv_far.tolist(),
+            "load": {k: list(v) if isinstance(v, tuple) else v for k, v in load.items()},
+            "profile": profile_means(rings, u),
         }
-        k = 0 if name == "LC3_tip_edge" else 1
+        k = 0 if name.startswith("LC3") else 1
         print(
             f"  {name:16s} {'xy'[k]}: node {node[k]:.6f}  ring {ring[k]:.6f}  sv {sv[k]:.6f}  "
             f"sv_far {sv_far[k]:.6f}  (ring/sv {ring[k] / sv[k] - 1:+.3%}, node/sv {node[k] / sv[k] - 1:+.3%}, "
             f"sv_far/sv {sv_far[k] / sv[k] - 1:+.3%})",
             flush=True,
         )
-
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(out, indent=2) + "\n")
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps(out, indent=2) + "\n")  # after every case: a timeout keeps the rest
 
 
 if __name__ == "__main__":
