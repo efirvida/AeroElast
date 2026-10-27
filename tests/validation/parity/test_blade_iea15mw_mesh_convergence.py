@@ -169,13 +169,15 @@ def test_blade_modal_gap_converges_with_mesh(
 
     coarse, medium, fine = MESHES
     # Mesh-convergence claim: the first refinement improves every mode whose
-    # coarse gap is above the noise floor.
-    for mode in range(N_MODES):
-        if gaps[coarse][mode] > NOISE_FLOOR:
-            assert gaps[medium][mode] < gaps[coarse][mode], (
-                f"CCX mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
-                f"below the {coarse} m gap {gaps[coarse][mode] * 100:.2f}%"
-            )
+    # coarse gap is above the noise floor.  The violations are asserted last so
+    # that both residual lines below always print: the store reads them from the
+    # log, and a failing monotonicity check used to hide them (T12).
+    not_improving = [
+        f"CCX mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
+        f"below the {coarse} m gap {gaps[coarse][mode] * 100:.2f}%"
+        for mode in range(N_MODES)
+        if gaps[coarse][mode] > NOISE_FLOOR and not gaps[medium][mode] < gaps[coarse][mode]
+    ]
 
     low_worst = max(gaps[fine][:LOW_MODES])
     high_worst = max(gaps[fine][LOW_MODES:])
@@ -193,3 +195,4 @@ def test_blade_modal_gap_converges_with_mesh(
         reference_name="the CalculiX frequencies for the same blade and mesh",
         what="worst high-mode gap on the finest mesh (linear MITC4 vs quadratic S8R discretisation)",
     )
+    assert not not_improving, "; ".join(not_improving)
