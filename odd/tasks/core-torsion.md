@@ -16,11 +16,11 @@ Handoff 4. Branch `l3/core-torsion` from main 3a2d222.
 
 ## Tasks
 
-- C1 | S3 | parent | pending | Baseline: full suite on main 3a2d222 (SLURM), compare with known-red-full at a9ca498.
-- C2 | S3 S4 | parent | pending | Collect the three symptoms with their current numbers: D-Tube torsion vs Bredt, KO2017 3.5 twisted beam (MITC4 thin, 8.5 % vs 1 %), 3.4 outboard 1.3x (`tools/l3_twist_integral.py`); IEA-15 S-7 1.072. Prediction of what an element defect vs a distortion measure would show in each.
-- C3 | S3 S4 | parent/worker | pending | Split element vs measure on the 3.4 at 0.65-0.85: rigid-fit residual per station; twist fitted on the box nodes (caps + webs) vs all nodes; element quality of the outboard rows (aspect, warp) and es 0.15 vs 0.10.
-- C4 | S3 S4 | parent/worker | pending | Tapered closed-form tube through MITC4 at es 0.15 with the 3.4 outboard perimeter, wall G t and taper (extend `tools/diagnose_s1_gj_tube.py` / `tests/test_s1_gj_tube.py`), RED first if it fails.
-- C5 | S4 | parent | pending | If element: fix (test first), then element benchmarks, S-7, S-4 on both blades; if measure: fix the twist extraction and re-measure S-1 GJ / S-7.
+- C1 | S3 | parent | resubmitted | Baseline: full suite at d20911c (main 3a2d222 + tools/docs only) via `scripts/check_sbatch.sh full` (first try 11625395 failed: no git on the node), compare with known-red-full at a9ca498.
+- C2 | S3 S4 | parent | done (D-Tube, KO2017 green) | Collect the three symptoms with their current numbers: D-Tube torsion vs Bredt, KO2017 3.5 twisted beam (MITC4 thin, 8.5 % vs 1 %), 3.4 outboard 1.3x (`tools/l3_twist_integral.py`); IEA-15 S-7 1.072. Prediction of what an element defect vs a distortion measure would show in each.
+- C3 | S3 S4 | parent/worker | done e60b7ca: measure | Split element vs measure on the 3.4 at 0.65-0.85: rigid-fit residual per station; twist fitted on the box nodes (caps + webs) vs all nodes; element quality of the outboard rows (aspect, warp) and es 0.15 vs 0.10.
+- C4 | S3 S4 | parent/worker | done 4809427 as prismatic extrusion: core right | Tapered closed-form tube through MITC4 at es 0.15 with the 3.4 outboard perimeter, wall G t and taper (extend `tools/diagnose_s1_gj_tube.py` / `tests/test_s1_gj_tube.py`), RED first if it fails.
+- C5 | S4 | parent | revised: twist-definition sensitivity done d20911c; user decision pending | If element: fix (test first), then element benchmarks, S-7, S-4 on both blades; if measure: fix the twist extraction and re-measure S-1 GJ / S-7.
 
 ## C2 result (main 3a2d222, login, 54 s; `logs/check/core-torsion/c2-benchmarks.log`, 14 passed)
 
