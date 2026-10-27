@@ -6,8 +6,9 @@
  * two marathon sessions (944 and 570 turns) were 64 % of the total. Cost grows with the
  * square of the session length, so the only cheap fix is closing at the right moment.
  *
- * This extension makes that moment visible without spending a single token: the hint lives
- * in the status bar plus at most three one-off notifications, never in the model context.
+ * This extension makes the budget visible without spending a single token: the size lives
+ * in the status bar plus one one-off notification at 400k, never in the model context. There
+ * is no close rule: when to close is the user's call (user decision, 2026-10-27).
  *
  *   /handoff [feature]   ask the agent to leave the session handoff in odd/tasks/
  *
@@ -23,31 +24,13 @@ const STATUS_KEY = "session-budget";
 /** Ordered from the most severe; the first level whose threshold is reached wins. */
 const LEVELS = [
     {
-        at: 500_000,
-        key: "marathon",
-        label: "CARO: CERRÁ YA",
-        type: "error" as const,
-        notify:
-            "Contexto >500k: sesión maratón. Cerrá ahora con /handoff — cada turno extra " +
-            "re-manda todo el historial y es lo que se lleva la mayor parte del gasto.",
-    },
-    {
-        at: 250_000,
-        key: "close",
-        label: "CERRÁ + /handoff",
-        type: "warning" as const,
-        notify:
-            "Contexto >250k: cerrá en el próximo límite de work-unit. /handoff escribe el " +
-            "relevo en odd/tasks/ y te da la receta para retomar en una sesión limpia.",
-    },
-    {
-        at: 150_000,
-        key: "watch",
-        label: "cerrá pronto",
+        at: 400_000,
+        key: "notice",
+        label: ">400k",
         type: "info" as const,
         notify:
-            "Contexto >150k: empezá a pensar el cierre. Una sola cosa por sesión; el " +
-            "relevo va en odd/tasks/<feature>.md.",
+            "Contexto >400k tokens. Aviso informativo: cada turno re-manda todo el historial; " +
+            "si querés cerrar, /handoff deja el relevo en odd/tasks/.",
     },
 ];
 

@@ -36,10 +36,10 @@ Measured here: 94 % of the billed tokens are accumulated conversation history, t
 
 - **One thing per session.** If a request mixes unrelated workstreams, say so and propose the
   split instead of doing both in one context.
-- **Propose the close before the context forces it.** `.pi/extensions/session-guard.ts` shows the
-  budget in the status bar; when it passes ~200 k, finish the work unit, write the handoff into
-  `odd/tasks/<feature>.md` and hand back the resume recipe. `/handoff` does exactly that, and
-  costs the user one keystroke.
+- **Token notice at 400 k, no close rule.** `.pi/extensions/session-guard.ts` shows the budget
+  in the status bar and notifies once when the context passes 400 k. Closing the session is the
+  user's call; do not close or propose closing on context size alone. When the user closes,
+  `/handoff` writes the handoff into `odd/tasks/<feature>.md` and returns the resume recipe.
 - **Never re-read** what is already in context or what a subagent already summarised. Spot-check
   at most one detail.
 - **Bound every tool output**: `--stat`, `tail`, `grep -c`, `-q`, or redirect to `logs/check/`
