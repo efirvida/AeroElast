@@ -275,7 +275,13 @@ material:
 elements:
   family: "PLANE"          # "PLANE" | "SHELL"
   # thickness: 0.001       # Required only for "SHELL"
+  # span_direction: [0, 0, 1]  # Fibre reference axis of composite plies
 ```
+
+`span_direction` orients composite plies along the blade span. For `BladeMesh`/`RotorMesh` cases
+without a `material` section (composite from the blade YAML) it defaults to `[0, 0, 1]`; without
+it the fibre would follow quad edge 0->1, which is chordwise on `BladeMesh` (about 90 deg from z).
+Isotropic cases ignore it and keep it unset. Set it explicitly for a different span axis.
 
 | Family | Description | Mesh Type |
 |--------|-------------|-----------|

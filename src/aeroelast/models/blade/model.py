@@ -658,6 +658,18 @@ class Rotor:
         self.mesh.write_mesh(filename, **kwargs)
 
 
+def _windio_to_element_order(E, G, nu):
+    """Reorder windIO out-of-plane constants to the element's order.
+
+    windIO and NuMAD's material dict list ``G = [G12, G13, G23]`` and ``nu = [nu12, nu13, nu23]``
+    (1 = fibre). ``OrthotropicMaterial`` (Python and Rust) takes ``(G12, G23, G31)`` and
+    ``(nu12, nu23, nu31)``, with ``nu31 = nu13 * E3 / E1`` by reciprocity.
+    """
+    g12, g13, g23 = G
+    nu12, nu13, nu23 = nu
+    return (g12, g23, g13), (nu12, nu23, nu13 * E[2] / E[0])
+
+
 def material_factory(
     material_data: Dict[str, Union[Dict[str, float], Dict[str, Tuple[float, float, float]]]],
 ) -> Union[Material, OrthotropicMaterial]:
@@ -708,8 +720,7 @@ def material_factory(
         else:
             # It's a true orthotropic material
             E = tuple(elastic_props["E"])
-            G = tuple(elastic_props["G"])
-            nu = tuple(elastic_props["nu"])
+            G, nu = _windio_to_element_order(E, elastic_props["G"], elastic_props["nu"])
             return OrthotropicMaterial(name=material_name, E=E, G=G, nu=nu, rho=density)
     else:
         # It's an isotropic material
@@ -789,6 +800,7 @@ def build_rust_properties(numad_data: dict) -> dict:
                 G_v = E_v / (2.0 * (1.0 + nu_v))
                 E, nu, G = (E_v, E_v, E_v), (nu_v, nu_v, nu_v), (G_v, G_v, G_v)
 
+            G, nu = _windio_to_element_order(E, G, nu)
             rust_mat = RustMat(E[0], E[1], E[2], G[0], G[1], G[2], nu[0], nu[1], nu[2], rho)
             rust_plies.append(RustPly(rust_mat, float(thickness), float(angle)))
 

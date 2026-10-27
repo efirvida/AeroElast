@@ -199,9 +199,17 @@ def main():
     ap.add_argument("--deck", type=Path, default=os.environ.get("IEA15_OPENFAST_DIR"))
     ap.add_argument("--beamdyn", default=os.environ.get("BEAMDYN_DRIVER", "beamdyn_driver"))
     ap.add_argument("--work", type=Path, default=None, help="keep the BeamDyn run here")
+    ap.add_argument("--twist-p1", choices=("controls", "matrix"), default=None,
+                    help="run a stage of the twist P1 attribution (tools/twist_p1.py) instead")
+    ap.add_argument("--output-dir", type=Path, default=None, help="--twist-p1 results directory")
     args = ap.parse_args()
     if args.deck is None:
         ap.error("--deck (or IEA15_OPENFAST_DIR) is required")
+    if args.twist_p1:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import twist_p1
+
+        sys.exit(twist_p1.main(args, sys.modules[__name__]))
     work = args.work or Path(tempfile.mkdtemp(prefix="bd_radii_"))
     work.mkdir(parents=True, exist_ok=True)
 

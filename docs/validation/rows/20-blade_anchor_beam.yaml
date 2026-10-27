@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e1b7da7
-      date: '2026-10-04'
+      run: ae3deff
+      date: '2026-10-24'
       raw: null
       margin_pct: 0.0023
       text: 'anchor axial stiffness vs the official IEA-15-240-RWT BeamDyn deck, EA: 0.0023% (bound: 1.0000%)'
@@ -39,8 +39,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e1b7da7
-      date: '2026-10-04'
+      run: ae3deff
+      date: '2026-10-24'
       raw: null
       margin_pct: 0.0049
       text: 'anchor torsional stiffness vs the official IEA-15-240-RWT BeamDyn deck, GKt: 0.0049% (bound: 1.0000%)'
@@ -58,8 +58,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e1b7da7
-      date: '2026-10-04'
+      run: ae3deff
+      date: '2026-10-24'
       raw: null
       margin_pct: 1.9239
       text: 'anchor flapwise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, FlpStff: 1.9239% (bound: 2.0000%)'
@@ -77,8 +77,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e1b7da7
-      date: '2026-10-04'
+      run: ae3deff
+      date: '2026-10-24'
       raw: null
       margin_pct: 1.8011
       text: 'anchor edgewise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, EdgStff: 1.8011% (bound: 2.0000%)'

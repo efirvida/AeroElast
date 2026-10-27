@@ -142,6 +142,20 @@ class StackDatabase:
         ):
             self._map_continuous_layers(definition, keypoints)
 
+        self._order_skin_plies_for_outward_normals()
+
+    def _order_skin_plies_for_outward_normals(self):
+        """Reverse the skin stacks so the outermost layer is the last ply.
+
+        Layers (windIO ``layers``, Excel BOM rows) are listed from the outer mould line inward and
+        are added in that order, but the shell laminate stacks ply 0 on the ``-normal`` side and the
+        skin elements' normals point outward. Emitting the stack inner-to-outer puts the gelcoat on
+        the outer face and the innermost layer on the inner face (stress recovery TOP = outermost).
+        Web stacks are symmetric about their core and are left alone.
+        """
+        for stack in self.stacks.flat:
+            stack.plygroups.reverse()
+
     def _map_continuous_layers(self, definition, keypoints):
         """Map WindIO laminates without converting thickness to integer stock plies.
 
@@ -178,10 +192,11 @@ class StackDatabase:
             start = np.zeros_like(mid)
             end = np.ones_like(mid)
             if component.nd_arc_start is not None and component.nd_arc_end is not None:
+                # linear like every layer quantity (G10b, user L17); pchip is planned
                 start = interpolator_wrap(component.nd_arc_start["grid"],
-                                          component.nd_arc_start["values"], mid, "pchip")
+                                          component.nd_arc_start["values"], mid, "linear")
                 end = interpolator_wrap(component.nd_arc_end["grid"],
-                                        component.nd_arc_end["values"], mid, "pchip")
+                                        component.nd_arc_end["values"], mid, "linear")
                 if not np.allclose(start+end, 1., rtol=0., atol=1e-12):
                     raise ValueError("Asymmetric WindIO skin ND bounds are not supported")
                 if np.any(start < 0.) or np.any(end > 1.) or np.any(start > end):

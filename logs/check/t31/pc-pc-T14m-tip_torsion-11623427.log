@@ -1,0 +1,29 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont6016
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T14m.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33935 nodes, 35120 elements
+      Deduplicating nodes...
+      Deduplicated: 33935 -> 33935 nodes (0% reduction)
+      Creating 35120 elements...
+      Creating element and node sets...
+      Blade mesh generated: 33935 nodes, 35120 elements
+  Converted to quadratic: 102991 nodes (69056 midside nodes added)
+CalculiX mesh files written:
+  - Mesh file: /scratch/leahk/eduardo.donestevez/tmp/t31-11623427/tmpm4ktfyxt/b.msh
+  - Names file: /scratch/leahk/eduardo.donestevez/tmp/t31-11623427/tmpm4ktfyxt/b.nam
+  - Main input file: /scratch/leahk/eduardo.donestevez/tmp/t31-11623427/tmpm4ktfyxt/b.inp
+ccx rc 0
+PERCASE tree=input-fix-T14m case=tip_torsion es=0.25 matched=16/16
+PERCASE_AE  edge_ux=2.894755e+01 flap_uy=-7.093844e+01 axial_uz=-2.049182e+01 twist_deg=2.327355e+04 W=1.015500e+09
+PERCASE_CCX edge_ux=3.336495e+01 flap_uy=-9.908743e+01 axial_uz=-2.935302e+01 twist_deg=3.157576e+04 W=1.377752e+09
+PERCASE_GAP(AE/CCX-1,%) edge=-13.24 flap=-28.41 axial=-30.19 twist=-26.29 W=-26.29

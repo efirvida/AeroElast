@@ -255,8 +255,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 3c02781
-      date: '2026-10-20'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
       margin_pct: 0.2333
       text: 'Cl, Viterna extension against the official table vs the official AeroDyn polar tables, Viterna extension like-for-like: 0.2333% (bound: 1.0000%)'
@@ -274,8 +274,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 3c02781
-      date: '2026-10-20'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
       margin_pct: 0.1275
       text: 'Cd, Viterna extension against the official table vs the official AeroDyn polar tables, Viterna extension like-for-like: 0.1275% (bound: 1.0000%)'

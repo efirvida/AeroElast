@@ -1,0 +1,84 @@
+
+************************************************************
+
+CalculiX Version 2.20, Copyright(C) 1998-2022 Guido Dhondt
+CalculiX comes with ABSOLUTELY NO WARRANTY. This is free
+software, and you are welcome to redistribute it under
+certain conditions, see gpl.htm
+
+************************************************************
+
+You are using an executable made on Mon Apr 20 21:05:27 -03 2026
+
+  The numbers below are estimated upper bounds
+
+  number of:
+
+   nodes:     26555390
+   elements:       126291
+   one-dimensional elements:            0
+   two-dimensional elements:       126291
+   integration points per element:           32
+   degrees of freedom per node:            3
+   layers per element:            4
+
+   distributed facial loads:            0
+   distributed volumetric loads:            0
+   concentrated loads:          104
+   single point constraints:      9099240
+   multiple point constraints:     15154921
+   terms in all multiple point constraints:     96991489
+   tie constraints:            0
+   dependent nodes tied by cyclic constraints:            0
+   dependent nodes in pre-tension constraints:            0
+
+   sets:        59579
+   terms in all sets:      1636604
+
+   materials:       102665
+   constants per material and temperature:            9
+   temperature points per material:            1
+   plastic data points per material:            0
+
+   orientations:       505335
+   amplitudes:            2
+   data points in all amplitudes:            2
+   print requests:            0
+   transformations:            0
+   property cards:            0
+
+
+ STEP            1
+
+ Static analysis was selected
+
+ Decascading the MPC's
+
+ Determining the structure of the matrix:
+ *ERROR in u_realloc: error allocating memory
+variable=mast1, file=insert.c, line=59, size(bytes)=-8589934592, oldaddress=22522739531792
+Command exited with non-zero status 16
+	Command being timed: "ccx b"
+	User time (seconds): 86.00
+	System time (seconds): 8.51
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:36.78
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 21710140
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 278
+	Minor (reclaiming a frame) page faults: 89800
+	Voluntary context switches: 261
+	Involuntary context switches: 119
+	Swaps: 0
+	File system inputs: 165464
+	File system outputs: 128416
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 16
+ccx exit 16

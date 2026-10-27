@@ -1,0 +1,67 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont6054
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 615 stations (one laminate per element row)
+      Raw mesh: 33632 nodes, 34893 elements
+      Skipped 78 degenerate element(s)
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Raw mesh: 33827 nodes, 35012 elements
+coupling mesh 28480 nodes, 28483 elements; props for 11758 ids, coupling elements without props 28483
+flat    5 strip   0 ring  5 n   35 z    1.194..   1.194  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat    6 strip   1 ring  0 n   31 z    1.194..   1.194  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat   16 strip   1 ring 10 n   38 z    3.582..   3.582  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat   17 strip   2 ring  0 n   28 z    3.582..   3.582  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat   27 strip   2 ring 10 n   39 z    5.969..   5.969  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat   28 strip   3 ring  0 n   26 z    5.969..   5.969  unusable-area
+flat   38 strip   3 ring 10 n   39 z    8.357..   8.357  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat   39 strip   4 ring  0 n   26 z    8.357..   8.357  unusable-area
+flat   49 strip   4 ring 10 n   41 z   10.745..  10.745  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat   50 strip   5 ring  0 n   28 z   10.745..  10.745  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  182 strip  16 ring 11 n   33 z   39.398..  39.398  unusable-area
+flat  183 strip  17 ring  0 n   20 z   39.398..  39.398  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  195 strip  17 ring 12 n   31 z   41.786..  41.786  unusable-area
+flat  196 strip  18 ring  0 n   20 z   41.786..  41.786  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  208 strip  18 ring 12 n   29 z   44.173..  44.173  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  209 strip  19 ring  0 n   21 z   44.173..  44.173  unusable-area
+flat  221 strip  19 ring 12 n   28 z   46.561..  46.561  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  222 strip  20 ring  0 n   21 z   46.561..  46.561  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  234 strip  20 ring 12 n   26 z   48.949..  48.949  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  235 strip  21 ring  0 n   22 z   48.949..  48.949  unusable-area
+flat  247 strip  21 ring 12 n   29 z   51.337..  51.337  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  248 strip  22 ring  0 n   18 z   51.337..  51.337  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  326 strip  27 ring 13 n   20 z   65.663..  65.663  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  327 strip  28 ring  0 n   20 z   65.663..  65.663  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  341 strip  28 ring 14 n   20 z   68.051..  68.051  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  342 strip  29 ring  0 n   20 z   68.051..  68.051  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  356 strip  29 ring 14 n   20 z   70.439..  70.439  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  357 strip  30 ring  0 n   19 z   70.439..  70.439  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  371 strip  30 ring 14 n   18 z   72.827..  72.827  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  372 strip  31 ring  0 n   20 z   72.827..  72.827  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  386 strip  31 ring 14 n   20 z   75.214..  75.214  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  387 strip  32 ring  0 n   18 z   75.214..  75.214  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  477 strip  37 ring 15 n   16 z   89.541..  89.541  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  478 strip  38 ring  0 n   16 z   89.541..  89.541  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  494 strip  38 ring 16 n   16 z   91.929..  91.929  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  495 strip  39 ring  0 n   16 z   91.929..  91.929  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  511 strip  39 ring 16 n   16 z   94.316..  94.316  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  512 strip  40 ring  0 n   16 z   94.316..  94.316  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  528 strip  40 ring 16 n   18 z   96.704..  96.704  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  529 strip  41 ring  0 n   16 z   96.704..  96.704  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  597 strip  44 ring 17 n   12 z  106.255.. 106.255  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  598 strip  45 ring  0 n   16 z  106.255.. 106.255  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  616 strip  45 ring 18 n   12 z  108.643.. 108.643  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  617 strip  46 ring  0 n   16 z  108.643.. 108.643  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  667 strip  48 ring 12 n   12 z  114.929.. 114.929  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  668 strip  49 ring  0 n   13 z  114.929.. 114.929  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  679 strip  50 ring  5 n    8 z  116.122.. 116.122  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+flat  680 strip  51 ring  0 n   13 z  116.123.. 116.123  unusable-area
+flat  687 strip  51 ring  7 n    2 z  116.707.. 116.707  group<3
+flat  688 strip  52 ring  0 n   14 z  116.708.. 116.708  ValueError: ring_section found no closed cell: the ring's in-plane edges bound no face
+total rings 694 {'ValueError': 42, 'unusable-area': 7, 'group<3': 1}

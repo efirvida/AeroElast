@@ -20,12 +20,12 @@ rows:
       justification: Source-stated 5% bound; no result or verdict recorded.
     measured:
       status: measured
-      run: a0e9279
-      date: '2026-10-15'
-      raw: 6.64195
-      margin_pct: 2.9385
-      text: 'Newmark free-vibration frequency (Hz) vs Euler-Bernoulli cantilever first frequency F1_EXACT: 6.64195 vs 6.84304 (error: 2.9385%, bound: 5.0000%)'
-      digest: 0eee854f7bc22eca
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 6.65021
+      margin_pct: 2.8178
+      text: 'Newmark free-vibration frequency (Hz) vs Euler-Bernoulli cantilever first frequency F1_EXACT: 6.65021 vs 6.84304 (error: 2.8178%, bound: 5.0000%)'
+      digest: 663eecccb4ffc571
     expected: F1_EXACT
   flags: []
   notes: Analytic frequency comparison only; energy conservation and damping decay assertions remain implementation checks, not independent-reference rows.
@@ -49,12 +49,12 @@ rows:
       justification: Fixed before measuring at 0.05 %; the predicted offset is -0.0145 %.
     measured:
       status: measured
-      run: a0e9279
-      date: '2026-10-15'
-      raw: 6.64195
-      margin_pct: 0.0105
-      text: 'Newmark free-vibration frequency (Hz) vs trapezoidal-rule dispersion of the mesh''s own first eigenfrequency: 6.64195 vs 6.64126 (error: 0.0105%, bound: 0.0500%)'
-      digest: 0a56ea3bba00da13
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 6.65021
+      margin_pct: 0.0062
+      text: 'Newmark free-vibration frequency (Hz) vs trapezoidal-rule dispersion of the mesh''s own first eigenfrequency: 6.65021 vs 6.6498 (error: 0.0062%, bound: 0.0500%)'
+      digest: 7c311e1221d594e0
     expected: f_discrete
   flags: []
   notes: Isolates the integrator; the Euler-Bernoulli row carries the mesh error.

@@ -1,0 +1,47 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont17
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T14m.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33935 nodes, 35120 elements
+      Deduplicating nodes...
+      Deduplicated: 33935 -> 33935 nodes (0% reduction)
+      Creating 35120 elements...
+      Creating element and node sets...
+      Blade mesh generated: 33935 nodes, 35120 elements
+  Converted to quadratic: 102991 nodes (69056 midside nodes added)
+CalculiX mesh files written:
+  - Mesh file: /scratch/leahk/eduardo.donestevez/tmp/t31-T14m/d.msh
+  - Names file: /scratch/leahk/eduardo.donestevez/tmp/t31-T14m/d.nam
+  - Main input file: /scratch/leahk/eduardo.donestevez/tmp/t31-T14m/d.inp
+TREE /scratch/leahk/eduardo.donestevez/wt/input-fix-T14m mesh nodes 33935 mesh elems 35120 sets 11760 props 11758
+deck elements 35120 {'S8R': 35004, 'S6': 116}
+isotropic dict props: 338 ['00_501_HP_TE_FLAT', '11_501_LP_TE_FLAT', '00_502_HP_TE_FLAT', '11_502_LP_TE_FLAT', '00_503_HP_TE_FLAT']
+sets with no composite section in deck: 0 []
+sets whose deck ELSET count != mesh set count: 0 []
+thickness deck/AE-1: max|.| 3.597e-07;  A11 deck/AE-1: median -1.497e-10 p95 2.356e-07 max 4.608e-07  (n=11420)
+sum(A11*area) deck/AE = 1.000000
+  z   0- 20 deck/AE 1.000000  EA_ring(AE)=sum(A11*area)/20m = 3.5544e+10 N
+  z  20- 40 deck/AE 1.000000  EA_ring(AE)=sum(A11*area)/20m = 2.2928e+10 N
+  z  40- 60 deck/AE 1.000000  EA_ring(AE)=sum(A11*area)/20m = 2.3420e+10 N
+  z  60- 80 deck/AE 1.000000  EA_ring(AE)=sum(A11*area)/20m = 1.9356e+10 N
+  z  80-100 deck/AE 1.000000  EA_ring(AE)=sum(A11*area)/20m = 1.0179e+10 N
+  z 100-120 deck/AE 1.000000  EA_ring(AE)=sum(A11*area)/20m = 1.6905e+09 N
+  worst 04_607_HP_LE_PANEL thk AE/deck 0.00300146/0.00300146 A11 AE/deck 7.0932e+07/7.0932e+07
+  worst 05_607_HP_LE thk AE/deck 0.00300146/0.00300146 A11 AE/deck 7.0932e+07/7.0932e+07
+  worst 06_607_LP_LE thk AE/deck 0.00300146/0.00300146 A11 AE/deck 7.0932e+07/7.0932e+07
+  worst 07_607_LP_LE_PANEL thk AE/deck 0.00300146/0.00300146 A11 AE/deck 7.0932e+07/7.0932e+07
+  worst 00_387_SW thk AE/deck 0.0220024/0.0220024 A11 AE/deck 3.2514e+07/3.2514e+07
+*BOUNDARY -> *BOUNDARY | NROOTNODES, 1, 6, 0.0
+*CLOAD -> *CLOAD | NTIP, 3, 3.125000E+04
+root nodes mesh 68 deck NROOTNODES 136 ; tip nodes mesh 16 deck NTIP 32
+CLOAD lines 1 dof3 lines 1 sum fz 31250.0
+z range mesh 0.000..117.000 tip z-extent 1.4210854715202004e-13

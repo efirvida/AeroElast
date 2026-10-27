@@ -691,3 +691,28 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L32 (receta de reanudac
   - 18 `4ee98ab..bea62ed` Aerodynamic torque sign chain restored against OpenFAST
   - 19 `8e1c516..070af3d` Nose-up convention follow-ups, P5 row, at-AC decision
 - PR numbers and merge commits are in Engram (`l3/delivery-chain`). After the merge, the next session starts from `origin/main`.
+
+### L39 — Suite 11622759 read, 242 verdicts restamped, P1 re-registered and stopped, input audit (2026-10-23)
+- User (verbatim): "1. Leer el resultado de la suite 11622759 y volver a sellar las filas desactualizadas. 2. Re-preregistrar P1 en odd/tasks/twist-discrepancy-closure.md: convención nose-up, factor geométrico con rotación, el control C1 primero, y T5.d absorbido. Hacerlo en un commit propio, antes de cualquier corrida. 3. Correr P1. Son trabajos de minutos en SLURM." Later: "en lo que esperamos vamos a hacer la auditoria campo por campo de la malla contra el yaml".
+- **Suite 11622759** (7189314, 3h37): 20 failed / 1466 passed, vs 11622087 (7dfe78d) 21 / 1436.
+  - Fixed since: S-7 and three thin-walled-tube tests.
+  - New failures:
+    - the two rated-twist tests (expected, L35);
+    - `test_thin_walled_tube_projection::test_production_projector_reproduces_the_exact_twist`. Its torque ruler reads +1.24e5 vs −1.24e5, the same magnitude with the opposite sign. It is a nose-down guard that 4ee98ab missed. **Decision needed:** flip the guard, in a follow-up like 7189314.
+- **Restamp, 5441f51:** 242 of 265 stale verdicts moved to 9f72c6b. Evidence: SLURM 11623034/55/77 under `logs/check/restamp-9f72c6b/`.
+  - Value moves, all within their bounds: G50, G55, G58 and S-1 EI_edge (11.45 → 8.82 %, tangent frame, still rejected).
+  - Contract stale now: L1 13, L2 7, L3 3, L4 0.
+  - Left stale:
+    - G43, whose S-3 values moved (f1 margin 2.94 → 2.82 %, dispersion 0.0105 → 0.0062): run `regression --group 43 --scope tests/test_iea15mw_s3_newmark_transient.py --write`;
+    - G26/44/45/46, where group 44 hung for 45 min in 11623077 (it ran in 7 s on 10-19; cause unknown);
+    - G15/16, with unmapped comparisons;
+    - G40 S-4, captured in `capture-s4.pkl` (parked 1F/1E/2F −3.57/−5.94/−6.26 % vs ED; rated −3.42/−6.10/−6.30 %) but not mapped to the row comparisons;
+    - V-05, by row id.
+- **P1 (twist-discrepancy-closure.md):**
+  - re-registered in f830a2e, harness in 5978b73;
+  - J1 = SLURM 11623050: **C1 FAIL** (+18/+3/−11/−24 % at 50/75/90 %/tip); C2a and C2b pass;
+  - P1 stopped, recorded in 30ef9d5.
+  - T5.d is absorbed into P1 (R4).
+- **Input audit (blade-input-audit.md):** pre-registered in f9caa9a, tool and result in cac43b3. Five translation-defect candidates (A–E). A (region smearing, TE glass −23 %) and B (per-bay thickness, spar caps −11 % at 0.90) reach EI_edge and EA. Their effect on S-1 is T4, which needs its own pre-registration.
+- Delivery: branch `l3/twist-p1`, 6 commits, ~2.9 k authored lines (mostly the two tools and their tests, plus 484 contract lines). Not pushed. Slicing is the maintainer's call. No #42 comment was posted (publishing is the maintainer's call).
+- **Resume recipe:** read this L39, then `blade-input-audit.md` T4 and `twist-discrepancy-closure.md` "P1 J1 result"; run `mem_search "blade-input-audit"`. Order: (1) pre-register and run T4; (2) the C1 decision (continuum vs discrete) and the J1 rerun; (3) the leftover restamps above.

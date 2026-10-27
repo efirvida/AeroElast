@@ -1,0 +1,152 @@
+/var/spool/slurmd/slurmd/job11623488/slurm_script: line 10: git: command not found
+job=11623488 rev=
+FFFFFFFFFF                                                               [100%]
+=================================== FAILURES ===================================
+_______________ test_blade_mesh_generation[IEA-15-240-RWT.yaml] ________________
+tests/software/mesh/test_blade_mesh.py:56: in test_blade_mesh_generation
+    assert mesh.node_count == 9277, f"{blade_file}: {mesh.node_count} nodes, expected 9277"
+E   AssertionError: /scratch/leahk/eduardo.donestevez/wt/full-a35bba3/tests/IEA-15-240-RWT.yaml: 10637 nodes, expected 9277
+E   assert 10637 == 9277
+E    +  where 10637 = <MeshModel: 10637 nodes, 11248 elements, 3 node sets, 6128 element sets>.node_count
+----------------------------- Captured stdout call -----------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 296 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 10637 nodes, 11248 elements
+      Deduplicating nodes...
+      Deduplicated: 10637 -> 10637 nodes (0% reduction)
+      Creating 11248 elements...
+      Creating element and node sets...
+      Blade mesh generated: 10637 nodes, 11248 elements
+____________ test_blade_mesh_generation[IEA-15-240-RWT_rigid.yaml] _____________
+tests/software/mesh/test_blade_mesh.py:56: in test_blade_mesh_generation
+    assert mesh.node_count == 9277, f"{blade_file}: {mesh.node_count} nodes, expected 9277"
+E   AssertionError: /scratch/leahk/eduardo.donestevez/wt/full-a35bba3/tests/IEA-15-240-RWT_rigid.yaml: 10637 nodes, expected 9277
+E   assert 10637 == 9277
+E    +  where 10637 = <MeshModel: 10637 nodes, 11248 elements, 3 node sets, 6128 element sets>.node_count
+----------------------------- Captured stdout call -----------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 296 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 10637 nodes, 11248 elements
+      Deduplicating nodes...
+      Deduplicated: 10637 -> 10637 nodes (0% reduction)
+      Creating 11248 elements...
+      Creating element and node sets...
+      Blade mesh generated: 10637 nodes, 11248 elements
+________________________ test_outer_shell_is_unchanged _________________________
+tests/software/mesh/test_blade_no_webs.py:48: in test_outer_shell_is_unchanged
+    assert len(no_webs.element_sets["allOuterShellEls"].elements) == len(
+E   AssertionError: assert 2810 == 3516
+E    +  where 2810 = len({<MeshElement id=15405 type=quad node_ids=(14479, 14480, 14502, 14501)>, <MeshElement id=16586 type=quad node_ids=(156...ad node_ids=(16249, 16250, 16264, 16263)>, <MeshElement id=15407 type=quad node_ids=(14481, 14482, 14504, 14503)>, ...})
+E    +    where {<MeshElement id=15405 type=quad node_ids=(14479, 14480, 14502, 14501)>, <MeshElement id=16586 type=quad node_ids=(156...ad node_ids=(16249, 16250, 16264, 16263)>, <MeshElement id=15407 type=quad node_ids=(14481, 14482, 14504, 14503)>, ...} = <ElementSet 'allOuterShellEls': 2810 elements>.elements
+E    +  and   3516 = len({<MeshElement id=11386 type=quad node_ids=(10775, 10776, 10800, 10799)>, <MeshElement id=12236 type=quad node_ids=(116...ad node_ids=(10776, 10777, 10801, 10800)>, <MeshElement id=12237 type=quad node_ids=(11623, 11624, 11646, 11645)>, ...})
+E    +    where {<MeshElement id=11386 type=quad node_ids=(10775, 10776, 10800, 10799)>, <MeshElement id=12236 type=quad node_ids=(116...ad node_ids=(10776, 10777, 10801, 10800)>, <MeshElement id=12237 type=quad node_ids=(11623, 11624, 11646, 11645)>, ...} = <ElementSet 'allOuterShellEls': 3516 elements>.elements
+_________________ test_web_elements_are_exactly_the_difference _________________
+tests/software/mesh/test_blade_no_webs.py:56: in test_web_elements_are_exactly_the_difference
+    assert with_webs.elements_count - no_webs.elements_count == web_elements
+E   assert (4065 - 2810) == 549
+E    +  where 4065 = <MeshModel: 3750 nodes, 4065 elements, 3 node sets, 3274 element sets>.elements_count
+E    +  and   2810 = <MeshModel: 2821 nodes, 2810 elements, 2 node sets, 2245 element sets>.elements_count
+________________ test_normal_load_rides_the_rotor_plane_normal _________________
+tests/validation/bem/test_force_projection_load_frame.py:358: in test_normal_load_rides_the_rotor_plane_normal
+    _assert_chord_runs_along_major_axis(frame)
+tests/validation/bem/test_force_projection_load_frame.py:235: in _assert_chord_runs_along_major_axis
+    assert angle <= MAJOR_AXIS_ANGLE_DEG, (
+E   AssertionError: z=3.582 m: c_hat is 19.874 deg off the ring's max-extent direction (bound 10.0)
+E   assert 19.87422062236421 <= 10.0
+---------------------------- Captured stdout setup -----------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+      Blade mesh generated: 33827 nodes, 35012 elements
+----------------------------- Captured stdout call -----------------------------
+
+[normal load: |F.z_rotor|/|F| >= 99 %, |F.t_rotor|/|F| <= 1 %]
+____________ test_tangential_load_rides_the_rotor_plane_tangential _____________
+tests/validation/bem/test_force_projection_load_frame.py:397: in test_tangential_load_rides_the_rotor_plane_tangential
+    _assert_chord_runs_along_major_axis(frame)
+tests/validation/bem/test_force_projection_load_frame.py:235: in _assert_chord_runs_along_major_axis
+    assert angle <= MAJOR_AXIS_ANGLE_DEG, (
+E   AssertionError: z=3.582 m: c_hat is 19.874 deg off the ring's max-extent direction (bound 10.0)
+E   assert 19.87422062236421 <= 10.0
+----------------------------- Captured stdout call -----------------------------
+
+[tangential load: |F.t_rotor|/|F| >= 99 %, |F.z_rotor|/|F| <= 1 %]
+____________ test_load_direction_does_not_follow_the_section_twist _____________
+tests/validation/bem/test_force_projection_load_frame.py:432: in test_load_direction_does_not_follow_the_section_twist
+    _assert_chord_runs_along_major_axis(frame)
+tests/validation/bem/test_force_projection_load_frame.py:235: in _assert_chord_runs_along_major_axis
+    assert angle <= MAJOR_AXIS_ANGLE_DEG, (
+E   AssertionError: z=3.582 m: c_hat is 19.874 deg off the ring's max-extent direction (bound 10.0)
+E   assert 19.87422062236421 <= 10.0
+----------------------------- Captured stdout call -----------------------------
+
+[applied direction: one rotor frame at every station]
+___________ test_factory_participant_realises_every_precomputed_ring ___________
+tests/validation/bem/test_wall_flow_activation.py:228: in test_factory_participant_realises_every_precomputed_ring
+    assert not unusable, (
+E   AssertionError: 50 of 694 ring sections are unrealisable through the production factory: indices [5, 6, 16, 17, 27]
+E   assert not [5, 6, 16, 17, 27, 28, ...]
+---------------------------- Captured stdout setup -----------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 615 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33632 nodes, 34893 elements
+      Deduplicating nodes...
+      Deduplicated: 33632 -> 33632 nodes (0% reduction)
+      Creating 34893 elements...
+      Skipped 78 degenerate element(s)
+      Creating element and node sets...
+      Blade mesh generated: 33632 nodes, 34815 elements
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33827 nodes, 35012 elements
+      Deduplicating nodes...
+      Deduplicated: 33827 -> 33827 nodes (0% reduction)
+      Creating 35012 elements...
+      Creating element and node sets...
+      Blade mesh generated: 33827 nodes, 35012 elements
+_____ test_aero_dispatcher_activates_the_realisation_on_the_campaign_path ______
+tests/validation/bem/test_wall_flow_activation.py:285: in test_aero_dispatcher_activates_the_realisation_on_the_campaign_path
+    assert not unrealisable and not geometric_only, (
+E   AssertionError: the campaign path dropped the activation: 50 of 694 ring sections unrealisable, 0 geometric-only
+E   assert (not [5, 6, 16, 17, 27, 28, ...])
+_____________ test_production_projector_reproduces_the_exact_twist _____________
+tests/validation/parity/test_thin_walled_tube_projection.py:188: in test_production_projector_reproduces_the_exact_twist
+    assert abs(torque - expected_torque) / abs(expected_torque) < 1e-9, (
+E   AssertionError: the torque ruler reads 1.240000e+05 N.m against -1.240000e+05: the outer strip bands do not carry DZ each, so sum_k dr_k is not L + DZ
+E   assert (248000.0 / 124000.0) < 1e-09
+E    +  where 248000.0 = abs((124000.0 - -124000.0))
+E    +  and   124000.0 = abs(-124000.0)
+----------------------------- Captured stdout call -----------------------------
+
+========== production ForceProjector on the clamped-free closed tube ==========
+=========================== short test summary info ============================
+FAILED tests/software/mesh/test_blade_mesh.py::test_blade_mesh_generation[IEA-15-240-RWT.yaml]
+FAILED tests/software/mesh/test_blade_mesh.py::test_blade_mesh_generation[IEA-15-240-RWT_rigid.yaml]
+FAILED tests/software/mesh/test_blade_no_webs.py::test_outer_shell_is_unchanged
+FAILED tests/software/mesh/test_blade_no_webs.py::test_web_elements_are_exactly_the_difference
+FAILED tests/validation/bem/test_force_projection_load_frame.py::test_normal_load_rides_the_rotor_plane_normal
+FAILED tests/validation/bem/test_force_projection_load_frame.py::test_tangential_load_rides_the_rotor_plane_tangential
+FAILED tests/validation/bem/test_force_projection_load_frame.py::test_load_direction_does_not_follow_the_section_twist
+FAILED tests/validation/bem/test_wall_flow_activation.py::test_factory_participant_realises_every_precomputed_ring
+FAILED tests/validation/bem/test_wall_flow_activation.py::test_aero_dispatcher_activates_the_realisation_on_the_campaign_path
+FAILED tests/validation/parity/test_thin_walled_tube_projection.py::test_production_projector_reproduces_the_exact_twist
+10 failed in 778.17s (0:12:58)

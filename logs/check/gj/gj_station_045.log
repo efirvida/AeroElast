@@ -1,0 +1,40 @@
+but there are no active ports detected (or Open MPI was unable to use
+ignored for this job.
+station idx 243 z=52.622 r/R=0.4499  FE S-1 GJ=2.5438e+08  BD GJ=2.8737e+08  FE/BD-1=-11.48%
+segments 57 vertices 55 distinct sections 18
+yaml: eta=0.4499 perimeter P=9.570 m (from cap width), s_LE=0.5016
+Per-region in-plane shear stiffness A66 (N/m).  A66 = A[2,2]; Aeff = 1/(A^-1)66 (Bredt-relevant). ref = yaml ply stack
+sect                    j  Lseg m | h ours mm   A66 ours  Aeff ours | h yaml mm   A66 yaml  Aeff yaml [min,max over region] |  A66 d%  Aeff d%
+01_243_HP_TE_REINF      1   0.756 |     32.74 1.1408e+08 1.1408e+08 |     32.71 1.1382e+08 1.1382e+08 [9.942e+07,1.162e+08] |   +0.2%    +0.2%
+02_243_HP_TE_PANEL      2   2.055 |     37.50 3.6384e+07 3.6384e+07 |     37.51 3.6514e+07 3.6514e+07 [3.651e+07,3.651e+07] |   -0.4%    -0.4%
+03_243_HP_SPAR_A        3   0.061 |     99.99 6.0389e+08 6.0389e+08 |     99.98 6.0384e+08 6.0384e+08 [6.038e+08,6.038e+08] |   +0.0%    +0.0%
+03_243_HP_SPAR_B        3   0.689 |     99.99 6.0389e+08 6.0389e+08 |     99.98 6.0384e+08 6.0384e+08 [6.038e+08,6.038e+08] |   +0.0%    +0.0%
+03_243_HP_SPAR_C        3   0.134 |     99.99 6.0389e+08 6.0389e+08 |     99.98 6.0384e+08 6.0384e+08 [6.038e+08,6.038e+08] |   +0.0%    +0.0%
+04_243_HP_LE_PANEL      4   0.685 |     37.52 3.6515e+07 3.6515e+07 |     37.51 3.6514e+07 3.6514e+07 [3.651e+07,3.651e+07] |   +0.0%    +0.0%
+05_243_HP_LE            5   0.394 |      7.50 4.3099e+07 4.3099e+07 |      7.50 4.3099e+07 4.3099e+07 [4.310e+07,4.310e+07] |   +0.0%    +0.0%
+06_243_LP_LE            6   0.394 |      7.50 4.3099e+07 4.3099e+07 |      7.50 4.3099e+07 4.3099e+07 [4.310e+07,4.310e+07] |   +0.0%    +0.0%
+07_243_LP_LE_PANEL      7   0.744 |     37.52 3.6515e+07 3.6515e+07 |     37.51 3.6514e+07 3.6514e+07 [3.651e+07,3.651e+07] |   +0.0%    +0.0%
+08_243_LP_SPAR_A        8   0.063 |     99.99 6.0389e+08 6.0389e+08 |     99.98 6.0384e+08 6.0384e+08 [6.038e+08,6.038e+08] |   +0.0%    +0.0%
+08_243_LP_SPAR_B        8   0.693 |     99.99 6.0389e+08 6.0389e+08 |     99.98 6.0384e+08 6.0384e+08 [6.038e+08,6.038e+08] |   +0.0%    +0.0%
+08_243_LP_SPAR_C        8   0.133 |     99.99 6.0389e+08 6.0389e+08 |     99.98 6.0384e+08 6.0384e+08 [6.038e+08,6.038e+08] |   +0.0%    +0.0%
+09_243_LP_TE_PANEL      9   1.960 |     37.50 3.6377e+07 3.6377e+07 |     37.51 3.6514e+07 3.6514e+07 [3.651e+07,3.651e+07] |   -0.4%    -0.4%
+10_243_LP_TE_REINF     10   0.752 |     32.74 1.1408e+08 1.1408e+08 |     31.48 1.1075e+08 1.1075e+08 [1.812e+07,1.162e+08] |   +3.0%    +3.0%
+web sections at the station: {'00_243_SW': (30.13, np.float64(1.171)), '01_243_SW': (30.13, np.float64(1.178))}
+yaml web0: h=30.12 mm A66=3.8751e+07 Aeff=3.8751e+07
+yaml web1: h=30.12 mm A66=3.8751e+07 Aeff=3.8751e+07
+web order by x: ['00_243_SW', '01_243_SW']
+Thin-wall Bredt (multi-cell, midline geometry of the mid-surface mesh):
+  ours (mesher laminate): 2.7506e+08  (-4.28% vs BD)
+  yaml laminate A66:      2.7525e+08  (-4.22% vs BD)   ref/ours-1=+0.07%
+  FE S-1 2.5438e+08 (-11.48% vs BD); FE/Bredt-ours-1=-7.52%
+Thick-wall variants (laminate = mesher's):
+  closed-section Bredt, wall path = mid          : 2.7506e+08  vs mid +0.00%  vs BD -4.28%
+  closed-section Bredt, wall path = OML          : 3.0730e+08  vs mid +11.72%  vs BD +6.94%
+  closed-section Bredt, wall path = IML          : 2.4420e+08  vs mid -11.22%  vs BD -15.02%
+  closed-section Bredt, wall path = Q66-centroid : 2.7513e+08  vs mid +0.03%  vs BD -4.26%
+  Q66-centroid shift: length-weighted mean +0.16 mm (+ = toward OML), range [-0.4,+0.9] mm; mean skin h=47.8 mm
+  open-section term sum 4*D66*L: all walls 3.9901e+06 (+1.45% of Bredt mid; skins only +1.42%)
+  thick-wall GJ = Bredt(mid) + open term = 2.7905e+08  vs BD -2.90%
+  closing the Bredt gap to BD needs the wall path at +0.39 x (h/2) toward the OML = +9.2 mm at the mean skin h; or all-wall G x1.045
+  [pts of BD] FE -11.48 | Bredt thin ours -4.28 | Bredt thin yaml-laminate -4.22 | thick (mid+open) -2.90 | Q66-centroid path -4.26
+  [contributions, pts of BD] A66 laminate mismatch +0.07 | thick-wall open term +1.39 | wall-path centroid +0.03 | FE below its thin Bredt -7.20 | unexplained after thick +2.90

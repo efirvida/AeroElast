@@ -63,6 +63,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from beam_reference import load_beamdyn_blade  # noqa: E402
 from run_s1_sectional import ea_gj_from_static_response as _ea_gj_static_response  # noqa: E402
+from run_s1_sectional import native_bay_centres  # noqa: E402
 
 
 def _interp(x_src, y_src, x_dst):
@@ -89,10 +90,14 @@ class TestS1SectionalProperties:
         props = build_rust_properties(generator.numad_mesh_data)
         ext = SectionalExtractor(mesh, props)
 
-        sec = ext.extract()  # mass path
-        z_static, ei_flap, ei_edge = ext.ei_from_static_response(props, frame="tangent")
+        # evaluate on the yaml-grid stations whatever bay limit the mesher applied (T7d): the fits depend on the
+        # station count, and 9f72c6b was extracted on these ~50 stations
+        stations = native_bay_centres(iea_blade_yaml)
+        sec = ext.extract(stations=stations)  # mass path
+        z_static, ei_flap, ei_edge = ext.ei_from_static_response(
+            props, frame="tangent", stations=stations)
         z_eg, ea_resp, gj_static, ea_clt = _ea_gj_static_response(
-            mesh, props, numad_data=generator.numad_mesh_data)
+            mesh, props, numad_data=generator.numad_mesh_data, stations=stations)
 
         mid = (z_static > 0.2 * z_static.max()) & (z_static < 0.85 * z_static.max())
         return {
@@ -137,7 +142,10 @@ class TestS1SectionalProperties:
     def test_gj_distribution_matches_beamdyn(self, s1_results):
         """GJ(r) mid-span mean |rel err| vs BeamDyn below 5 %.
 
-        Static-response torsion test: tip torque couple about the local pre-bent span tangent.
+        Static-response torsion test: the tip torque about the local pre-bent span tangent is applied as
+        the end ring's Saint-Venant wall shear flow (``section_torque_wall_forces``) and the twist rate is
+        the local-quadratic derivative of the rigid-fit theta (blade-input-audit T40; before, a
+        ``t x r_perp`` couple and an absolute smoothing spline, T39).
         """
         z, gj, gjb = s1_results["z"], s1_results["gj"], s1_results["gj_bd"]
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())

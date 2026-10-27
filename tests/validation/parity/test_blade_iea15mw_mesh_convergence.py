@@ -64,15 +64,20 @@ pytestmark = pytest.mark.slow
 
 
 def _matched_gaps(ae: np.ndarray, ccx: np.ndarray, n: int) -> list[float]:
-    """Smallest-cost one-to-one relative gaps between the two mode sets.
+    """Relative gap of each CCX mode to its AeroElast partner, in CCX mode order.
 
-    Reuses the Hungarian pairing from the validation module so a mode that one
-    solver orders differently cannot masquerade as a mismatch.
+    The pairing is the smallest-cost one-to-one assignment (Hungarian), so a mode
+    that one solver orders differently cannot masquerade as a mismatch.  Entry ``j``
+    belongs to CCX mode ``j + 1`` on every mesh, which is what lets the convergence
+    check compare one mode across meshes; the earlier version returned the gaps
+    sorted by size, so its "mode 6" was the sixth-smallest gap, a different physical
+    mode from mesh to mesh (T29).
     """
     cost = np.abs(ae[:, None] - ccx[None, :]) / np.maximum(ccx[None, :], 1e-14)
     row_ind, col_ind = linear_sum_assignment(cost)
-    gaps = sorted(float(cost[i, j]) for i, j in zip(row_ind, col_ind, strict=False))
-    return gaps[:n]
+    by_ccx = np.empty(len(col_ind))
+    by_ccx[col_ind] = cost[row_ind, col_ind]
+    return [float(g) for g in by_ccx[:n]]
 
 
 def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarray, np.ndarray]:
@@ -138,7 +143,9 @@ def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarra
 
 
 @pytest.fixture(scope="module")
-def convergence(tmp_path_factory: pytest.TempPathFactory) -> dict[float, tuple[np.ndarray, np.ndarray]]:
+def convergence(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> dict[float, tuple[np.ndarray, np.ndarray]]:
     """Solve the blade with AeroElast and CCX at each mesh in ``MESHES``."""
     ccx_bin = ccx_bin_or_skip()
     workdir = tmp_path_factory.mktemp("blade_mesh_convergence")
@@ -158,7 +165,7 @@ def test_blade_modal_gap_converges_with_mesh(
     """
     gaps = {es: _matched_gaps(*convergence[es], N_MODES) for es in MESHES}
     for es in MESHES:
-        print(f"  es={es:.2f} m gaps: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
+        print(f"  es={es:.2f} m gaps by CCX mode: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
 
     coarse, medium, fine = MESHES
     # Mesh-convergence claim: the first refinement improves every mode whose
@@ -166,7 +173,7 @@ def test_blade_modal_gap_converges_with_mesh(
     for mode in range(N_MODES):
         if gaps[coarse][mode] > NOISE_FLOOR:
             assert gaps[medium][mode] < gaps[coarse][mode], (
-                f"matched mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
+                f"CCX mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
                 f"below the {coarse} m gap {gaps[coarse][mode] * 100:.2f}%"
             )
 

@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import numpy as np
@@ -98,6 +99,17 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
 
     ## Blade Components
 
+    # The webs' own grids, before ``update_internal_structure`` resamples them (``_add_web_attachments``)
+    yaml_webs = copy.deepcopy(blade_internal_structure.get("webs", []))
+    # The layers' own chordwise bounds, likewise: the skin evaluates them linearly on the yaml grid
+    # rather than on a resampled copy (G10b, user L17)
+    yaml_layers = {
+        layer["name"]: {
+            key: copy.deepcopy(layer[key]) for key in ("start_nd_arc", "end_nd_arc") if key in layer
+        }
+        for layer in blade_internal_structure["layers"]
+    }
+
     # Update "grid" and "values" keys to cover the whole span of the blade
     blade_internal_structure = update_internal_structure(
         blade_internal_structure, blade_outer_shape_bem
@@ -117,7 +129,10 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     _add_le_bands(definition, blade_structure_dict)
 
     ### COMPONENTS
-    _add_components(definition, blade_internal_structure, blade_structure_dict)
+    _add_components(definition, blade_internal_structure, blade_structure_dict, yaml_layers)
+
+    # WEB ATTACHMENT ARCS
+    _add_web_attachments(definition, blade_internal_structure, yaml_webs)
 
     # ``rotorspin`` keeps NuMAD's default here.  An override of -1 used to sit at this point
     # to force the WindIO twist sign; measured on the IEA-15MW blade it mirrors the mesh in
@@ -128,6 +143,13 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     # The Excel path still sets it from the ``CW``/``CCW`` flag (see excel_to_blade.py).
 
     blade.update_blade()
+
+    # chord knots of the yaml that the reference_axis grid lacks become stations
+    knots = np.asarray(blade.definition.chord_curve[0], dtype=float)
+    ispan = np.asarray(blade.ispan, dtype=float)
+    missing = [k for k in knots if np.min(np.abs(ispan - k)) > 1e-9 and 0.0 < k < ispan[-1]]
+    if missing:
+        blade.add_interpolated_stations(missing)
 
     if not blade.definition.hub_height:
         if blade.definition.span is None:
@@ -149,7 +171,7 @@ def _add_stations(
     write_airfoils,
 ):
     # Obtaining some parameters not explicitly given in YAML file
-    L = np.ceil(blade_outer_shape_bem["reference_axis"]["z"]["values"][-1])
+    L = blade_outer_shape_bem["reference_axis"]["z"]["values"][-1]
     R = L + hub_outer_shape_bem["diameter"] / 2
     L = R - hub_outer_shape_bem["diameter"] / 2
     definition.span = np.multiply(
@@ -166,10 +188,14 @@ def _add_stations(
         * 180.0
         / np.pi
     )
-    definition.chord = interpolator_wrap(
-        np.multiply(np.transpose(blade_outer_shape_bem["chord"]["grid"]), L),
-        np.transpose(blade_outer_shape_bem["chord"]["values"]),
-        definition.span,
+    chord_span = np.multiply(np.transpose(blade_outer_shape_bem["chord"]["grid"]), L)
+    chord_values = np.transpose(blade_outer_shape_bem["chord"]["values"])
+    definition.chord = interpolator_wrap(chord_span, chord_values, definition.span)
+    # The yaml chord can carry knots the reference_axis grid lacks (IEA-15: 0.985, 0.99, 0.995).
+    # Keep the curve; the knots become stations in `yaml_to_blade` so the mesh chord follows it.
+    definition.chord_curve = (
+        np.asarray(chord_span, dtype=float),
+        np.asarray(chord_values, dtype=float),
     )
     af_dir_names = []
     for i in range(len(af_data)):
@@ -281,9 +307,11 @@ def _add_materials(definition, material_data):
             pass
 
         # first
-        cur_mat.uts = _parse_data(material_data[i]["Xt"])
-        cur_mat.ucs = -_parse_data(material_data[i]["Xc"])
-        cur_mat.uss = _parse_data(material_data[i]["S"])
+        # strengths never enter stiffness or mass; windIO files omit them for unused materials
+        # (IEA-3.4 resin, steel), so a missing one is NaN
+        cur_mat.uts = _parse_data(material_data[i].get("Xt", np.nan))
+        cur_mat.ucs = -_parse_data(material_data[i].get("Xc", np.nan))
+        cur_mat.uss = _parse_data(material_data[i].get("S", np.nan))
         cur_mat.xzit = 0.3
         cur_mat.xzic = 0.25
         cur_mat.yzit = 0.3
@@ -304,9 +332,13 @@ def _add_materials(definition, material_data):
             cur_mat.ex = _parse_data(material_data[i]["E"])
             cur_mat.ey = _parse_data(material_data[i]["E"])
             cur_mat.ez = _parse_data(material_data[i]["E"])
-            cur_mat.gxy = _parse_data(material_data[i]["G"])
-            cur_mat.gxz = _parse_data(material_data[i]["G"])
-            cur_mat.gyz = _parse_data(material_data[i]["G"])
+            if "G" in material_data[i]:
+                g_iso = _parse_data(material_data[i]["G"])
+            else:  # isotropic: G follows from E and nu
+                g_iso = cur_mat.ex / (2.0 * (1.0 + _parse_data(material_data[i]["nu"])))
+            cur_mat.gxy = g_iso
+            cur_mat.gxz = g_iso
+            cur_mat.gyz = g_iso
             cur_mat.prxy = _parse_data(material_data[i]["nu"])
             cur_mat.prxz = _parse_data(material_data[i]["nu"])
             cur_mat.pryz = _parse_data(material_data[i]["nu"])
@@ -343,7 +375,7 @@ def _add_materials(definition, material_data):
     return
 
 
-def _add_components(definition, blade_internal_structure, blade_structure_dict):
+def _add_components(definition, blade_internal_structure, blade_structure_dict, yaml_layers=None):
     N_layer_comp = len(blade_internal_structure["layers"])
     component_list = []
     for i in range(N_layer_comp):
@@ -355,14 +387,12 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         # mat_names = [mat.name for mat in definition.materials]
         # C,IA,IB = np.intersect1d(mat_names,i_component_data['material'],return_indices=True)
         cur_comp.materialid = i_component_data["material"]
-        try:
-            cur_comp.fabricangle = np.mean(i_component_data["fiber_orientation"]["values"])
-        finally:
-            pass
-        if "spar" in i_component_data["name"].lower():
-            cur_comp.imethod = "pchip"
-        else:
-            cur_comp.imethod = "linear"
+        # optional in windIO v1 (absent on most IEA-3.4 layers); 0 deg as in WISDEM
+        cur_comp.fabricangle = np.mean(i_component_data.get("fiber_orientation", {}).get("values", [0.0]))
+        # One span scheme for every layer, linear on the yaml grid (as WISDEM <= v3.2 and the audit
+        # reference). NuMAD used pchip when the name contained "spar"; a pchip option is planned
+        # (odd/tasks/blade-input-audit.md, G10).
+        cur_comp.imethod = "linear"
         # cur_comp.control_points[:,0] = np.transpose(i_component_data['thickness']['grid'])
         cptemp1 = np.transpose(i_component_data["thickness"]["grid"])
         temp_n_layer = (
@@ -372,8 +402,9 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         cur_comp.continuous_layers = True
         cur_comp.control_points = np.stack((cptemp1, temp_n_layer), axis=1)
         if "shell" in cur_comp.name.lower():
-            cur_comp.nd_arc_start = i_component_data.get("start_nd_arc")
-            cur_comp.nd_arc_end = i_component_data.get("end_nd_arc")
+            raw = (yaml_layers or {}).get(i_component_data["name"], i_component_data)
+            cur_comp.nd_arc_start = raw.get("start_nd_arc")
+            cur_comp.nd_arc_end = raw.get("end_nd_arc")
         # if I_round_up.size > 0:
         #     cur_comp.control_points[I_round_up,1] = 1 # increase n_layers from 0 to 1 for 0.05<n_layers<0.5
         #     comp['cp'](:,2) = cell2mat(blade_internal_structure['layers']{i}['thickness']['values'])'.*1000;  # use when each material ply is 1 mm
@@ -408,11 +439,10 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
 
     # Shell skin
     shell_skin = full_keys_from_substrings(component_dict, ["shell"])
-    if len(shell_skin) == 2:
-        component_dict[shell_skin[0]].hpextents = ["le", "te"]
-        component_dict[shell_skin[0]].lpextents = ["le", "te"]
-        component_dict[shell_skin[1]].hpextents = ["le", "te"]
-        component_dict[shell_skin[1]].lpextents = ["le", "te"]
+    if len(shell_skin) in (1, 2):  # IEA-15: outer + inner skin; IEA-3.4: one skin
+        for skin in shell_skin:
+            component_dict[skin].hpextents = ["le", "te"]
+            component_dict[skin].lpextents = ["le", "te"]
     else:
         raise ValueError("Incorrect number of shell components")
 
@@ -426,13 +456,13 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         if len(ss) == 1:
             component_dict[ss[0]].lpextents = ["d", "te"]
         else:
-            ValueError("Incorrect number of te reinf ss components")
+            raise ValueError("Incorrect number of te reinf ss components")
 
         ps = full_keys_from_substrings(component_dict, ["te", "reinf", "ps"])
         if len(ps) == 1:
             component_dict[ps[0]].hpextents = ["d", "te"]
         else:
-            ValueError("Incorrect number of te reinf ps components")
+            raise ValueError("Incorrect number of te reinf ps components")
     else:
         raise ValueError("Invalid number of LE reinforcements")
 
@@ -446,13 +476,13 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         if len(ss) == 1:
             component_dict[ss[0]].lpextents = ["le", "a"]
         else:
-            ValueError("Incorrect number of te reinf ss components")
+            raise ValueError("Incorrect number of le reinf ss components")
 
         ps = full_keys_from_substrings(component_dict, ["le", "reinf", "ps"])
         if len(ps) == 1:
             component_dict[ps[0]].hpextents = ["le", "a"]
         else:
-            ValueError("Incorrect number of te reinf ps components")
+            raise ValueError("Incorrect number of le reinf ps components")
     else:
         raise ValueError("Invalid number of LE reinforcements")
 
@@ -536,6 +566,39 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
     return
 
 
+def _add_web_attachments(definition, blade_internal_structure, yaml_webs):
+    """Record where the yaml puts each web on the skin: ``definition.web_nd_arc``.
+
+    An array ``(n_groups, 3, n_grid)`` with one row per shear-web group (``Component.group`` 1, 2,
+    ...; the stack row is ``group - 1``): the yaml span ``grid`` (fraction of the blade length),
+    ``start_nd_arc`` and ``end_nd_arc`` (measured from the suction-side trailing edge) of the yaml
+    web that owns that group's layers. ``KeyPoints`` turns them into arc lengths and the mesher
+    splits the spar caps there. ``None`` when a web has no arc on a common grid, in which case the
+    webs stay on the key points.
+    """
+    layers = {layer["name"]: layer for layer in blade_internal_structure["layers"]}
+    by_name = {web["name"]: web for web in yaml_webs}
+    n_groups = max((c.group for c in definition.components.values()), default=0)
+    rows = [None] * n_groups
+    for comp in definition.components.values():
+        if not comp.group or rows[comp.group - 1] is not None:
+            continue
+        web = by_name.get(layers.get(comp.name, {}).get("web"))
+        if web is None or "start_nd_arc" not in web or "end_nd_arc" not in web:
+            continue
+        grid = np.asarray(web["start_nd_arc"]["grid"], dtype=float)
+        if not np.array_equal(grid, np.asarray(web["end_nd_arc"]["grid"], dtype=float)):
+            continue
+        rows[comp.group - 1] = [
+            grid,
+            np.asarray(web["start_nd_arc"]["values"], dtype=float),
+            np.asarray(web["end_nd_arc"]["values"], dtype=float),
+        ]
+    ok = n_groups > 0 and all(r is not None for r in rows) and len({r[0].size for r in rows}) == 1
+    definition.web_nd_arc = np.array(rows) if ok else None
+    return definition
+
+
 def update_internal_structure(blade_internal_structure, blade_outer_shape_bem):
     bladeParts = ["layers", "webs"]
     # Make sure each definition.ispan has layer thicknesses and widths
@@ -564,9 +627,9 @@ def update_internal_structure(blade_internal_structure, blade_outer_shape_bem):
                     (fullSpanGrid >= startStationLoc) & (fullSpanGrid <= endStationLoc)
                 )[0]
 
-                # iterpolate fullSpanGrid locations onto layer grid defined in the yamle file for the layer
+                # resample the layer onto fullSpanGrid, linearly as every layer is evaluated (G10)
                 subSpanValues = interpolator_wrap(
-                    grid, values, fullSpanGrid[subSpanGridIndex], "pchip"
+                    grid, values, fullSpanGrid[subSpanGridIndex], "linear"
                 )
                 fullSpanValues = np.zeros(nStations)
 

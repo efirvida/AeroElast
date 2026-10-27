@@ -21,8 +21,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
       margin_pct: 0.195
       text: 'rated BEM thrust vs Zhou et al. 2025, Energy 336:138488, Table 6, rigid case thrust: 0.1950% (bound: 3.0000%)'
@@ -41,8 +41,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
       margin_pct: 1.3446
       text: 'rated BEM power vs Zhou et al. 2025, Energy 336:138488, Table 6, rigid case power: 1.3446% (bound: 3.0000%)'
@@ -69,12 +69,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.1676
-      text: 'at_ac normal resultant vs our own BEM integral for the same load path: 0.1676% (bound: 0.5000%)'
-      digest: 3afd912d466d90e4
+      margin_pct: 0.1179
+      text: 'at_ac normal resultant vs our own BEM integral for the same load path: 0.1179% (bound: 0.5000%)'
+      digest: bce4a5d2c7b87dc2
   - label: rtol at line 1027
     asserted: true
     reference:
@@ -88,12 +88,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.1933
-      text: 'at_ac tangential resultant vs our own BEM integral for the same load path: 0.1933% (bound: 0.5000%)'
-      digest: 14528c350edc3c8b
+      margin_pct: 0.1234
+      text: 'at_ac tangential resultant vs our own BEM integral for the same load path: 0.1234% (bound: 0.5000%)'
+      digest: c4c4d2f9953dce6e
   - label: rtol at line 1034
     asserted: true
     reference:
@@ -107,12 +107,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.0564
-      text: 'uniform normal resultant, same resultant a different distribution vs our own BEM integral for the same load path: 0.0564% (bound: 0.5000%)'
-      digest: 37b4c7092206b363
+      margin_pct: 0.011
+      text: 'uniform normal resultant, same resultant a different distribution vs our own BEM integral for the same load path: 0.0110% (bound: 0.5000%)'
+      digest: 98d2617829ab1388
   - label: rtol at line 1041
     asserted: true
     reference:
@@ -126,12 +126,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.0076
-      text: 'mp_only resultant moment vs our own BEM integral for the same load path: 0.0076% (bound: 0.5000%)'
-      digest: 387caa96ee3f263e
+      margin_pct: 0.0015
+      text: 'mp_only resultant moment vs our own BEM integral for the same load path: 0.0015% (bound: 0.5000%)'
+      digest: c54c33570255471c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_rated_twist.test_rated_twist_under_production_loads.single
@@ -154,11 +154,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 4ee98ab
-      date: '2026-10-23'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
       margin_pct: 1.9099
       text: 'applied-load invariant, the P5 guard bound vs the BEM thrust the structure is solved against: 1.9099% (bound: 2.0000%)'
-      digest: 4ded18e30c2a50d1
+      digest: 298120185ed275e6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -1,0 +1,30 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont17
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T7e.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 2 interpolated section(s) for tip refinement
+      Added 619 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 32515 nodes, 33673 elements
+      Deduplicating nodes...
+      Deduplicated: 32515 -> 32515 nodes (0% reduction)
+      Creating 33673 elements...
+      Creating element and node sets...
+      Blade mesh generated: 32515 nodes, 33673 elements
+iso example 00_501_HP_TE_FLAT {'type': 'isotropic', 'e': 3440000000.0, 'nu': 0.3, 'rho': 1235.0, 'thickness': 0.001, 'shear_correction': 0.8333333333333334}
+deck section: *SHELL SECTION, ELSET=E00_501_HP_TE_FLAT, MATERIAL=MAT_00_501_HP_TE_FLAT
+1.000000E-03
+deck mat: 3.440000E+09, 0.300000
+quads 33579  aspect median 1.21 p99 83.4 max 168.0  n(asp>10) 656 n(asp>50) 462
+area min 4.169e-05 n<1e-4 30  warp max 0.480 n(warp>0.05) 61
+  z   0- 20 n= 6814 aspect p99 3.0  n(asp>10)=0
+  z  20- 60 n=12785 aspect p99 4.9  n(asp>10)=0
+  z  60-100 n=10168 aspect p99 81.6  n(asp>10)=382
+  z 100-117 n= 3812 aspect p99 107.5  n(asp>10)=274
+distinct z stations 2321  dz min 0.0001 median 0.0021 max 0.2388 ; n(dz<0.01)=1525

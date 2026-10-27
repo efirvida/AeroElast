@@ -33,7 +33,8 @@ def _plate(symmetric):
             nodes=[nodes[i, 0], nodes[i + 1, 0], nodes[i + 1, 1], nodes[i, 1]],
             element_type=ElementType.quad))
     mesh.add_element_set(ElementSet("plate", set(mesh.elements)))
-    asm = MeshAssembler(mesh=mesh, model={"span_direction": [1, 0, 0], "elements": {
+    asm = MeshAssembler(mesh=mesh, model={"elements": {
+        "span_direction": [1, 0, 0],
         "element_family": ElementFamily.SHELL,
         "properties": {"plate": CompositeShellProperty(laminate=lam)}}})
     return asm, lam

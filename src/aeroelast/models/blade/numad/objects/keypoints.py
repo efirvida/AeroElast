@@ -33,6 +33,9 @@ class KeyPoints:
     web_areas: list
     web_width: list
     web_bonds: list
+    web_attach_arcs: list
+        per web group, where the yaml puts the web on the skin: array (2, n_stations) of arc
+        lengths [HP, LP] on the same axis as ``key_arcs`` (``None`` without yaml web arcs)
 
     """
 
@@ -67,6 +70,7 @@ class KeyPoints:
         self.web_areas: list | None = None
         self.web_width: list | None = None
         self.web_bonds: list | None = None
+        self.web_attach_arcs: list | None = None
 
     def __eq__(self, other):
         attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
@@ -218,11 +222,17 @@ class KeyPoints:
             else:
                 z = geometry.HParcx0[0, k]
             z = z - scoffset_hp
-            a = np.amax(((0 - n1), 0.1 * geometry.arclength[ns, k]))  # type: float
-            a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
             b = np.amin(((z + 0.5 * scwidth_hp), 0.15 * geometry.arclength[ns, k]))
+            # Keep a 5 % of the side arc forward of b (NuMAD capped it at 10 % of the arc, which clipped
+            # the yaml LE band where the panel had room: odd/tasks/blade-input-audit.md, T11).
+            a = np.amax(((0 - n1), b - 0.05 * geometry.arclength[ns, k]))  # type: float
+            a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
             c = np.amax(((z - 0.5 * scwidth_hp), 0.8 * geometry.arclength[ns, k]))
-            d = np.amin(((geometry.arclength[0, k] + n2), 0.85 * geometry.arclength[ns, k]))
+            # Keep d 5 % of the side arc aft of c (NuMAD capped it at 85 % of the arc, which clipped
+            # the yaml TE band where the TE panel had room: odd/tasks/blade-input-audit.md, T6).
+            # The band is measured from the TE corner ``arclength[ns]``, not from the flat-back face
+            # midpoint ``arclength[0]``: the yaml ``nd_arc`` excludes the flat face (T15).
+            d = np.amin(((geometry.arclength[ns, k] + n2), c + 0.05 * geometry.arclength[ns, k]))
             d = np.amax((d, 0.98 * geometry.arclength[ns, k]))
             if str(te_types[k]) == "flat":
                 e = geometry.arclength[ns, k]
@@ -265,11 +275,12 @@ class KeyPoints:
             else:
                 z = geometry.LParcx0[0, k]
             z = z + scoffset_lp  # positive scoffset moves z toward t.e.
-            a = np.amin(((0 + n1), 0.1 * geometry.arclength[nf, k]))
-            a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
             b = np.amax(((z - 0.5 * scwidth_lp), 0.15 * geometry.arclength[nf, k]))
+            # Same as HP: a yields only to stay 5 % of the side arc forward of b (T11).
+            a = np.amin(((0 + n1), b - 0.05 * geometry.arclength[nf, k]))
+            a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
             c = np.amin((z + 0.5 * scwidth_lp, 0.8 * geometry.arclength[nf, k]))
-            d = np.amax((geometry.arclength[-1, k] - n2, 0.85 * geometry.arclength[nf, k]))
+            d = np.amax((geometry.arclength[nf, k] - n2, c + 0.05 * geometry.arclength[nf, k]))
             d = np.amin((d, 0.96 * geometry.arclength[nf, k]))
             if str(te_types[k]) == str("flat"):
                 e = geometry.arclength[nf, k]
@@ -469,6 +480,23 @@ class KeyPoints:
                 raise Exception(
                     "Shear web geometry LP extents not defined correctly (e.g., 0.5b-c, b, b+200)"
                 )
+
+        # where the yaml puts each web on the skin (nd_arc runs from the suction-side TE; the HP
+        # side is the pressure side, so its arc is measured from the other end of the profile)
+        self.web_attach_arcs = None
+        web_nd_arc = getattr(definition, "web_nd_arc", None)
+        if web_nd_arc is not None:
+            span = np.asarray(geometry.ispan, dtype=float)
+            eta = (span - span[0]) / (span[-1] - span[0])
+            # the airfoil arc runs between the trailing-edge corners (ns and nf): index 0 and -1 are
+            # the mid-points of the flat back, which is not part of the yaml's open airfoil arc
+            arc0 = geometry.arclength[ns, :]
+            perimeter = geometry.arclength[nf, :] - arc0
+            self.web_attach_arcs = []
+            for grid, start, end in web_nd_arc:
+                hp = arc0 + (1.0 - np.interp(eta, grid, end)) * perimeter
+                lp = arc0 + (1.0 - np.interp(eta, grid, start)) * perimeter
+                self.web_attach_arcs.append(np.vstack((hp, lp)))
 
         # calculate shell areas
         for kc in range(num_istations - 1):

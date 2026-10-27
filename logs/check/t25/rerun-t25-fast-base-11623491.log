@@ -1,0 +1,53 @@
+/var/spool/slurmd/slurmd/job11623491/slurm_script: line 10: git: command not found
+job=11623491 rev=
+FF.......F                                                               [100%]
+=================================== FAILURES ===================================
+_______________ test_blade_mesh_generation[IEA-15-240-RWT.yaml] ________________
+tests/software/mesh/test_blade_mesh.py:56: in test_blade_mesh_generation
+    assert mesh.node_count == 9277, f"{blade_file}: {mesh.node_count} nodes, expected 9277"
+E   AssertionError: /scratch/leahk/eduardo.donestevez/wt/base-9f72c6b/tests/IEA-15-240-RWT.yaml: 9357 nodes, expected 9277
+E   assert 9357 == 9277
+E    +  where 9357 = <MeshModel: 9357 nodes, 9957 elements, 3 node sets, 700 element sets>.node_count
+----------------------------- Captured stdout call -----------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 2 interpolated section(s) for tip refinement
+      Generating shell mesh...
+      Raw mesh: 9357 nodes, 9957 elements
+      Deduplicating nodes...
+      Deduplicated: 9357 -> 9357 nodes (0% reduction)
+      Creating 9957 elements...
+      Creating element and node sets...
+      Blade mesh generated: 9357 nodes, 9957 elements
+____________ test_blade_mesh_generation[IEA-15-240-RWT_rigid.yaml] _____________
+tests/software/mesh/test_blade_mesh.py:56: in test_blade_mesh_generation
+    assert mesh.node_count == 9277, f"{blade_file}: {mesh.node_count} nodes, expected 9277"
+E   AssertionError: /scratch/leahk/eduardo.donestevez/wt/base-9f72c6b/tests/IEA-15-240-RWT_rigid.yaml: 9357 nodes, expected 9277
+E   assert 9357 == 9277
+E    +  where 9357 = <MeshModel: 9357 nodes, 9957 elements, 3 node sets, 700 element sets>.node_count
+----------------------------- Captured stdout call -----------------------------
+      Loading blade definition...
+      Updating blade geometry...
+      Added 2 interpolated section(s) for tip refinement
+      Generating shell mesh...
+      Raw mesh: 9357 nodes, 9957 elements
+      Deduplicating nodes...
+      Deduplicated: 9357 -> 9357 nodes (0% reduction)
+      Creating 9957 elements...
+      Creating element and node sets...
+      Blade mesh generated: 9357 nodes, 9957 elements
+_____________ test_production_projector_reproduces_the_exact_twist _____________
+tests/validation/parity/test_thin_walled_tube_projection.py:188: in test_production_projector_reproduces_the_exact_twist
+    assert abs(torque - expected_torque) / abs(expected_torque) < 1e-9, (
+E   AssertionError: the torque ruler reads 1.240000e+05 N.m against -1.240000e+05: the outer strip bands do not carry DZ each, so sum_k dr_k is not L + DZ
+E   assert (248000.0 / 124000.0) < 1e-09
+E    +  where 248000.0 = abs((124000.0 - -124000.0))
+E    +  and   124000.0 = abs(-124000.0)
+----------------------------- Captured stdout call -----------------------------
+
+========== production ForceProjector on the clamped-free closed tube ==========
+=========================== short test summary info ============================
+FAILED tests/software/mesh/test_blade_mesh.py::test_blade_mesh_generation[IEA-15-240-RWT.yaml]
+FAILED tests/software/mesh/test_blade_mesh.py::test_blade_mesh_generation[IEA-15-240-RWT_rigid.yaml]
+FAILED tests/validation/parity/test_thin_walled_tube_projection.py::test_production_projector_reproduces_the_exact_twist
+3 failed, 7 passed in 394.58s (0:06:34)

@@ -21,9 +21,11 @@ squares of a constant, the 1P harmonic and damped sinusoids shared by both
 channels, modes added greedily from Hann-window spectrum peaks of the residual.
 Beams: `uniform` (tools/of_bd_southwell.py constants), `box` (published uniform
 box, logs/check/analytic_beam/cases.json), `iea` (official v1.1 deck, single
-member, the deck's 50 keypoints, as the S-4 BeamDyn p20 arbiter). `--hub` puts the
+member, the deck's 50 keypoints, as the S-4 BeamDyn p20 arbiter), `iea34` (the same
+construction on the IEA-3.4-130 deck, tests/IEA34/reference, 63 m). `--hub` puts the
 root at z=hub on the rotation axis line (the shell's rated modal has hub 0).
-Inputs under tests/IEA15MW/bd_freevib/<name>, outputs under logs/check/bd_freevib.
+Inputs under tests/IEA15MW/bd_freevib/<name> (iea34: tests/IEA34/bd_freevib/<name>),
+outputs under logs/check/bd_freevib.
 """
 from __future__ import annotations
 
@@ -50,11 +52,21 @@ BOX = ROOT / 'logs/check/analytic_beam/cases.json'
 BINARY = BASE / 'tools/openfast-env/bin/beamdyn_driver'
 INPUTS = ROOT / 'tests/IEA15MW/bd_freevib'
 LOGS = ROOT / 'logs/check/bd_freevib'
+GEOMETRY34 = ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn.dat'
+PROPERTIES34 = ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat'
+INPUTS34 = ROOT / 'tests/IEA34/bd_freevib'
 CHANNELS = ('TipTDxr', 'TipTDyr')
 # beam: default order, tip load (N), t_final (s), dt (s), fit band (Hz)
 DEFAULTS = {'uniform': (10, 1.0, 300.0, 0.005, (0.1, 3.0)),
             'box': (10, 1e3, 150.0, 0.002, (0.2, 6.0)),
-            'iea': (20, 1e3, 300.0, 0.005, (0.1, 3.0))}
+            'iea': (20, 1e3, 300.0, 0.005, (0.1, 3.0)),
+            # iea34: the deck gives a 63 m blade with 1F ~ 1 Hz (root EI 9.1e9 against 1.5e11 and
+            # 14.4 t against 66.9 t for the 15 MW), 2F/1F ~ 2.9 as on the 15: 2F ~ 3 Hz, 2E ~ 4.5 Hz.
+            # Band to 6 Hz keeps 1F, 1E, 2F and 2E inside with 3F (~8 Hz) out; dt halves with the
+            # periods (0.0025 s, the same dt/T as 0.005 s on the 15); t_final 200 s still gives
+            # 200 1F cycles. Load 250 N: static tip deflection/L under the load is 1.7e-4 (edge) to
+            # 7.2e-4 (flap), the 15's 2.6e-4 to 6.7e-4 under its 1 kN, i.e. the same linear regime.
+            'iea34': (20, 250.0, 200.0, 0.0025, (0.2, 6.0))}
 
 
 # ----------------------------------------------------------------------------- fit
@@ -159,9 +171,16 @@ def case_name(beam, rpm, order, hub, dt, load, profile=None):
     return f'{beam}-p{order}-r{rpm:g}-h{hub:g}-dt{dt:g}-F{load:g}{tag}'
 
 
-def _blade_properties(stations=None):
+def _decks(beam):
+    """(geometry deck, property deck, inputs directory) of an iea-type beam."""
+    if beam == 'iea34':
+        return GEOMETRY34, PROPERTIES34, INPUTS34
+    return GEOMETRY, PROPERTIES, INPUTS
+
+
+def _blade_properties(stations=None, properties=PROPERTIES):
     """Official property file, undamped; `stations` replaces its distributed table."""
-    prop = replace(PROPERTIES.read_text(), 'damp_type', 0)
+    prop = replace(properties.read_text(), 'damp_type', 0)
     prop = prop.replace(' ---------------------- DISTRIBUTED PROPERTIES',
                         ' ---------------------- MODAL DAMPING ---------------------\n'
                         '1 n_modes - unused\n0 zeta - unused\n'
@@ -213,13 +232,17 @@ def _scaled_deck(profile):
 
 def build(beam, rpm, order, hub, dt, load, t_final, profile=None):
     name = case_name(beam, rpm, order, hub, dt, load, profile)
-    target = INPUTS / name
+    geometry, properties, inputs = _decks(beam)
+    target = inputs / name
     target.mkdir(parents=True, exist_ok=False)
-    primary = GEOMETRY.read_text()
+    primary = geometry.read_text()
     primary = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
                      r'(?=---------------------- OUTPUTS)', '', primary, flags=re.S)
-    if beam == 'iea':
-        (target / 'blade.dat').write_text(_blade_properties(_scaled_deck(profile) if profile else None))
+    if beam in ('iea', 'iea34'):
+        if profile and beam != 'iea':
+            raise ValueError('--ei-edge-profile is defined for the iea deck only')
+        (target / 'blade.dat').write_text(
+            _blade_properties(_scaled_deck(profile) if profile else None, properties))
     else:
         length, stations = _uniform_section(beam)
         (target / 'blade.dat').write_text(_blade_properties(stations))
@@ -343,7 +366,7 @@ def main():
         output = LOGS / name
         output.mkdir(parents=True, exist_ok=False)
         driver = output / 'driver.dvr'  # the driver writes its products beside the .dvr
-        driver.write_text((INPUTS / name / 'driver.dvr').read_text())
+        driver.write_text((_decks(args.beam)[2] / name / 'driver.dvr').read_text())
         with (output / 'driver.log').open('w') as log:
             subprocess.run([str(BINARY), str(driver)], cwd=output, stdout=log, stderr=subprocess.STDOUT,
                            check=True, env={**os.environ, 'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'})

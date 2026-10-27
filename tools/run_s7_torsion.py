@@ -1,8 +1,10 @@
 """S-7 — torsional response validation: shell vs BeamDyn GJ tables.
 
-Applies a torsional moment M_z at the blade tip via transverse force
-couples on the tip-section nodes (NOT nodal moments on the θz drilling
-DOF — for MITC shells the physical torsional response lives in the
+Applies a torsional moment M_z at the blade tip as the Saint-Venant wall
+shear flow of the tip ring (``section_torque_wall_forces``: multi-cell Bredt
+on the walls' own G t; a ~x_off force couple excites section distortion that
+the rigid fit reads as twist, blade-input-audit T39/T40) — NOT nodal
+moments on the θz drilling DOF — for MITC shells the physical torsional response lives in the
 section kinematics, and the drilling DOF is a numerical penalty of
 0.15·E·t²). The tip section rotation is recovered from the in-plane
 displacement field (best-fit rigid rotation, same construction as S-1)
@@ -72,7 +74,9 @@ def build_mesh_and_properties(element_size: float, skin_reference: str = "oml"):
 
 
 def tip_couple(mesh, torque: float) -> tuple[np.ndarray, np.ndarray]:
-    """Pure tip couple about the span axis, as transverse forces on the tip-ring nodes.
+    """Legacy ``F_y ~ x_off`` tip couple (no longer the S-7 load; kept for ``diagnose_oml_reference_surface``).
+
+    Pure tip couple about the span axis, as transverse forces on the tip-ring nodes.
 
     Returns ``(tip_node_indices, F_y)`` with ``F_y = torque * x_off / denom``, where ``x_off`` is the
     chordwise node offset from the ring centroid.  By construction ``sum(x_off * F_y) = torque`` and
@@ -97,7 +101,7 @@ def tip_couple(mesh, torque: float) -> tuple[np.ndarray, np.ndarray]:
 
 
 def run_torsion_case(mesh, properties, torque: float) -> np.ndarray:
-    """Clamp root, apply tip torque via force couples, return solution."""
+    """Clamp root, apply the tip torque as the end ring's wall shear flow, return solution."""
     from aeroelast.core.bc import DirichletCondition, NodalLoad
     from aeroelast.elements import ElementFamily
     from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
@@ -118,14 +122,21 @@ def run_torsion_case(mesh, properties, torque: float) -> np.ndarray:
     root_dofs = sorted(node_id_to_idx[nid] * dpn + d for nid in root_node_ids for d in range(dpn))
     solver.add_dirichlet_conditions([DirichletCondition(root_dofs, 0.0)])
 
-    # Tip torque about the span via transverse force couples on the tip section nodes (S-1
-    # construction); only the y component is loaded, so the couple lives in the span direction.
-    tip_nodes, f_y = tip_couple(mesh, torque)
+    # Tip torque about the span as the Saint-Venant wall shear flow of the end ring (multi-cell
+    # Bredt on the walls' own G t, the BEM projector's machinery).  A force couple ~ x_off is not
+    # that field: it excites section distortion the rigid-fit twist reads as rotation (T39).
+    from aeroelast.solvers.bem.force_projection import section_torque_wall_forces
+
+    coords = mesh.coords_array
+    tip = np.nonzero(coords[:, 2] >= coords[:, 2].max() - 1e-6)[0]
+    tip_nodes, f_tip = section_torque_wall_forces(
+        mesh, tip, (0.0, 0.0, 1.0), properties, torque, coords=coords
+    )
     dofs, vals = [], []
-    for t, fy in zip(tip_nodes, f_y, strict=True):
+    for t, f in zip(tip_nodes, f_tip, strict=True):
         for d in range(3):
             dofs.append(int(t) * dpn + d)
-            vals.append(float(fy) if d == 1 else 0.0)
+            vals.append(float(f[d]))
     solver.add_nodal_loads([NodalLoad(dofs, vals)])
 
     return solver.solve()

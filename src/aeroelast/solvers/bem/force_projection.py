@@ -371,13 +371,22 @@ class ForceProjector:
         # Build strip boundaries at midpoints between stations
         r_low, r_high = strip_edges(r_stations)
 
+        # Snap assignment coordinates only: round-off on a strip edge must not
+        # split a physical ring into open arcs.  Use the existing mesh-scaled
+        # ring tolerance, leaving geometry, widths and nodes away from edges
+        # unchanged.  An interior edge belongs to the higher half-open band.
+        assignment_span = span_coords.copy()
+        for edge in np.concatenate((r_low, r_high[-1:])):
+            near_edge = np.abs(span_coords - edge) <= self._ring_gap_tolerance
+            assignment_span[near_edge] = edge
+
         # Assign each node to a strip
         node_strip = np.full(n_nodes, -1, dtype=int)
         for k in range(len(r_stations)):
-            mask = (span_coords >= r_low[k]) & (span_coords < r_high[k])
+            mask = (assignment_span >= r_low[k]) & (assignment_span < r_high[k])
             node_strip[mask] = k
-        # Handle nodes exactly at the tip boundary
-        node_strip[span_coords == r_high[-1]] = len(r_stations) - 1
+        # Handle nodes exactly at the tip boundary (including snapped nodes).
+        node_strip[assignment_span == r_high[-1]] = len(r_stations) - 1
 
         # Build strip objects
         self._strips: List[_Strip] = []
@@ -1287,18 +1296,9 @@ def _realise_multi_cell_section_load(
             section.edge_shear_stiffness,
             ring_torsion,
         )
-        local_nodes = section.local_nodes
-        for cell, flow in zip(section.cells, flows, strict=True):
-            for a, b in cell.edges:
-                ia = int(local_nodes[int(a)])
-                ib = int(local_nodes[int(b)])
-                edge = strip.offsets[ib] - strip.offsets[ia]
-                ell = float(np.linalg.norm(edge))
-                if ell == 0.0:
-                    continue
-                half = 0.5 * (flow * ell) * (edge / ell)
-                f_shear[ia] = f_shear[ia] + half
-                f_shear[ib] = f_shear[ib] + half
+        _accumulate_wall_flow_forces(
+            f_shear, strip.offsets, section.local_nodes, section.cells, flows
+        )
 
     M_shear = np.cross(strip.offsets, f_shear).sum(axis=0)
     if torsion != 0.0:
@@ -1313,6 +1313,91 @@ def _realise_multi_cell_section_load(
     residual_force = F_strip - f_shear.sum(axis=0)
     residual_moment = M_strip - M_shear
     return f_shear + ForceProjector._distribute(strip, residual_force, residual_moment)
+
+
+def _accumulate_wall_flow_forces(
+    forces: np.ndarray,
+    offsets: np.ndarray,
+    local_nodes: np.ndarray,
+    cells: list[SectionCell],
+    flows: list[float],
+) -> None:
+    """Add the nodal forces of the per-cell wall shear flows to ``forces`` in place.
+
+    Each cell's flow ``q`` acts along every wall of its boundary walk as the force
+    ``q * edge`` (``edge`` = end minus start offset), half to each end node.  A wall
+    shared by two cells is walked in opposite directions by them, so it collects
+    ``q_i - q_j`` by construction.  ``local_nodes`` maps the ring-local indices of
+    ``cells`` to rows of ``forces`` / ``offsets``.
+    """
+    for cell, flow in zip(cells, flows, strict=True):
+        for a, b in cell.edges:
+            ia = int(local_nodes[int(a)])
+            ib = int(local_nodes[int(b)])
+            edge = offsets[ib] - offsets[ia]
+            ell = float(np.linalg.norm(edge))
+            if ell == 0.0:
+                continue
+            half = 0.5 * (flow * ell) * (edge / ell)
+            forces[ia] = forces[ia] + half
+            forces[ib] = forces[ib] + half
+
+
+def section_torque_wall_forces(
+    mesh: MeshModel,
+    ring_nodes,
+    span_dir,
+    element_properties: dict | None,
+    torque: float,
+    coords: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Nodal forces that load one ring with a pure torque as its Saint-Venant wall shear flow.
+
+    The torque ``torque`` [N.m] about ``span_dir`` is split over the ring's cells by
+    :func:`multi_cell_shear_flow` on the walls' real membrane stiffness ``S = G t`` and
+    realised wall by wall exactly as :func:`realise_section_load` does (same walk,
+    :func:`_accumulate_wall_flow_forces`).  Unlike a force couple ``~ t x r`` or ``~ x_off`` this
+    is the field a closed thin-walled section carries under torsion, so it excites no section
+    distortion; it is the right end load of a torsion test (S-1 GJ, S-7).
+
+    Returns ``(ring_nodes, forces)``: the node indices as an ``intp`` array and the ``(n, 3)``
+    force on each, self-equilibrated (zero net force; every force lies in the section plane).
+
+    Raises ``ValueError`` when ``element_properties`` is missing or empty, when the wall
+    stiffnesses are the geometric-only ``S = 1.0`` fallback of :func:`ring_section` or are not
+    all positive, when the ring bounds no cell, or when the delivered span torque differs from
+    ``torque`` by more than 1e-9 relative.
+    """
+    ring = np.asarray(ring_nodes, dtype=np.intp).ravel()
+    if not element_properties:
+        raise ValueError(
+            "section_torque_wall_forces needs element_properties: without them the wall "
+            "stiffness is the geometric-only S = 1.0 fallback and the flow split is not physical"
+        )
+    span_hat = np.asarray(span_dir, dtype=float).ravel()
+    span_hat = span_hat / np.linalg.norm(span_hat)
+    if coords is None:
+        coords = mesh.coords_array
+    cells, adjacency, edge_length, stiffness = ring_section(
+        mesh, ring, span_hat, element_properties, coords
+    )
+    values = np.array(list(stiffness.values()), dtype=float)
+    if not np.all(values > 0.0) or np.all(values == 1.0):
+        raise ValueError(
+            "section_torque_wall_forces: the wall stiffness is not positive membrane shear "
+            "stiffness G*t (geometric-only fallback S = 1.0 or a zero-stiffness wall)"
+        )
+    flows, _theta_rate = multi_cell_shear_flow(cells, adjacency, edge_length, stiffness, torque)
+    offsets = coords[ring] - coords[ring].mean(axis=0)
+    forces = np.zeros((ring.size, 3))
+    _accumulate_wall_flow_forces(forces, offsets, np.arange(ring.size), cells, flows)
+    delivered = float(np.cross(offsets, forces).sum(axis=0) @ span_hat)
+    if torque != 0.0 and abs(delivered - torque) > 1e-9 * abs(torque):
+        raise ValueError(
+            f"wall shear flows realised a span moment of {delivered:.6e} N.m but "
+            f"{torque:.6e} N.m was requested: the cell order or the span axis is wrong"
+        )
+    return ring, forces
 
 
 def _membrane_shear_stiffness(property_object) -> float | None:
@@ -1331,6 +1416,10 @@ def _membrane_shear_stiffness(property_object) -> float | None:
     if property_object is None:
         return None
     cm = None
+    material = getattr(property_object, "material", None)
+    if material is not None and hasattr(material, "E") and hasattr(material, "nu"):
+        # Python ShellProperty(IsotropicMaterial): A66 = G * t, as for the isotropic dict.
+        return material.E / (2.0 * (1.0 + material.nu)) * float(property_object.thickness)
     cm_method = getattr(property_object, "Cm", None)
     if callable(cm_method):
         cm = np.asarray(cm_method(), dtype=float)
