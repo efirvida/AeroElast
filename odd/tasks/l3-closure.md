@@ -11,6 +11,11 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S4 (repository physics discipline): no pass band widened; a moved anchor is a finding; `regression --write` never over a moved residual without reporting it.
 - S6 (user L4, verbatim): "si hay opcion de mejorar el modelo hay que mejorarlo. Las formas modales son muy importantes porque luego voy a necesitar hacer analisis de frecuencias en rotacion para ver como esas viraciones modifican o no la se~nal de torque. una pala 10% mas blanda (no se contra que referencia) hace que sus oscilaciones sean diferente 10% diferentes a la respuesta fisica"
 - S7 (user L5/L6): second blade from the official repositories to tell model defects from solver-core defects; option chosen verbatim: "1. IEA-3.4 antes de T6 (recomendado)".
+- S8 (user choice for core-torsion C5, verbatim): "Cajón para validar L3; el BEM se decide en L5 (recomendado)" — S-7, S-1 GJ and twist vs Zhou are measured with the box rigid fit; the BEM feedback twist is decided at L5 with the C5 numbers.
+- S9 (user choice, verbatim): "Importar ambos; Campbell contra BeamDyn p20 (recomendado)" — `sx_campbell` re-pointed to BeamDyn p20 per rpm, `sx_mesh_convergence` with its artifact regenerated at HEAD.
+- S10 (user, verbatim): "recuerda que puedes usar las dos palas ademas de ejemplos teoricos para comprobar los analisi hechos" — every L3 analysis is checked on IEA-15 and IEA-3.4 plus a closed-form case.
+- S11 (user choice, verbatim): "Arreglar la introducción de carga primero (recomendado)" — "Tracción de borde equivalente en trabajo, ponderada por longitud de arco, y media del anillo también por arco. Primero se valida en el tubo que converja al refinar; después se re-corren las dos palas y recién ahí van los veredictos."
+- S12 (user choice, verbatim, supersedes the metric of L12(4) and the cure of S11): "Estación interior vs nodo BeamDyn (recomendado)" — BeamDyn exports the displacement of a node 2-3 tip chords inboard; it is compared with the shell's arc-weighted ring mean at that same z, on both blades.
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -27,13 +32,18 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 ## Tasks
 
 - T1 | S2 S4 | parent, SLURM | done (store pass 1, 2026-10-27; see "Store pass 1 result") | Re-measure stale groups at HEAD (`regression --group G --scope <row nodes>`, no `--write`): 38 S-1, 34 S-7, 39 S-2, 40 S-4, 41 V-03, 42 V-05, 32 V-02, 20 anchor beam; restamp unchanged rows, report moved ones.
-- T2 | S2 S4 | parent | pending | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
+- T2 | S2 S4 | parent | split into T12 (group 5) and T13 (group 23 + Bernardi); S-2 LC2/LC3 in T10 | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
+- T12 | S4 S10 | parent, SLURM | in progress: 6281be1 (residuals print first; `tools/diagnose_g5_mode7.py` MAC vs frequency pairing); predictions `logs/check/l3/g5/PREDICTION.md` P1-P5; SLURM 11625834 (MAC, 0.5/0.35/0.25) and 11625835 (test -s) | (worktree `wt/l3-g5`, branch l3/g5-mode7 from 4b29bc2) Group 5: the residual lines never print because the coarse->medium monotonicity assertion fails first on CCX mode 7 (0.89 / 1.01 / 1.01 %, T29, `logs/check/t29/g5-11623984.log`). Print the residuals before that assertion (no bound moved), then audit mode 7: which mode it is, whether the AE/CCX pairing is right, and why its gap plateaus; prediction written before the run.
+- T13 | S4 S10 L12(3) | worker, SLURM | in progress (worktree `wt/l3-g23`, branch l3/g23-bernardi-p20 from 4b29bc2). Inventory (contract --rows): 5 CCX modal rows `.0-.4` + 1 CCX static, unaudited; 8 Bernardi rows `.0-.7`, undecided. **Audit finding (before any run):** `_matched_pairs` (test file :329) sorts the Hungarian pairs by gap and returns the n smallest, so row `.k` is the k-th best-matching pair, not mode k+1: the 5 CCX rows are the best 5 of 10, a selection biased to green (the defect T29 removed from group 5); pairing is by frequency only (group 5 T12 tests whether that swaps near-degenerate modes). BeamDyn p20 parked references: `tests/IEA15MW/of_bd_modal/` (`iea-p20-r0-h0-dt0.005-F1000`, tools `tools/of_bd_blade_modal.py`, `tools/bd_rotating_freevib.py`, S-4 test `tests/test_iea15mw_s4_rotating_modal.py`). | Group 23: re-point the Bernardi rows to BeamDyn p20 modes (L12 (3)); audit the CCX parity rows (modes 0-4, static) and give them a second arbiter (BeamDyn p20) where the quantity allows it.
+- T14 | S4 | parent | in progress | Delta-f centrifugal (L15 item 2): write the prediction (HubRad 3.97 m share of the parked->rated shift, per mode) before any run.
 - T3 | S5 | parent | done: gap bounded with both S-4 rows; shift delta-f 7-13 % below BeamDyn noted | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
 - T4 | S2 S3 | parent | done: twist +0.34 %, flap -0.34 %, edge 0.005 % torque | Sensitivity tool: rigid BEM at rated with the twist distribution perturbed by each red's effect; torque/power deltas.
 - T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; mesh Bredt 863ff38 (mesh = yaml), H7 refuted, FE torsionally soft 0.65-0.85 (twist integral); element vs distortion open (Handoff 4) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
+- T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
+- T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -408,6 +418,163 @@ LC2/LC3 verdicts (LC3 ring +9.78 % at es 0.125 -> rejected). 2. Bernardi rows ->
 rows: delta-f centrifugal shift (ours 7-13 % below BeamDyn), MAC per mode vs p20, 1T/2E, Campbell. Then T5 (declare reds
 with torque sensitivity), T6/T7 model work per core-torsion.md.
 
+## T10a prediction (written before the run, 2026-10-27, session 15, at 4b29bc2)
+
+Closed-form check of the S-2 metric on prismatic thin-wall tubes (`tools/s2_ring_metric_tube.py`, the S-2 load
+introduction of `tools/run_s2_static_cases.py`: tip force split equally over the tip-ring nodes, root ring clamped, es
+0.25, L 117 m, isotropic wall). Reference: Timoshenko cantilever `P L^3 / (3 EI) + P L / (G A_s)` with the thin-wall
+mid-line EI (exact segment integral) and A_s the walls parallel to the load (rect) or A/2 (circle). Cases: rect 4 x 2 m,
+t 0.02, load along the 2 m (flap-like) and along the 4 m (edge-like); circle of the same perimeter, one direction.
+Prediction: tip-ring mean within 1 % of the closed form in every case; the first-ring node (`argmax z`, the metric the
+test used) within 1 % of the ring mean, and the ring max-min spread of the load-direction displacement < 2 %.
+Refuted if the ring mean misses 1 %: then the ring mean is not the beam-equivalent translation and the L12(4) metric
+needs a different estimator (finding, back to the user). A node-vs-ring spread > 1 % on a prismatic tube means local
+load introduction alone produces the blade's 9-11 % node-vs-ring spread order, not the blade section.
+
+## T10a RESULT (2026-10-27, login, `tools/s2_ring_metric_tube.py`, logs `logs/check/l3/t10a/L20.log`, `L117.log`, `L117-sv.log`)
+
+| tube (L 117 m, 1 MN) | tip ring mean vs closed form | node `argmax z` vs ring | ring 1 depth inboard | Saint-Venant tip |
+|---|---|---|---|---|
+| rect flap (load normal to the 4 m walls) | **+1.241 %** | -1.654 % | -0.181 % | -0.424 % |
+| rect edge (load normal to the 2 m walls) | +0.080 % | -0.390 % | -0.312 % | -0.308 % |
+| circle | -0.274 % | -0.005 % | -0.279 % | -0.279 % |
+
+L 20 m (0.1 MN): tip ring mean +322 % (flap), +74 % (edge), +0.40 % (circle); 2 depths inboard +2.8 / -0.01 / -0.25 %.
+**Prediction refuted for the flat-walled tube.** A tip force split equally over the ring pushes flat walls out of
+their plane (no end diaphragm); the tip ring mean carries that plate bending (~0.55 m on the 4 m flange, independent
+of L), which decays within about one section depth (Saint-Venant). The circle (no flat wall normal to the load) holds
+the prediction. The `argmax z` node is a corner of the rect tube: close to the beam by luck, not by construction.
+Estimator `saint_venant_tip` (`tools/run_s2_static_cases.py`): ring means at 1, 1.5, 2, 2.5, 3 x the tip-ring extent
+inboard, cubic in z, evaluated at the tip: within 0.43 % of the closed form in all three; its residual equals the
+inboard rings' uniform -0.2..-0.4 % (element / thin-wall), not the estimator. Consequence for L12(4): the tip-ring mean
+is the beam-equivalent for distributed loads (LC1, LC4) but not for the tip loads (LC2, LC3) on a flat-walled section;
+T10b measures the size of that term on both blades before the metric goes back to the user.
+
+## T10b prediction (written before any blade number, 2026-10-27, session 15; jobs 11625682-85 + BeamDyn 3.4 chained)
+
+`tools/s2_ring_metric_blade.py` on IEA-15 and IEA-3.4, es 0.25 / 0.125: node, tip-ring mean, `sv` (rings 1-3 tip chords
+inboard) and `sv_far` (3-6 chords); IEA-3.4 reference: BeamDyn v5 p60 static, scales 1e-4 / 2e-4
+(`tools/bd_static_reference.py --blade iea34`). Tip chord 0.50 m (15, tip ring 16 nodes), 0.20 m (3.4, 12 nodes).
+P1 (estimator stable): `sv_far / sv - 1` within 1 % in every case, blade and mesh; else the decay is longer than the
+tip chord and `sv` is not admissible on that blade (finding).
+P2 (distributed loads): LC1 and LC4 tip-ring mean within 0.5 % of `sv` (no load introduction at the tip).
+P3 (tip loads): LC2 and LC3 tip-ring mean above `sv` (same sign as the tube), by the local term; node vs `sv` moves with
+the node's position on the ring, so the known node-vs-ring 9-11 % (LC2) is mostly that local term.
+P4 (both blades): the 3.4 shows the same signs as the 15 for P2-P3. No verdict vs BeamDyn is predicted here; the S-2
+verdicts are written after the metric decision (L12(4) revisited with these numbers).
+BeamDyn linearity gate (as K9): the two scales agree within 0.1 % per case, else that case has no 3.4 reference.
+
+## T10b RESULT (2026-10-27; SLURM 11625682-85 shell, 11625690 BeamDyn 3.4; `logs/check/l3/t10b/*.json|log`,
+`logs/check/bd_static/iea34/*/result.json`; tube refinement `logs/check/l3/t10a/L20-es*.log`)
+
+Signed error vs BeamDyn p60, node / tip-ring mean / sv (`saint_venant_tip`):
+
+| blade es | LC1 gravity | LC2 tip flap | LC3 tip edge | LC4 distributed |
+|---|---|---|---|---|
+| 15, 0.25 | -5.26 / -5.04 / -5.33 | -2.54 / +1.83 / +0.41 | +10.26 / +9.01 / +8.49 | -5.48 / -5.06 / -5.76 |
+| 15, 0.125 | -5.28 / -5.07 / -5.18 | -3.56 / +3.09 / +0.94 | +11.44 / +9.78 / +9.02 | -5.90 / -5.46 / -5.74 |
+| 3.4, 0.25 | +1.96 / +1.96 / +1.96 | +18.25 / +20.78 / +20.64 | +5.94 / +4.91 / +4.78 | -0.02 / +0.23 / +0.23 |
+| 3.4, 0.125 | +2.04 / +2.05 / +2.05 | +15.37 / +19.18 / +17.59 | +6.92 / +6.30 / +5.97 | -0.50 / -0.27 / -0.41 |
+
+BeamDyn 3.4 linearity gate: scales 1e-4 / 2e-4 agree within 0.04 % (LC2), < 0.001 % otherwise: PASS.
+- P1 **refuted**: `sv_far / sv` reaches -2.5 % (15 LC4 0.125), -1.9 % (15 LC3), +1.6 % (3.4 LC2 0.125). The arithmetic
+  ring mean steps where the ring node count changes (20 -> 26 nodes on the 15; same mechanism as core-torsion C6), and
+  the cubic extrapolation amplifies the steps. `sv` is not admissible on the blades as built.
+- P2 partly held: LC1 / LC4 ring vs sv within 0.3 % except 15 LC4 es 0.25 (+0.74 %).
+- P3 held on both blades: LC2 / LC3 ring above sv in all 8 (+0.1..+2.1 %), and the node-vs-ring spread grows with
+  refinement (15 LC2 node -2.5 -> -3.6 %, ring +1.8 -> +3.1 %). P4 held (same signs on the 3.4).
+- Theory (tube L 20, es 0.25 -> 0.125): circle tip-ring mean +0.40 -> +1.00 % vs closed form, node vs ring -0.89 ->
+  -1.26 %, ring 2 depths inboard -0.25 -> -0.04 %. Equal nodal forces are point loads on a Reissner-Mindlin shell
+  (local deflection log-singular): the tip-ring term grows under refinement while the interior converges. This is a
+  candidate cause of the pass-1 finding "refinement moves every S-2 case away from BeamDyn" for the tip-load cases;
+  LC1 (consistent body force) moves 0.02 pp only.
+- **Verdicts do not depend on the metric** (15, es 0.125, K3): LC1 rejected (5.07-5.28), LC2 in band (0.94-3.56),
+  LC3 rejected (9.0-11.4), LC4 rejected (5.46-5.90) under node, ring and sv. The metric moves LC2 / LC3 by up to 4 pp.
+- **Second-blade finding**: IEA-3.4 LC2 (tip flap) +15..+21 % softer than its BeamDyn, while its LC1 / LC4 flap agree
+  within 2 %; the 15 shows the opposite pattern (distributed flap stiff 5-6 %, tip flap in band). Tip loads weight the
+  outboard stiffness, distributed loads the inboard: the 3.4 outboard flap is soft (cf. T9c modes refuted). Not chased.
+- Slice note: commit 9814a37 is 322 authored lines; the other 1852 are generated BeamDyn inputs (precedent: the 15's
+  s1e-4 decks are tracked, other scales are not).
+
+## T10c prediction (written before the run, 2026-10-27, session 15)
+
+Load introduction (`tools/run_s2_static_cases.py`): tip load `distribution: arc` = uniform line traction on the free tip
+edge (nodal forces by arc-length weight, `ring_arc_weights`); LC4 `distribution: area` = uniform surface traction per
+slice (tributary-area nodal forces), included because its equal per-node forces are the same point-load defect.
+Metric: arc-weighted tip-ring mean. Tube (L 20, es 0.25 -> 0.125): circle arc mean within 0.3 % of the closed form at
+both sizes and moving < 0.2 pp between them (converges; equal-split moved +0.6 pp); rect flap keeps a local flange
+term (physical for a line load on a free flat wall) but moves < 0.5 % of itself between sizes. Blades (T10c run):
+arc tip mean moves < 0.5 pp between es 0.25 and 0.125 in LC2 / LC3 (equal-split ring moved 1.3 pp on the 15 LC2).
+Refuted if the circle still drifts > 0.2 pp: then the line traction is not the cure and the metric goes back to the user.
+
+## T10c RESULT, tube (2026-10-27, login; logs `logs/check/l3/t10a/L20-arc-es*.log`, `L117-sv.log`, `L117-es0125.log`)
+
+**Prediction refuted, and the T10b mechanism with it.** On a uniformly spaced ring the arc-weighted line traction gives
+exactly the equal nodal split (identical numbers to 6 digits), so the circle's +0.40 -> +1.00 % at L 20 is not a
+point-load singularity. Reading: any edge load not tangent to the wall has an out-of-plane component on the free edge
+(uniform y-traction on a circle: normal part ~ sin theta); its transverse-shear edge layer is of order t (0.02 m) and
+es 0.25 / 0.125 do not resolve it, so the tip-ring value is mesh dependent under any non-tangent edge load.
+L 117, es 0.25 -> 0.125, vs closed form:
+
+| tube | tip ring | ring 1 depth inboard | ring 2 depths inboard |
+|---|---|---|---|
+| rect flap | +1.24 -> **+1.54** | -0.18 -> +0.10 | -0.43 -> -0.15 |
+| rect edge | +0.08 -> **+0.29** | -0.31 -> -0.11 | -0.31 -> -0.12 |
+| circle | -0.27 -> -0.09 | -0.28 -> -0.10 | -0.28 -> -0.10 |
+
+Interior rings at >= 2 section depths converge to the closed form (error / 3 per halving); the tip ring on flat walls
+grows. Without MPC (no rigid tip coupling) and without a shear-flow (wall-tangent) tip traction, the converging
+comparison is at an interior station against BeamDyn's own displacement at that station. LC4 `area` weighting and
+`ring_arc_weights` stay (they remove the node-count steps of T10b on non-uniform blade rings); not yet run on blades.
+
+## Handoff 6 (2026-10-27, session 15 close, ~200 k context)
+
+**Resume.** Worktree `/scratch/leahk/eduardo.donestevez/wt/l3-pass2`, branch `l3/pass2-s2-ring` (3 commits on origin/main
+4b29bc2). Run with `export PYTHONPATH=$PWD/src` and the main checkout's `scripts/aeroenv.sh`; `src/_aeroelast/*.so` is a
+symlink to the venv build (ignored). Read T10a/T10b/T10c sections above; Engram `l3/t10-s2-metric`.
+**First check:** full suite SLURM 11625665 (8 h, main tree 3185da6 = origin/main, log
+`fem-shell/logs/check/full-slurm-11625665.log`): compare with `scripts/known-red-full.txt`; no maturin rebuild while it runs.
+**Next, T10c-station (S12), in order.**
+1. Predeclare (before any number): station set 2 and 3 tip chords inboard (15: z ~ 116.0 / 115.5; 3.4: ~ 62.6 / 62.4);
+   shell arc-weighted ring mean interpolated linearly in z between the two bracketing rings; tolerance 5 % (K3);
+   convergence gate: es 0.25 -> 0.125 moves < 0.5 pp (tube: interior error / 3 per halving).
+2. `tools/bd_static_reference.py`: option to set `NNodeOuts` / `OutNd` (beam.dat lines 82-83, <= 9 nodes) and the
+   `N#TDxr, N#TDyr` channels; read the output nodes' initial z from the SumPrint `.sum`; pick the p60 GLL nodes nearest
+   the stations. New dirs (`-nodes` suffix), never overwrite. Run LC1-LC4, 15 and 3.4, scales 1e-4 / 2e-4 (dev, ~4 min).
+3. `tools/s2_ring_metric_blade.py`: add the arc ring mean at the BeamDyn node z (keep node / ring / sv for the record);
+   use `distribution: arc` (tip) and `area` (LC4) or keep equal: decide in the predeclaration (interior should not care;
+   measure both on the tube first, L 117, cheap). SLURM both blades, es 0.25 / 0.125 (~25 min).
+4. Test `tests/test_iea15mw_s2_static_prescribed.py`: assert the station comparison for LC1-LC4 (official), docstring
+   with the T10 history; `utd` param unchanged. Then store: K3 verdicts LC1-LC4, `regression --group 39`, and a new
+   3.4 S-2 row is NOT added without asking (second-blade evidence stays in this doc unless the user wants rows).
+Known so far (T10b, metric-independent at es 0.125): 15 LC1 rejected, LC2 in band, LC3 rejected (+9..+11 %), LC4
+rejected; 3.4 LC2 +15..+21 % soft (tip flap) while its LC1 / LC4 agree within 2 %: second-blade finding for T9 / T6.
+Then the priority list of L15 continues: delta-f centrifugal (HubRad), then twist (S8 box) re-measure, modes, T6/T7.
+
+## T10c-station predeclaration (written before any station number, 2026-10-27, session 16, at c5bf453)
+
+**Stations.** BeamDyn p60 single member, Gauss quadrature: its output nodes are the GLL FE nodes (checked in the run:
+node 61 must reproduce `TipTD*`). Rule: the two GLL nodes nearest the tip whose tip distance is >= 2 tip chords (tip
+chord = `tip_ring_scale`, 0.499 m on the 15, 0.199 m on the 3.4; T10c tube: interior rings >= 2 depths converge).
+Geometry only (GLL in arc length, before any run): 15 nodes 57 / 56 at ~1.41 / 2.16 m (2.8 / 4.3 chords); 3.4 nodes 58 /
+57 at ~0.44 / 0.76 m (2.2 / 3.8 chords). Nodes 53-61 are written for the profile; the station z is the node's initial z
+from the BeamDyn reference mesh (VTK at init), not the GLL estimate.
+**Shell metric.** Arc-weighted ring mean (`ring_mean_at(weighting="arc")`), linear in z between the two rings that
+bracket the BeamDyn node z. Component: uy for LC1 / LC2 / LC4, ux for LC3; BeamDyn node uy = `N#TDxr`, ux = -`N#TDyr`
+(same frame map as the tip). Linear response: displacement / scale, scales 1e-4 and 2e-4 must agree (gate as T10b).
+**Load introduction.** Primary: tip `distribution: arc`, LC4 `area` (defined tractions, independent of the ring node
+count that stepped in T10b). Secondary, same job: `equal` for LC2 / LC3 / LC4, to test that an interior station does not
+care (Saint-Venant). LC1 is a body force (one run).
+**Gates and tolerance.** Verdict per case on the 15 at es 0.125 with K3 (5 %; within 1 pp of 5 % stays undecided only if
+es 0.25 -> 0.125 crosses the band). Convergence gate: the station error moves < 0.5 pp between es 0.25 and 0.125; a case
+that fails it is a finding, not a verdict. The two stations must agree within 0.5 pp (a residual load-introduction
+term would show as a station dependence); both are reported, the verdict uses the inner one (more chords from the tip).
+**Predictions (from T10b, before any station number).** P1: arc vs equal at the stations within 0.3 pp in every case
+(both blades, both sizes). P2: the convergence gate holds for all four cases on both blades (tip ring moved up to 1.3 pp
+on the 15 LC2). P3: the 15 verdicts do not change: LC1 about -5.1..-5.3 rejected, LC2 within +-2 % in band, LC3 about
++8.5..+9.5 rejected, LC4 about -5.5..-5.8 rejected. P4: the 3.4 keeps LC2 at +15..+21 % (outboard flap soft) and LC1 /
+LC4 within 2 %. Refutation of P1 or P2 sends the metric back to the user before any verdict is written.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -424,3 +591,10 @@ with torque sensitivity), T6/T7 model work per core-torsion.md.
 - L12 (2026-10-26, session 13) User decisions on the store action map, verbatim choices: (1) BeamDyn deck class: "reference_model en todas (recomendado)"; (2) V-02: "Darla de baja (recomendado)"; (3) group 23: "Bajarlas; Bernardi re-apuntado a p20 (recomendado)"; (4) S-2 metric: "Media del anillo de punta (recomendado)". Parent: pass 1 (measure at HEAD without --write, es 0.125 runs in the 1 pp band, new K3 verdicts, deck reclassified, V-02 and UTD/Escalera rows dropped, group 20 restamp, gap rotating_modal_shift bounded) by a worker; pass 2 (S-2 ring-mean metric, Bernardi -> p20, missing capability rows) after.
 - L13 (2026-10-27, session 14) User: "ya terminaron las tareas del hpc vamos a continuar cerrando l3". Parent: read the 12 pass-1 jobs, ran the S-1 metric dump at es 0.25 / 0.125 and `regression --write` for groups 20 and 34, wrote the pass-1 verdicts, bounded `rotating_modal_shift`, applied the L12 drops (section "Store pass 1 result").
 - L14 (2026-10-27, session 14) User: "si mezcla todo y vamos a otra sesion"; chose "Mergear ya (recomendado: dejo la falta escrita)" over running the full suite first. Parent: merged l3/core-torsion with the incomplete full suite recorded (Handoff 5).
+- L15 (2026-10-27, session 15) User: "dame un orden de prioridad a resolver de los reds de L3". Parent: order 0 full suite, 1 S-2 ring mean, 2 delta-f centrifugal (HubRad), 3 twist definition then S-7/GJ re-measure, 4 modes (group 5, MAC, 1T/2E, Campbell), 5 T6 then T7, 6 EI_edge (extractor vs W), 7 store hygiene, 8 T5.
+- L16 (2026-10-27, session 15) User: "ok vamos a correr la suite completa, para dejar el estado actual, pero como son 8h parado podemos hacer otras cosas en paralelo, dime cuales?". Parent: full suite already running (SLURM 11625665, 8 h, 3185da6 = origin/main tree); parallel work only in a separate worktree, no maturin rebuild (shared venv `_aeroelast`).
+- L17 (2026-10-27, session 15) User: "si" + S10; decisions S8, S9. Parent: worktree `../wt/l3-pass2` on branch l3/pass2-s2-ring from origin/main 4b29bc2; T10, T11 added. Finding: the S-2 "shell" value is `argmax(z)`, the first tip-ring node in mesh order (`tools/run_s2_static_cases.py:119`), an arbitrary material point, while the tip load is split equally over the ring.
+- L18 (2026-10-27, session 15) Parent: T10b numbers and the metric question; user chose S11. The solver has no MPC / rigid tip coupling, so BeamDyn's axis point load cannot be reproduced exactly; the line traction is the non-singular substitute.
+- L19 (2026-10-27, session 15) Parent: S11 cure refuted on the tube (T10c); user chose S12. Session closed at ~200 k with Handoff 6.
+- L20 (2026-10-27, session 16) User, verbatim: "1. Revisar el resultado de la suite completa contra scripts/known-red-full.txt. 2. Hacer la comparación en estación interior siguiendo el Handoff 6, en las dos palas, y recién ahí pasarla al test y escribir los veredictos. 3. Después sigue la lista de prioridades: Δf centrífugo (HubRad), re-medir el twist con el cajón, modos, T6/T7. La importación de los sx (T11) va en su propia sesión." Parent: full suite 11625665 still running (1 h 27 min of 8 h at session start), item 2 started in the worktree meanwhile; station rule predeclared.
+- L21 (2026-10-27, session 17) User asked what to run in parallel while SLURM 11625665 (full suite) and 11625754/56 (T10c-station es 0.125) run; parent listed: station test draft (T10 step 4), group 5 residual print + audit, Bernardi -> p20, group 23 audit + second arbiter, delta-f prediction, worktree hygiene. User, verbatim: "ok haz todo eso". Parent: the `sx` question was already answered (S9, T11 in its own session per L20); the station test is drafted against S12 but not committed until P1/P2 hold (L20: test after the comparison).
