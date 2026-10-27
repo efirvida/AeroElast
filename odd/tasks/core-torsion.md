@@ -101,6 +101,26 @@ tip elastic twist (the 15's all-node residual is 4-10 % at 0.7-0.85), so torque 
 moves torque -3.2 %). Refuted if any definition moves torque > 0.3 % or tip twist > 10 %: then the definition is a
 thesis-level choice and goes to the user with the numbers.
 
+## C5 result (worker; job 11625406; `logs/check/core-torsion/c5/`; `tools/l3_torque_sensitivity.py --twist-definitions`)
+
+IEA-15 rated one-way, rigid-geometry BEM with the deformed radius; default lines reproduce T4 (tip +3.758 deg, torque
+-4.404 %, twist alone -3.175 %). (a) production `_section_rotation` (called, matches to 0.0 rad); (b) chord line,
+LE / TE from `ForceProjector._section_ends` (flat-back: midpoint of the corner nodes within 1 % chord); (c) box
+rigid fit (`*SPAR*`, `*_SW`, >= 6 nodes per ring).
+
+| def | thrust vs (a) | torque = power vs (a) | twist 0.7 / 0.85 / 0.95 R / tip [deg] |
+|---|---|---|---|
+| a production | 0 | 0 | +0.547 / +1.850 / +4.163 / +3.758 |
+| b chord line | +1.711 % | **+0.457 %** | +0.478 / +0.625 / +4.849 / +6.780 |
+| c box | +0.768 % | **+0.249 %** | +0.635 / +1.684 / +1.684 / +10.058 |
+
+Profile: at 0.25-0.8 R the definitions agree within 0.23 deg; at r 99-109 m (b) is up to 1.4 deg below (a); the
+last three strips (r 113-121 m) are erratic in all three (a 4.27 / 2.82 / 3.76). **Prediction refuted** for (b)
+(torque 0.46 % > 0.3 %), (c) between bands; tip twist differences 80-170 % (tip strips not credible). Scale: the
+definition is worth 0.25-0.46 % of rated torque (5 % acceptance; twist alone 3.2 %), thrust 0.8-1.7 %.
+Side findings, not chased: the BEM prints `NaNs at 0/50` lines in this run; the tip-strip rings give erratic
+rotations in every definition. **Goes to the user** (thesis-level choice) with these numbers.
+
 ## Log
 
 - L1 (2026-10-26) User: S1 verbatim (during the PR of l3/twist-p1, merged as #68 / 3a2d222).
