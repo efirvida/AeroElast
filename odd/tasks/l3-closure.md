@@ -15,6 +15,7 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S9 (user choice, verbatim): "Importar ambos; Campbell contra BeamDyn p20 (recomendado)" — `sx_campbell` re-pointed to BeamDyn p20 per rpm, `sx_mesh_convergence` with its artifact regenerated at HEAD.
 - S10 (user, verbatim): "recuerda que puedes usar las dos palas ademas de ejemplos teoricos para comprobar los analisi hechos" — every L3 analysis is checked on IEA-15 and IEA-3.4 plus a closed-form case.
 - S11 (user choice, verbatim): "Arreglar la introducción de carga primero (recomendado)" — "Tracción de borde equivalente en trabajo, ponderada por longitud de arco, y media del anillo también por arco. Primero se valida en el tubo que converja al refinar; después se re-corren las dos palas y recién ahí van los veredictos."
+- S12 (user choice, verbatim, supersedes the metric of L12(4) and the cure of S11): "Estación interior vs nodo BeamDyn (recomendado)" — BeamDyn exports the displacement of a node 2-3 tip chords inboard; it is compared with the shell's arc-weighted ring mean at that same z, on both blades.
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -38,7 +39,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
-- T10 | S10 S4 L12(4) | parent, SLURM | in progress (branch l3/pass2-s2-ring) | S-2 tip-ring-mean metric: (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
+- T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6) | S-2 tip-ring-mean metric: (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
@@ -523,6 +524,30 @@ grows. Without MPC (no rigid tip coupling) and without a shear-flow (wall-tangen
 comparison is at an interior station against BeamDyn's own displacement at that station. LC4 `area` weighting and
 `ring_arc_weights` stay (they remove the node-count steps of T10b on non-uniform blade rings); not yet run on blades.
 
+## Handoff 6 (2026-10-27, session 15 close, ~200 k context)
+
+**Resume.** Worktree `/scratch/leahk/eduardo.donestevez/wt/l3-pass2`, branch `l3/pass2-s2-ring` (3 commits on origin/main
+4b29bc2). Run with `export PYTHONPATH=$PWD/src` and the main checkout's `scripts/aeroenv.sh`; `src/_aeroelast/*.so` is a
+symlink to the venv build (ignored). Read T10a/T10b/T10c sections above; Engram `l3/t10-s2-metric`.
+**First check:** full suite SLURM 11625665 (8 h, main tree 3185da6 = origin/main, log
+`fem-shell/logs/check/full-slurm-11625665.log`): compare with `scripts/known-red-full.txt`; no maturin rebuild while it runs.
+**Next, T10c-station (S12), in order.**
+1. Predeclare (before any number): station set 2 and 3 tip chords inboard (15: z ~ 116.0 / 115.5; 3.4: ~ 62.6 / 62.4);
+   shell arc-weighted ring mean interpolated linearly in z between the two bracketing rings; tolerance 5 % (K3);
+   convergence gate: es 0.25 -> 0.125 moves < 0.5 pp (tube: interior error / 3 per halving).
+2. `tools/bd_static_reference.py`: option to set `NNodeOuts` / `OutNd` (beam.dat lines 82-83, <= 9 nodes) and the
+   `N#TDxr, N#TDyr` channels; read the output nodes' initial z from the SumPrint `.sum`; pick the p60 GLL nodes nearest
+   the stations. New dirs (`-nodes` suffix), never overwrite. Run LC1-LC4, 15 and 3.4, scales 1e-4 / 2e-4 (dev, ~4 min).
+3. `tools/s2_ring_metric_blade.py`: add the arc ring mean at the BeamDyn node z (keep node / ring / sv for the record);
+   use `distribution: arc` (tip) and `area` (LC4) or keep equal: decide in the predeclaration (interior should not care;
+   measure both on the tube first, L 117, cheap). SLURM both blades, es 0.25 / 0.125 (~25 min).
+4. Test `tests/test_iea15mw_s2_static_prescribed.py`: assert the station comparison for LC1-LC4 (official), docstring
+   with the T10 history; `utd` param unchanged. Then store: K3 verdicts LC1-LC4, `regression --group 39`, and a new
+   3.4 S-2 row is NOT added without asking (second-blade evidence stays in this doc unless the user wants rows).
+Known so far (T10b, metric-independent at es 0.125): 15 LC1 rejected, LC2 in band, LC3 rejected (+9..+11 %), LC4
+rejected; 3.4 LC2 +15..+21 % soft (tip flap) while its LC1 / LC4 agree within 2 %: second-blade finding for T9 / T6.
+Then the priority list of L15 continues: delta-f centrifugal (HubRad), then twist (S8 box) re-measure, modes, T6/T7.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -543,3 +568,4 @@ comparison is at an interior station against BeamDyn's own displacement at that 
 - L16 (2026-10-27, session 15) User: "ok vamos a correr la suite completa, para dejar el estado actual, pero como son 8h parado podemos hacer otras cosas en paralelo, dime cuales?". Parent: full suite already running (SLURM 11625665, 8 h, 3185da6 = origin/main tree); parallel work only in a separate worktree, no maturin rebuild (shared venv `_aeroelast`).
 - L17 (2026-10-27, session 15) User: "si" + S10; decisions S8, S9. Parent: worktree `../wt/l3-pass2` on branch l3/pass2-s2-ring from origin/main 4b29bc2; T10, T11 added. Finding: the S-2 "shell" value is `argmax(z)`, the first tip-ring node in mesh order (`tools/run_s2_static_cases.py:119`), an arbitrary material point, while the tip load is split equally over the ring.
 - L18 (2026-10-27, session 15) Parent: T10b numbers and the metric question; user chose S11. The solver has no MPC / rigid tip coupling, so BeamDyn's axis point load cannot be reproduced exactly; the line traction is the non-singular substitute.
+- L19 (2026-10-27, session 15) Parent: S11 cure refuted on the tube (T10c); user chose S12. Session closed at ~200 k with Handoff 6.
