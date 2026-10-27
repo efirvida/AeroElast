@@ -24,3 +24,16 @@ Context: T29 (SLURM 11623984) read CCX mode 7 as 0.89 / 1.01 / 1.01 % (unsigned)
 
 ## Note added after submission, before any result (2026-10-27)
 The cluster `ccx` resolved by `ccx_bin_or_skip()` is `/scratch/leahk/eduardo.donestevez/venv/bin/ccx`, **Version 2.20** (T13 audit). The test docstring and store label say 2.23, and issue #8 measured the high-mode worst gap 4.03 % under 2.20 vs 2.12 % under 2.23. Both jobs above, and T29 11623984, run 2.20: a mode 7/8 reading must be checked against the CCX version before it is called element physics.
+
+## P6 (MAC test, before 11625835 runs; written 2026-10-27 from diag-11625834.log)
+The test now pairs by MAC and follows modes by span signature; gaps are indexed by finest (0.25 m) CCX mode order.
+Expected from the diag tables (10-mode solve there, 8 here, so the 0.5 m partner of the y mode may differ):
+- 0.25 m pairing MAC: modes 1-5 >= 0.99, mode 6 0.92, mode 7 (y / span-rotation) 0.83, mode 8 (edgewise) 0.78.
+  Gaps: 0.08 / 0.05 / 0.00 / 0.05 / 0.14 / 0.98 / 4.61 / 0.25 %.
+- Finest mode 8 (edgewise, MAC 0.779 < 0.8) prints as "not identifiable" and its gap is not used as a residual.
+- Residual lines: low worst 0.08 % (< 1 %), high worst 4.61 % (finest mode 7, < 5 %, MAC 0.83). Both pass.
+- Monotonicity (0.5 -> 0.35 m, coarse gap above 0.2 %): modes 4 (0.43 -> 0.18), 5 (0.67 -> 0.31), 6 (1.84 -> 1.34),
+  7 (partner not identifiable at 0.5 m, MAC ~0.6; 8.64 at 0.35 m, coarse value depends on the 8-mode leftover, diag
+  gave 13.19 / 41 %) pass if the 0.5 m partner gap is above 8.64 %. Predicted: the check passes.
+- Net: the test fails ONLY on the "not identifiable" listing for finest mode 8 (MAC 0.78 at 0.25 m); if the 8x8
+  pairing lifts that MAC to >= 0.8 it passes. Refutation: a monotonicity violation, or a high worst >= 5 %.
