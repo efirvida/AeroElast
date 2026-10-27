@@ -204,7 +204,13 @@ def test_factory_participant_realises_every_precomputed_ring(production):
         "blade_file": str(YAML),
         "bem": {
             "wind_speed": 10.59,
-            "omega": 7.56 * 2.0 * np.pi / 60.0,
+            # a spinning rotor takes theta from the structure on the omega mesh (f1c9e91)
+            "omega": {
+                "initial": 7.56 * 2.0 * np.pi / 60.0,
+                "mesh": "GlobalFluidMesh",
+                "data": "AngularVelocity",
+                "vertex": [0.0, 0.0, 0.0],
+            },
             "pitch": 0.0,
             "air_density": 1.225,
             "dynamic_viscosity": 1.81206e-5,
