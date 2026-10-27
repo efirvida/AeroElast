@@ -33,7 +33,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 
 - T1 | S2 S4 | parent, SLURM | done (store pass 1, 2026-10-27; see "Store pass 1 result") | Re-measure stale groups at HEAD (`regression --group G --scope <row nodes>`, no `--write`): 38 S-1, 34 S-7, 39 S-2, 40 S-4, 41 V-03, 42 V-05, 32 V-02, 20 anchor beam; restamp unchanged rows, report moved ones.
 - T2 | S2 S4 | parent | split into T12 (group 5) and T13 (group 23 + Bernardi); S-2 LC2/LC3 in T10 | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
-- T12 | S4 S10 | parent, SLURM | in progress: 6281be1 (residuals print first; `tools/diagnose_g5_mode7.py` MAC vs frequency pairing); predictions `logs/check/l3/g5/PREDICTION.md` P1-P5; SLURM 11625834 (MAC, 0.5/0.35/0.25) and 11625835 (test -s) | (worktree `wt/l3-g5`, branch l3/g5-mode7 from 4b29bc2) Group 5: the residual lines never print because the coarse->medium monotonicity assertion fails first on CCX mode 7 (0.89 / 1.01 / 1.01 %, T29, `logs/check/t29/g5-11623984.log`). Print the residuals before that assertion (no bound moved), then audit mode 7: which mode it is, whether the AE/CCX pairing is right, and why its gap plateaus; prediction written before the run.
+- T12 | S4 S10 | parent, SLURM | in progress: 6281be1 (residuals print first; `tools/diagnose_g5_mode7.py` MAC vs frequency pairing); predictions `logs/check/l3/g5/PREDICTION.md` P1-P5; SLURM 11625834 (MAC) done: mode 7 is a pairing artefact (section "T12 RESULT"); test to pair by MAC before 11625835 starts | (worktree `wt/l3-g5`, branch l3/g5-mode7 from 4b29bc2) Group 5: the residual lines never print because the coarse->medium monotonicity assertion fails first on CCX mode 7 (0.89 / 1.01 / 1.01 %, T29, `logs/check/t29/g5-11623984.log`). Print the residuals before that assertion (no bound moved), then audit mode 7: which mode it is, whether the AE/CCX pairing is right, and why its gap plateaus; prediction written before the run.
 - T13 | S4 S10 L12(3) | worker, SLURM | in progress: worker commits on l3/g23-bernardi-p20 (pairing fix RED->GREEN `test_matched_pairs_order.py`; Bernardi -> `test_blade_modal_frequencies_match_beamdyn_p20` rows .3-.7 = 2E 3F 1T 3E 4F, 1F/1E/2F left to S-4; 11 rows undecided; CCX binary is 2.20 not 2.23, label made version-neutral; static row has no BeamDyn twin); SLURM 11625842, `logs/check/l3/g23/PREDICTION.md`; USER: static CCX row non-validation?, known-red re-record if a p20 row is red | (worktree `wt/l3-g23`, branch l3/g23-bernardi-p20 from 4b29bc2). Inventory (contract --rows): 5 CCX modal rows `.0-.4` + 1 CCX static, unaudited; 8 Bernardi rows `.0-.7`, undecided. **Audit finding (before any run):** `_matched_pairs` (test file :329) sorts the Hungarian pairs by gap and returns the n smallest, so row `.k` is the k-th best-matching pair, not mode k+1: the 5 CCX rows are the best 5 of 10, a selection biased to green (the defect T29 removed from group 5); pairing is by frequency only (group 5 T12 tests whether that swaps near-degenerate modes). BeamDyn p20 parked references: `tests/IEA15MW/of_bd_modal/` (`iea-p20-r0-h0-dt0.005-F1000`, tools `tools/of_bd_blade_modal.py`, `tools/bd_rotating_freevib.py`, S-4 test `tests/test_iea15mw_s4_rotating_modal.py`). | Group 23: re-point the Bernardi rows to BeamDyn p20 modes (L12 (3)); audit the CCX parity rows (modes 0-4, static) and give them a second arbiter (BeamDyn p20) where the quantity allows it.
 - T14 | S4 | parent | prediction written (section "T14 delta-f prediction"); run pending | Delta-f centrifugal (L15 item 2): write the prediction (HubRad 3.97 m share of the parked->rated shift, per mode) before any run.
 - T3 | S5 | parent | done: gap bounded with both S-4 rows; shift delta-f 7-13 % below BeamDyn noted | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
@@ -574,6 +574,20 @@ term would show as a station dependence); both are reported, the verdict uses th
 on the 15 LC2). P3: the 15 verdicts do not change: LC1 about -5.1..-5.3 rejected, LC2 within +-2 % in band, LC3 about
 +8.5..+9.5 rejected, LC4 about -5.5..-5.8 rejected. P4: the 3.4 keeps LC2 at +15..+21 % (outboard flap soft) and LC1 /
 LC4 within 2 %. Refutation of P1 or P2 sends the metric back to the user before any verdict is written.
+
+## T12 RESULT, MAC diagnostic (SLURM 11625834, 32 min, CCX 2.20; `wt/l3-g5/logs/check/l3/g5/diag-11625834.log`, `mac.json`)
+
+CCX modes 7 and 8 swap order between 0.5 and 0.35 m: at 0.5 m CCX 7 (4.179 Hz) is the 2nd edgewise mode (x 0.92, MAC 0.94
+with AE 7); at 0.35 / 0.25 m the edgewise mode is CCX 8 (4.183 / 4.179 Hz, x 0.90 / 0.86) and CCX 7 is a y-translation mode
+whose rotations are ~98 % about the span axis. The frequency pairing keeps CCX 7 <-> AE 7 (edgewise) with MAC 0.32 / 0.15: the
+"0.89 / 1.01 / 1.01 %" is a pairing artefact. By shape: edgewise mode +0.89 / +0.39 / +0.25 % (converges); the y/torsion-
+rotation mode +8.64 / +4.61 % at 0.35 / 0.25 m with MAC 0.63 -> 0.83 (the slow mode of the docstring, order ~1.4); at 0.5 m
+its partner is not identifiable (best MAC 0.625, AE 10 +41 %). Modes 1-6 pair identically both ways (MAC >= 0.92 at 0.25 m;
+mode 6 0.78 at 0.5 m), gaps 1-5 <= 0.14 % at 0.25 m, mode 6 +1.84 / +1.34 / +0.98 %. CCX 9-10: MAC 0.12-0.87, y + span
+rotation, likely local shell modes.
+Predictions: P1 refuted (H1 holds: pairing), P2 refuted as worded (CCX 7 is not one physical mode across meshes; the
+edgewise mode is), P3 n/a, P4 held (0.625 -> 0.829). P5 pending (11625835). Consequence (predeclared): the test pairs by
+shape. Caveat: CCX 2.20, not 2.23.
 
 ## T14 delta-f prediction (written before any delta-f run, 2026-10-27, session 17)
 
