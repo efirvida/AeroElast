@@ -100,6 +100,30 @@ RING_GAP_FRACTION = 1e-4
 RING_EDGE_SLOPE = 0.3
 
 
+def mesh_corner_edges(mesh: MeshModel) -> np.ndarray:
+    """``(E, 2)`` undirected corner edges of the shell elements, each once, as ``(min, max)`` rows.
+
+    Positional indices into ``mesh.nodes``.  Only the corner cycle of the triangle / quad
+    families is walked, never across it, so a quad diagonal or a quadratic element's mid-side
+    node cannot make a spurious pair; other element types contribute nothing.  An edge shared
+    by two elements (a ring's chordwise edge has one element on each side, except on the end
+    rings) is returned once, so a tributary length never counts it twice.  Empty ``(0, 2)``
+    for an element-less mesh.
+    """
+    pairs: list[tuple[int, int]] = []
+    for element in mesh.elements:
+        if element.element_type in (ElementType.triangle, ElementType.triangle6):
+            corner_count = 3
+        elif element.element_type in (ElementType.quad, ElementType.quad8, ElementType.quad9):
+            corner_count = 4
+        else:
+            continue
+        corners = [mesh.node_id_to_index[node_id] for node_id in element.node_ids][:corner_count]
+        pairs.extend(zip(corners, corners[1:] + corners[:1], strict=True))
+    edges = np.sort(np.asarray(pairs, dtype=np.intp).reshape(-1, 2), axis=1)
+    return np.unique(edges[edges[:, 0] != edges[:, 1]], axis=0)
+
+
 def physical_ring_labels(mesh: MeshModel, span_coords: np.ndarray, gap_tolerance: float) -> np.ndarray:
     """Label every mesh node with its physical ring (one integer per ring).
 
@@ -119,22 +143,9 @@ def physical_ring_labels(mesh: MeshModel, span_coords: np.ndarray, gap_tolerance
     close = np.diff(span[order]) < gap_tolerance
     rows = [order[:-1][close]]
     cols = [order[1:][close]]
-    pair_a: list[int] = []
-    pair_b: list[int] = []
-    for element in mesh.elements:
-        if element.element_type in (ElementType.triangle, ElementType.triangle6):
-            corner_count = 3
-        elif element.element_type in (ElementType.quad, ElementType.quad8, ElementType.quad9):
-            corner_count = 4
-        else:
-            continue
-        corners = [mesh.node_id_to_index[node_id] for node_id in element.node_ids][:corner_count]
-        for a, b in zip(corners, corners[1:] + corners[:1], strict=True):
-            pair_a.append(a)
-            pair_b.append(b)
-    if pair_a:
-        a = np.asarray(pair_a, dtype=np.intp)
-        b = np.asarray(pair_b, dtype=np.intp)
+    edges = mesh_corner_edges(mesh)
+    if edges.size:
+        a, b = edges[:, 0], edges[:, 1]
         length = np.linalg.norm(coords[a] - coords[b], axis=1)
         in_ring = (length > 0.0) & (np.abs(span[a] - span[b]) < RING_EDGE_SLOPE * length)
         rows.append(a[in_ring])

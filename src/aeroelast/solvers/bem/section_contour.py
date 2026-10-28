@@ -543,3 +543,67 @@ def cell_adjacency(cells: list[SectionCell]) -> dict[tuple[int, int], list[int]]
             key = (a, b) if a < b else (b, a)
             adjacency.setdefault(key, []).append(cell_index)
     return adjacency
+
+
+def ring_tributary_lengths(ring: np.ndarray, edges: np.ndarray, coords: np.ndarray) -> np.ndarray:
+    """Tributary wall length [m] of every node of one ring: half of each in-ring wall edge it ends.
+
+    ``ring`` holds global node indices, ``edges`` the ``(E, 2)`` undirected element edges of the mesh
+    in the same index space and ``coords`` the ``(N, 3)`` node coordinates.  Only the edges with both
+    ends in ``ring`` are walls of the section (skin and webs); a spanwise edge leaves the ring and
+    carries none.  The lengths sum to the ring's total wall length, so a fit weighted by them
+    approximates a wall-length integral and does not follow the node density.  A node that ends no
+    in-ring edge gets zero.
+    """
+    ring = np.asarray(ring, dtype=np.intp).ravel()
+    edges = np.asarray(edges, dtype=np.intp).reshape(-1, 2)
+    weights = np.zeros(ring.size)
+    if ring.size == 0 or edges.size == 0:
+        return weights
+    order = np.argsort(ring, kind="stable")
+    sorted_ring = ring[order]
+    pos = np.searchsorted(sorted_ring, edges).clip(max=ring.size - 1)
+    inside = (sorted_ring[pos] == edges).all(axis=1)
+    if not inside.any():
+        return weights
+    walls = edges[inside]
+    coords = np.asarray(coords, dtype=float)
+    half = 0.5 * np.linalg.norm(coords[walls[:, 0]] - coords[walls[:, 1]], axis=1)
+    local = order[pos[inside]]
+    np.add.at(weights, local[:, 0], half)
+    np.add.at(weights, local[:, 1], half)
+    return weights
+
+
+def ring_section_rotation(
+    points: np.ndarray,
+    displacements: np.ndarray,
+    span_dir: np.ndarray,
+    weights: np.ndarray | None = None,
+) -> float | None:
+    """Rotation [rad] of one ring about ``span_dir``: the antisymmetric part of its affine fit.
+
+    The in-plane field is fitted by least squares to ``u = A x + t`` in the section frame of
+    :func:`section_plane_axes`; ``0.5 (a21 - a12)`` is the section rotation, invariant to the
+    in-plane origin and to a rotation of the frame, with the sense of the shell's rotational DOF
+    about ``+span``.  ``weights`` are per-node least-squares weights, normally
+    :func:`ring_tributary_lengths`: they make the fit a wall-length integral that does not depend
+    on where the nodes sit.  ``None`` weights every node equally, which follows the node density
+    (l3-closure T19: a step of the order of the true twist increment where the ring node count
+    changes).  Returns ``None`` when the positively weighted nodes cannot define a 2-D section
+    (fewer than three, or a rank-deficient design).
+    """
+    points = _as_points(points)
+    disp = np.asarray(displacements, dtype=float)
+    w = np.ones(points.shape[0]) if weights is None else np.asarray(weights, dtype=float).ravel()
+    keep = w > 0.0
+    if keep.sum() < 3:
+        return None
+    u_axis, v_axis = section_plane_axes(span_dir)
+    pts, d, root_w = points[keep], disp[keep], np.sqrt(w[keep])
+    design = np.column_stack([pts @ u_axis, pts @ v_axis, np.ones(pts.shape[0])]) * root_w[:, None]
+    if np.linalg.matrix_rank(design) < 3:
+        return None
+    a12 = float(np.linalg.lstsq(design, (d @ u_axis) * root_w, rcond=None)[0][1])
+    a21 = float(np.linalg.lstsq(design, (d @ v_axis) * root_w, rcond=None)[0][0])
+    return 0.5 * (a21 - a12)
