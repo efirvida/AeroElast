@@ -654,6 +654,46 @@ predeclared rule it is still not resolvable as a shift (parked and rated errors 
 centrifugal evidence stays the absolute rated 1E (row 40, trusted). 2F -4.1 % (K -3.9 %), in band with 0.9 pp margin.
 es 0.125 confirmation: SLURM 11626148 (`logs/check/l3/t14/`, worktree rev in `revision`).
 
+## Session 19: reading of the finished jobs (2026-10-28, no new run; job numbers not trusted, outputs found by name and date)
+
+**Full suite** (main checkout, branch check/sources-guard, snapshot bd3e73f+dirty, `logs/check/full-20261028T052002.log`):
+20 failed, 1630 passed, 44 skipped, 5 h 21; all 20 recorded by `--record` into `scripts/known-red-full.txt` (uncommitted).
+Against the a9ca498 registry: out `test_blade_mesh` x2 (re-pinned bd3e73f) and CCX tip axial x2 (now pass); in
+`test_blade_section_frame_tear` x2 and `test_blade_section_torsion_stiffness`. These three are **not regressions**: the
+a9ca498 run had no `.sources/` and skipped them (c778dd4); they were red already on 2026-10-19/22 (`docs/validation_closures.md:1867`,
+guard docstring). Same values in the 3185da6 and bd3e73f runs and standalone (`logs/check/l3-guards/frame-axis.log`): deterministic.
+- tear signature: root tear gone (0 free edges at z 9.55 / 11.94; 34 at 9.55 on 2026-10-22), tip 4 edges at z 112.22 (in the
+  r > 111 m band already excluded by section 22.10). The guard pins a mesh that no longer exists.
+- ring chord axis vs declared twist 12.73 deg at z 11.70 only (neighbours 7.6-8.3 deg; median 0.52): z 9.5-13 m is the
+  circular (r/L 0.02) -> SNL-FFA-W3-500 (r/L 0.15) blend, a near-round ring whose SVD axis is ill-conditioned (the guard
+  accepts any ring with sv ratio > 1.2). Extent and pitch split pass (max 4.1 % / 1.2 % at z 9.79).
+- pure-torque twist: one non-increasing step at z 9.551, same blend zone; magnitude not printed (root steps are ~3e-5).
+None of the three touches a station used by S-1 (mid-span), S-2 or S-7 (tip); they need a guard update, a user decision.
+
+**T14 es 0.125** (SLURM t14-s4-es0125, rev 4e27c8d, 3 passed): parked +2.34 / +0.52 / +0.31 %, rated +2.09 / +0.43 / +0.23 %
+(1F / 1E / 2F vs BD p20). Shift vs driver p20 hub 0 (rpm 0 / 7.56 rows of K10.3): 1F delta-f -3.27 % (es 0.25 -3.11), K -1.13 %
+(-0.94); 2F -4.74 % (-4.06), K -4.49 % (-3.89); 1E -10.56 % (-10.56), K -10.13 %. 1F converged in band; 2F in band at 0.26 pp
+from 5 % and moving out with refinement (finding, same direction as S-2); 1E unchanged and still not resolvable by the
+predeclared rule (parked / rated errors 0.52 / 0.43 % > 0.15 %). All three shell shifts are below BeamDyn: the shell
+centrifugal stiffening is 1-5 % weaker in K (1F, 2F), cause not diagnosed.
+
+**S14 es 0.0625 LC1/LC4**: no result. Two runs OOM-killed (473158 nodes, MaxRSS 29.9 GB with `--ntasks=4`). LC4 stays
+undecided by the S14 rule; extrapolation from es 0.25 / 0.125 (-4.728 / -5.046, monotone outward) gives -5.15..-5.36, i.e.
+rejected under any monotone convergence, but that is not the predeclared measurement. LC1: -4.883 / -4.894 (conv 0.01 pp,
+does not cross): in band by the predeclared rule, margin 0.11 pp.
+
+**T12 group 5** (`wt/l3-g5/logs/check/l3/g5/test-11625835.log`, 0f5215e + T12 diff, 1 failed in 22 min): P5 held. MAC pairing
+gaps at 0.25 m: modes 1-5 <= 0.14 %, mode 6 0.98 %, mode 7 4.61 % (bound 5 %), mode 8 0.25 % but MAC 0.779 < 0.8 ->
+"not identifiable", the only failure. Low-mode worst 0.076 % (bound 1 %), high-mode worst 4.61 % (bound 5 %).
+
+**T13 group 23** (`wt/l3-g23/logs/check/l3/g23/job-11625842.out`, CCX 2.20, 16 passed 7 xfailed): CCX modes 1-5 (true order
+after the pairing fix) 0.05 / 0.05 / 0.01 / 0.05 / 0.12 % (prediction held). BeamDyn p20 rows: 2E -2.11, 3F -2.54,
+**1T +1.59**, 3E -1.32, 4F -3.06 % (all in band by > 1.9 pp; prediction held except sign of 1T, predicted -3 %).
+**1T finding:** the first torsion frequency matches BeamDyn within 1.6 % (shell slightly stiff), while S-1 GJ reads -10.7 %
+and S-7 +7.2 %. A 10 % global GJ deficit would put 1T ~5 % low. The static torsion reds are therefore the twist
+measurement, not the shell's torsional stiffness: consistent with core-torsion C3 (3.4 outboard 1.3x = all-node rigid fit)
+and with S8 (box fit for S-7 / S-1 GJ).
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -680,3 +720,4 @@ es 0.125 confirmation: SLURM 11626148 (`logs/check/l3/t14/`, worktree rev in `re
 - L22 (2026-10-27, session 17) User, verbatim: "mira  aver si puedes mover tareas a otras colas". Parent: multi-partition requests are refused (partition set in the association); `--test-only` estimates a new equivalent job at 31/10-27/11 on the other partitions vs today 17:56-19:56 for the queued bigmem jobs, so nothing moved; a hedge copy of t10cs-iea34-es0125 went to `sequana_cpu_dev` (11625874, 20 min, own output `iea34-es0125dev.json`); if it completes, the bigmem twin 11625756 is cancelled. The v14asm jobs (turbinesFoam, other project) were not touched.
 - L23 (2026-10-27, session 17) User, verbatim: "si a las 3 desiciones que tenia que tomar". Decisions: (1) the group 23 static CCX row (`test_blade_static_tip_deflection_matches_ccx`) is declared non-validation (its load matches no BeamDyn case; S-2 covers static); (2) a p20 row of group 23 above 5 % stays red and `known-red-full.txt` is re-recorded (`check.sh full --record`), no xfail; (3) the S-2 station test keeps the BeamDyn scale 1e-4 vs 2e-4 linearity gate at 0.1 %.
 - L24 (2026-10-27, session 18) User, verbatim: "podemos hacerlo en esta sesion" (pass 2 resumed here after the full-suite review of 11625665 and the check gate fix, branch check/sources-guard). Parent: read T10c-station (section "T10c-station RESULT"): P2 refuted, metric back to the user; user chose S13 and S14.
+- L25 (2026-10-28, session 19) User, verbatim: "vamos a continuar la validacion. ya terminaron todos los jobs que mandamos, vamos a analizarlos, no te ffies en los numeros de jobs poruqe los estuve moviendo de colas para que terminaran. no quiero que lances mas ningun job salvo que sea estrictamente necesario ya hemos medido demasiado y no arreglado nada, estoy seguro que podemos tener conclusiones precisas con todas las mediciones y diagnosticos que se han hecho". Parent: read every output by name and date, no job launched (section "Session 19").
