@@ -50,10 +50,10 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T15 | S15 S8 S10 | worker | done: box option, P2 refuted on the 15 (section "T15/T16 RESULT") | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
 - T16 | S15 S10 | worker (with T15) | done: edge energy 1.0002 (P4), flap 0.937 (P5), torsion energy tip-dominated | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
-- T17 | S16 | parent | pending | Production-readiness assessment for FSI torque studies, after T15/T16.
-- T18 | S15 | parent | pending | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
+- T17 | S16 | parent | answered in chat (session 19) | Production-readiness assessment for FSI torque studies, after T15/T16.
+- T18 | S15 | parent | done: group 23 verdicts, LC3/LC2, stale rows restamped, g5 audited; guards re-pin waits on T19; merge integration in this session | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
 - T19 | S15 | parent/worker | pending | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
-- T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
+- T5 | S3 S5 | parent | done: declaration section "L3 DECLARATION" | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
 
@@ -767,6 +767,31 @@ back after T8 pins 1T. Edge: S-1 EI_edge red is the extractor; declare it with t
 Flap: real ~+6 % stiffness (T6). No bound moved. The parent's message of session 19 that "torsion is the measurement" is
 retracted for the 15.
 
+## L3 DECLARATION (T5, S5; 2026-10-28, session 19, at 64976d8; contract `logs/check/l3/close/contract-final.txt`)
+
+`contract --level L3`: trusted 16, rejected 7, undecided 2, unarbitrated 1, absent 2, gap 1 bounded; nothing over the 5 % ceiling that
+is trusted; L1 and L2 CLOSED (L2's 83 stale rows came from `levels.yaml` making it depend on all of `postprocess/`; narrowed, no
+verdict touched). L3 closes by S5 (declared, not by the store printing CLOSED). Torque/power sensitivity from T4 (rigid BEM, rated).
+
+| open entry | value | cause (evidence) | torque / power sensitivity | declared as |
+|---|---|---|---|---|
+| S-7 global torsion ratio | 1.0717 (7.17 %) rejected | section representation (TE closure), not the element or the fit: box fit leaves 15 GJ -10.7 -> -9.7 % (T15), FE reproduces its own mesh section within 3-5 % (C3) | twist +0.34 % | limitation; model fix T7 |
+| S-1 GJ | -10.74 % signed rejected | same as S-7 | twist +0.34 % | limitation; T7 |
+| S-1 EA | +6.7..6.8 % rejected | layup integral +6-9 % over the 6x6 inside the yaml (cap chamfer, T6) | none (no torque path) | limitation |
+| S-1 EI_edge | 8.0 (signed -1.9) % rejected | extractor scatter: edgewise energy W_FE / W_BeamDyn = 1.0002 (T16); S-4 1E +0.5 % | edge 0.005 % | limitation, extractor-free evidence |
+| S-1 EI_flap | 4.5 % trusted (thin margin) | shell ~6 % stiffer flap, real: energy 0.937 | flap -0.34 % | limitation |
+| S-2 LC1 / LC4 | -5.26 / -5.48 % rejected | same flap stiffness (station: -4.89 in band, -5.05 undecided at es 0.25 -> 0.125; trend outward) | flap -0.34 % | limitation; T6 |
+| S-2 LC3 | +10.3 / +11.4 % rejected | point-load introduction + edge tip stiffness (no MPC) | edge 0.005 % | limitation |
+| S-2 LC2 | -2.5 / -3.6 % undecided | point load not converged at the station (0.52 pp, 3.4 twin 4 pp) | flap -0.34 % | undecided with cause |
+| group 5 mesh convergence | high mode 4.61 % undecided | CCX version/pairing (mode 8 MAC 0.779); order ~1.4 | none | undecided; es 0.125 CCX not run |
+| V-03 mass | -1.14 % trusted, single arbiter (xlsx) | V-05 vs the deck (+0.23 %) is the second look | mass in all of the above | unarbitrated, accepted |
+| sx_mesh_convergence, sx_campbell | absent | S9: own session (T11) | none | out of this close |
+| rotating_modal_shift gap | bounded | delta-f 1F -3.3, 2F -4.7 (moving out), 1E -10.6 not resolvable | centrifugal stiffening 1-5 % weak | bounded, cause not diagnosed |
+Accepted: S-4 1F/1E/2F parked +2.33/+0.56/+0.20 %, rated +1.85/+0.44/+0.06 % (re-measured es 0.25 today, identical); group 23 CCX 1-5 <= 0.12 %,
+BeamDyn p20 2E/3F/1T/3E/4F -2.1..+1.6 %, all trusted; masses +2.4 % shell vs deck. Guards `frame_tear` x2 and pure-torque step stay red (ring node-count
+artefact, T19). Largest single torque effect of any L3 red: twist +0.34 %, definition 0.25-0.46 % (C5), against a 5 % acceptance.
+Open code work, not L3 acceptance: T19 (node-count-independent ring fit), T6, T7, T8 (MAC vs p20), T11.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -795,3 +820,4 @@ retracted for the 15.
 - L24 (2026-10-27, session 18) User, verbatim: "podemos hacerlo en esta sesion" (pass 2 resumed here after the full-suite review of 11625665 and the check gate fix, branch check/sources-guard). Parent: read T10c-station (section "T10c-station RESULT"): P2 refuted, metric back to the user; user chose S13 and S14.
 - L25 (2026-10-28, session 19) User, verbatim: "vamos a continuar la validacion. ya terminaron todos los jobs que mandamos, vamos a analizarlos, no te ffies en los numeros de jobs poruqe los estuve moviendo de colas para que terminaran. no quiero que lances mas ningun job salvo que sea estrictamente necesario ya hemos medido demasiado y no arreglado nada, estoy seguro que podemos tener conclusiones precisas con todas las mediciones y diagnosticos que se han hecho". Parent: read every output by name and date, no job launched (section "Session 19").
 - L26 (2026-10-28, session 19) User, verbatim: "vamos con a y b, y lo demas dejalo bajo tu criterio." and "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque". Parent: S15, S16, T15-T18; prediction written before any run.
+- L27 (2026-10-28, session 19) User, verbatim: "vamos por partes, Cierra L3, y vamos a limpiar el codigo mezclando y eliminando los worktrees. luego de eso volvemos a lo que hay que hacer para decidir". Parent: L3 declared (section above); branches merged into l3/integration, 41 worktrees removed with logs archived in logs/check/worktree-archive/, 4 unmerged experiment branches kept (cap-arcs, input-T30, s1-gj-metric, te-closure-T37).

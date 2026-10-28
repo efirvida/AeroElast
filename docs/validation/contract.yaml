@@ -2844,8 +2844,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
     class: physics
     verdict: rejected
-    audited_rev: 3995a4f
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/bd_static_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -3008,3 +3007,22 @@ verdicts:
       (the patch is exact); before that fix the four triangle span cases failed at 91.67 % / 67.53 %, so the row discriminates. Node
       passes at 96d90d3 (SLURM 11624523, logs/check/l1l2/pytest-unmapped.txt, 22 passed); regression cannot map a residual for it, the
       test prints none, so the number is the stored one.
+
+  # --- L3 close (session 19, 2026-10-28): group 5 audited ---
+  - target: blade_mesh_convergence.test_blade_modal_gap_converges_with_mesh.single
+    class: physics
+    verdict: undecided
+    files:
+      - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py
+      - tests/support/modal_pairing.py
+      - tests/support/ccx_io.py
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX S8R, the same mesh and composite properties (ccx 2.20 on this cluster; the file's older text says 2.23)"}
+    note: >-
+      T12 (SLURM 11625834 MAC diagnostic, 11625835 test, 0f5215e): modes are now paired by MAC and followed across meshes by span
+      signature (the old frequency pairing swapped CCX 7/8, which made the "mode 7 plateau"). At es 0.25: modes 1-5 <= 0.14 %,
+      mode 6 0.98 %, mode 7 (y/torsion-rotation) 4.61 %, worst low 0.076 % (bound 1 %). High-mode worst 4.61 % is 0.39 pp from the
+      5 % ceiling and the order is ~1.4, so the K3 rule keeps it undecided until es 0.125 is run (not run: the CCX side at 0.125 is
+      prohibitive here). CCX mode 8 pairs with MAC 0.779 < 0.8 ("not identifiable"), which is the one assertion that fails.
+      Issue #8: the high-mode gap depends on the CCX version (4.03 % under 2.20 vs 2.12 % under 2.23). Code-parity evidence
+      (same discretisation), not a physics arbiter; torque sensitivity none (modes above 3F).
