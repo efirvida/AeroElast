@@ -1,0 +1,108 @@
+{
+ "cases": {
+  "circle-L24": {
+   "torque": {
+    "W_FE": 550.9670793389237,
+    "W_exact": 551.0602148992219,
+    "ratio": 0.9998309884150949
+   },
+   "tip_force": {
+    "W_FE": 85340.6929627371,
+    "W_exact": 85279.55074467983,
+    "label": "contaminated by tip load introduction",
+    "ratio": 1.0007169622438599
+   },
+   "dist_force": {
+    "W_FE": 13665.557436900792,
+    "W_exact_discrete_loads": 13669.560278690507,
+    "ratio": 0.9997071711373221,
+    "W_textbook_qL5_40EI_plus_shear": 12858.742186549476,
+    "ratio_textbook": 1.0627444923186393,
+    "W_bending_share": 0.9480434603336357,
+    "load_z_range": [
+     0.25,
+     24.0
+    ],
+    "n_loaded": 4608
+   }
+  },
+  "rectw-L24": {
+   "torque": {
+    "W_FE": 1499.2958986726435,
+    "W_exact": 1500.0,
+    "ratio": 0.9995305991150957
+   },
+   "tip_force": {
+    "W_FE": 241067.41580061612,
+    "W_exact": 98324.64678178963,
+    "label": "contaminated by tip load introduction",
+    "ratio": 2.451749624238298
+   },
+   "dist_force": {
+    "W_FE": 18129.903446753084,
+    "W_exact_discrete_loads": 15530.474058838554,
+    "ratio": 1.1673760490546756,
+    "W_textbook_qL5_40EI_plus_shear": 14805.023547880686,
+    "ratio_textbook": 1.2245778190165963,
+    "W_bending_share": 0.9619544471306781,
+    "load_z_range": [
+     0.25,
+     24.0
+    ],
+    "n_loaded": 4608
+   }
+  },
+  "circle-L48": {
+   "torque": {
+    "W_FE": 1101.9970806126007,
+    "W_exact": 1102.1204297984439,
+    "ratio": 0.9998880801203679
+   },
+   "tip_force": {
+    "W_FE": 656368.8909728713,
+    "W_exact": 658184.9590123383,
+    "label": "contaminated by tip load introduction",
+    "ratio": 0.9972407937698969
+   },
+   "dist_force": {
+    "W_FE": 100454.17869999833,
+    "W_exact_discrete_loads": 100722.92819800868,
+    "ratio": 0.9973317942317759,
+    "W_textbook_qL5_40EI_plus_shear": 98861.36300154576,
+    "ratio_textbook": 1.0161116097340037,
+    "W_bending_share": 0.9864841890058796,
+    "load_z_range": [
+     0.25,
+     48.0
+    ],
+    "n_loaded": 9216
+   }
+  },
+  "rectw-L48": {
+   "torque": {
+    "W_FE": 2999.189934834113,
+    "W_exact": 3000.0,
+    "ratio": 0.9997299782780377
+   },
+   "tip_force": {
+    "W_FE": 905612.1449792988,
+    "W_exact": 766319.6232339088,
+    "label": "contaminated by tip load introduction",
+    "ratio": 1.1817681780841893
+   },
+   "dist_force": {
+    "W_FE": 117458.17670269364,
+    "W_exact_discrete_loads": 116796.35673294794,
+    "ratio": 1.0056664436139813,
+    "W_textbook_qL5_40EI_plus_shear": 115060.59654631079,
+    "ratio_textbook": 1.020837543245466,
+    "W_bending_share": 0.9902092406431121,
+    "load_z_range": [
+     0.25,
+     48.0
+    ],
+    "n_loaded": 9216
+   }
+  }
+ }
+}

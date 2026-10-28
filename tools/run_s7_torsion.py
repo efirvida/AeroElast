@@ -142,12 +142,23 @@ def run_torsion_case(mesh, properties, torque: float) -> np.ndarray:
     return solver.solve()
 
 
-def section_twists_deg(mesh, u: np.ndarray, n_slices: int = 40) -> tuple[np.ndarray, np.ndarray]:
+def section_twists_deg(
+    mesh, u: np.ndarray, n_slices: int = 40, fit_nodes: str = "all"
+) -> tuple[np.ndarray, np.ndarray]:
     """Section rotation about the span from the displacement field [deg].
 
     Same construction as S-1: best-fit rigid rotation
     θ = Σ(r_x·u_y − r_y·u_x) / Σ(r_x² + r_y²) over each section's nodes.
+
+    ``fit_nodes="all"`` (default, unchanged) uses every node of the slice; ``"box"`` only the slice's box nodes
+    (caps SPAR* and webs *_SW, ``sectional.box_node_mask``; l3-closure S15), so the in-plane distortion of the
+    skin and TE panels is not read as twist. A slice with fewer than 6 box nodes gives NaN (kept, never dropped
+    and never filled with all nodes): count them with ``np.isnan``.
     """
+    from aeroelast.postprocess.sectional import BOX_MIN_NODES, _check_fit_nodes, box_node_mask
+
+    _check_fit_nodes(fit_nodes)
+    box = box_node_mask(mesh) if fit_nodes == "box" else None
     dpn = mesh.dofs_per_node if hasattr(mesh, "dofs_per_node") else 6
     coords = mesh.coords_array
     z = coords[:, 2]
@@ -158,6 +169,13 @@ def section_twists_deg(mesh, u: np.ndarray, n_slices: int = 40) -> tuple[np.ndar
         idx = np.nonzero(mask)[0]
         if len(idx) < 3:
             continue
+        z_slice = float(coords[idx, 2].mean())  # the slice's own z, so the all and box fits share one grid
+        if box is not None:
+            idx = idx[box[idx]]
+            if len(idx) < BOX_MIN_NODES:
+                zs.append(z_slice)
+                thetas.append(np.nan)
+                continue
         xyz = coords[idx]
         r = xyz - xyz.mean(axis=0)
         ux = np.asarray([u[int(i) * dpn + 0] for i in idx])
@@ -166,13 +184,13 @@ def section_twists_deg(mesh, u: np.ndarray, n_slices: int = 40) -> tuple[np.ndar
         den = float((r[:, 0] ** 2 + r[:, 1] ** 2).sum())
         if den < 1e-18:
             continue
-        zs.append(float(xyz[:, 2].mean()))
+        zs.append(z_slice)
         thetas.append(np.rad2deg(num / den))
     return np.asarray(zs), np.asarray(thetas)
 
 
 def beam_twist_profile_deg(
-    moment: float, z_query: np.ndarray, blade_length: float = 117.0
+    moment: float, z_query: np.ndarray, blade_length: float = 117.0, beamdyn_file=None, z_cut: float = 111.2
 ) -> np.ndarray:
     """θ(z) = M·∫₀^z dz'/GJ(z') with the BeamDyn GJ distribution [deg].
 
@@ -184,12 +202,15 @@ def beam_twist_profile_deg(
     The BeamDyn table's last station (r/R=1.0, GJ ≈ 7e4 N·m²) is a
     degenerate razor-tip section — its contribution is excluded by never
     integrating past the last valid station (z=111.1).
+
+    ``beamdyn_file`` (default: the IEA 15 MW deck) and ``z_cut`` (default 111.2 m = 0.9504 of the IEA 15 MW
+    blade) let another blade use its own deck and razor-tip cut; the defaults are the historical reference.
     """
-    bd = load_beamdyn_blade(BEAMDYN_FILE, blade_length)
+    bd = load_beamdyn_blade(BEAMDYN_FILE if beamdyn_file is None else beamdyn_file, blade_length)
     z = np.asarray(bd.z, dtype=np.float64)
     gj = np.asarray(bd.gj, dtype=np.float64)
-    z_valid = z[z <= 111.2]
-    inv_valid = 1.0 / gj[z <= 111.2]
+    z_valid = z[z <= z_cut]
+    inv_valid = 1.0 / gj[z <= z_cut]
     out = np.empty_like(z_query, dtype=np.float64)
     for i, zq in enumerate(z_query):
         z_end = min(float(zq), float(z_valid[-1]))

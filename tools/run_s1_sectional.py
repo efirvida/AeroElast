@@ -125,7 +125,7 @@ def native_bay_centres(yaml_file, airfoil_dir=None):
 
 
 def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
-                                numad_data=None, stations=None):
+                                numad_data=None, stations=None, fit_nodes="all", info=None, solutions=None):
     """Extract EA(r) and GJ(r) from full-mesh static tip-load solves.
 
     GJ: tip torque about the span (force couple on the tip section) ->
@@ -145,6 +145,14 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     mesh stations nearest to them (``select_stations``), so the result does not depend on the number of
     stations the mesher inserted. ``None`` keeps every station.
 
+    ``fit_nodes``: ``"all"`` (default, unchanged) fits each station's twist on all its nodes; ``"box"`` on its
+    box nodes only (caps SPAR* and webs *_SW, ``sectional.box_node_mask``), which does not read the in-plane
+    distortion of the skin / TE panels as twist (core-torsion C3, l3-closure S15). A station with fewer than 6 box
+    nodes has no twist: its GJ is NaN and ``info["n_box_nan"]`` (when ``info`` is a dict) counts them.
+    ``info`` also receives ``solutions`` ({"axial": u, "torque": u}) and the torque load (``torque_nodes``,
+    ``torque_forces``, ``torque_centre``); passing ``solutions`` back (same mesh, properties and loads) skips
+    the two solves so the all-node and box readings share them.
+
     NOTE: the EA extraction currently shows a systematic bias outboard
     (shell ~0.1 GN vs BeamDyn ~3.9 GN at the tip) — documented as an open
     item; use the GJ result only for assertions.
@@ -155,10 +163,14 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
 
     from aeroelast.postprocess.sectional import (
         SectionalExtractor,
+        _check_fit_nodes,
         _local_quadratic,
-        rigid_rotation_fit,
+        box_node_mask,
         select_stations,
+        station_rigid_rotation,
     )
+
+    _check_fit_nodes(fit_nodes)
 
     model = {
         "solver": {},
@@ -181,6 +193,8 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     idx = mesh.node_id_to_index
     rootd = sorted(idx[n] * dpn + d for n in root for d in range(dpn))
 
+    reused = solutions or {}
+
     def solve_case(tip_dof_vals):
         s = StaticLinearSolver(mesh, model)
         s.add_dirichlet_conditions([DirichletCondition(rootd, 0.0)])
@@ -192,7 +206,8 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     # EA: tip axial load, displacements projected onto each station's local
     # tangent (the pre-bent reference line) — removes the bending-induced
     # axial contamination that biased the raw global-u_z derivative.
-    u_ax = solve_case({t: [0.0, 0.0, load_ax / len(tip_nodes)] for t in tip_nodes})
+    u_ax = reused["axial"] if "axial" in reused else solve_case(
+        {t: [0.0, 0.0, load_ax / len(tip_nodes)] for t in tip_nodes})
     # station tangents from the centroid line of the pre-bent geometry
     cents = np.array([coords[membership[st]["nodes"]].mean(axis=0) for st in sts])
     tangs = np.gradient(cents, zs, axis=0)
@@ -225,14 +240,19 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     ring, f_ring = section_torque_wall_forces(mesh, end_ring, normal, props, torque, coords=coords)
     m_delivered = np.cross(coords[ring] - ring_c, f_ring).sum(axis=0)
     tip_f = {int(t): [float(f[0]), float(f[1]), float(f[2])] for t, f in zip(ring, f_ring, strict=True)}
-    u_t = solve_case(tip_f)
+    u_t = reused["torque"] if "torque" in reused else solve_case(tip_f)
+    if info is not None:
+        info.update(solutions={"axial": u_ax, "torque": u_t}, torque_nodes=np.asarray(ring),
+                    torque_forces=np.asarray(f_ring), torque_centre=ring_c)
     theta = []
+    box_mask = box_node_mask(mesh) if fit_nodes == "box" else None
+    u_xyz = u_t.reshape(-1, dpn)[:, :3]
     for i, st in enumerate(sts):
-        nodes = membership[st]["nodes"]
-        u_s = u_t.reshape(-1, dpn)[nodes, :3]
-        rot = rigid_rotation_fit(coords[nodes], coords[nodes].mean(axis=0), u_s)
+        rot = station_rigid_rotation(coords, membership[st]["nodes"], u_xyz, fit_nodes, box_mask)
         theta.append(float(rot @ tangs[i]))
     theta = np.asarray(theta)
+    if info is not None:
+        info["n_box_nan"] = int(np.isnan(theta).sum())
     # Signed: a non-positive rate about the applied torque has no GJ.
     twist_rate = _local_quadratic(zs, theta, 2.0 * float(np.median(np.diff(zs))), True) * tangs[:, 2]
     m_t = tangs @ m_delivered

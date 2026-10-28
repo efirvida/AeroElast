@@ -48,8 +48,8 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
 - T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6; step 4 test drafted uncommitted in this worktree (`TestS2InteriorStation`, `tests/support/s2_station.py` + 8 unit tests green), committed only after P1/P2; BeamDyn node `result.json` must be copied into `tests/IEA15MW/bd_static/*-nodes/`) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
-- T15 | S15 S8 S10 | worker | pending | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
-- T16 | S15 S10 | worker (with T15) | pending | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
+- T15 | S15 S8 S10 | worker | done: box option, P2 refuted on the 15 (section "T15/T16 RESULT") | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
+- T16 | S15 S10 | worker (with T15) | done: edge energy 1.0002 (P4), flap 0.937 (P5), torsion energy tip-dominated | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
 - T17 | S16 | parent | pending | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | pending | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
 - T19 | S15 | parent/worker | pending | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
@@ -735,6 +735,37 @@ ring fit (arc-length weighting, C6 open item), which also feeds the production B
 **Box-fit finding:** rigid-box degenerates outboard of z ~ 109.7 m (41 non-increasing steps 109.7-117, nonsense cumulative
 total): the box (caps + webs) becomes ill-conditioned near the tip; the >= 6-node rule does not catch it. S-1 (0.2-0.85 R)
 and S-7 (0.3-0.9 R) bands end before it; check the T15 band stations, and the box option needs a conditioning guard.
+
+## T15/T16 RESULT (session 19; SLURM t15-iea15 8 min, t15-iea34 3 min, dev; login: polar inertia; `logs/check/l3/t15/*.log|json`)
+
+es 0.25, mid-surface, S-1 mid-span 0.2-0.85 signed % (mean |rel| %), all nodes | box; W_FE / W_beam with the full deck 6x6 at
+eta_max 1.0 (decoupled in brackets); distributed loads (tip-force rows contaminated by load introduction, kept for the record).
+
+| quantity | IEA-15 all | IEA-15 box | IEA-3.4 all | IEA-3.4 box |
+|---|---|---|---|---|
+| EI_edge | -1.89 (8.01) | -3.05 (7.07) | -1.37 (4.70) | -2.40 (8.66) |
+| EI_flap | +3.87 (4.53) | +4.03 (4.74) | +0.76 (3.59) | +1.02 (3.21) |
+| GJ | -10.74 | -9.65 | -28.93 | -21.29 (0.6-0.85: -31.8 -> -11.4; 0.2-0.3 -61 / -51) |
+| S-7 band ratio | 1.0717 | 1.0766 | 1.3869 | 1.5186 |
+| W dist edge | 1.0002 (1.147) | | 1.0954 (1.287) | |
+| W dist flap | 0.9367 (0.975) | | 1.0070 (1.048) | |
+| W tip torque | 0.954 (tip-dominated: deck GJ falls 100x in the last 5 %) | | 2.39 | |
+
+Polar mass inertia about the mass centroid, shell vs deck (`polar_inertia.py`, no solve): IEA-15 mid-span -0.01 %, 0.6-1.0 -3.3 %;
+IEA-3.4 mid-span +4.4 %, 0.6-1.0 -2.1 %. Mass +2.4 / +1.8 %.
+**Predictions.** P1 held (closed forms). **P2 refuted** (15: box moves GJ by 1.1 pt, S-7 unchanged). P3 not evaluable (tip-dominated).
+**P4 held** (edge energy 1.0002: the integral edgewise stiffness equals the deck's; the S-1 8 % is per-station scatter of the curvature
+extractor, signed mean -1.9 %). **P5 held** (flap 0.937: the instrument sees the known ~6 % stiffer flap). P6 partly (3.4 box removes
+the outboard 1.3x; inboard 0.2-0.3 GJ -51..-61 % remains; 3.4 edge energy 1.095 is root-weighted, consistent with its known
+root EI_edge deficit 0.04-0.18).
+**1T re-read.** I_p does not explain GJ -10 % vs 1T +1.6 %. The 1T row pairs by frequency only inside a three-mode cluster at
+4.1-4.4 Hz (group 5 MAC: two shell modes with ~99 % span rotation; the torsion-like one converges slowly, 1-4.6 % vs CCX at
+0.25 m). Without MAC vs the BeamDyn p20 shapes (T8) the 1T row is not an arbiter of GJ.
+**Consequences (predeclared).** Torsion: the measure hypothesis is rejected for the 15 (box = all); with C3 (FE = its own mesh
+section within 3-5 %) the GJ deficit lives in the section representation (TE closure, T7), not in the element or the fit: T7 is
+back after T8 pins 1T. Edge: S-1 EI_edge red is the extractor; declare it with the energy ratio as the extractor-free evidence.
+Flap: real ~+6 % stiffness (T6). No bound moved. The parent's message of session 19 that "torsion is the measurement" is
+retracted for the 15.
 
 ## Log
 
