@@ -8,6 +8,7 @@
 #
 # Usage:
 #   scripts/check_sbatch.sh full [--record] [-- extra sbatch options]
+#   scripts/check_sbatch.sh full --only <file|node id> [--only ...] [--record]   # forwarded to check.sh
 #   scripts/check_sbatch.sh quick [--record]
 # Defaults: partition sequana_cpu, 240 min, 4 tasks (--ntasks only; no nodes, cpus-per-task or mem); log logs/check/<mode>-slurm-%j.log.
 
@@ -18,14 +19,18 @@ cd "$REPO_ROOT"
 
 mode=full
 record=""
+only=""
 sbatch_extra=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
         quick | full) mode="$1" ;;
         --record) record=" --record" ;;
+        --only)
+            [ "$#" -ge 2 ] || { echo "check_sbatch.sh: --only needs a file or node id" >&2; exit 2; }
+            shift; only="$only --only $(printf %q "$1")" ;;
         --) shift; sbatch_extra=("$@"); break ;;
         -h | --help) sed -n '3,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "check_sbatch.sh: unknown argument '$1' (quick|full|--record|-- sbatch options)" >&2; exit 2 ;;
+        *) echo "check_sbatch.sh: unknown argument '$1' (quick|full|--only <sel>|--record|-- sbatch options)" >&2; exit 2 ;;
     esac
     shift
 done
@@ -47,5 +52,5 @@ sbatch --partition=sequana_cpu --time=240 --ntasks=4 \
     --job-name="check-$mode" --output="logs/check/$mode-slurm-%j.log" \
     --export="ALL,CHECK_GIT_SNAPSHOT=$snap,OMP_NUM_THREADS=1,OPENBLAS_NUM_THREADS=1,RAYON_NUM_THREADS=4,PYTHONDONTWRITEBYTECODE=1" \
     ${sbatch_extra[@]+"${sbatch_extra[@]}"} \
-    --wrap="scripts/check.sh $mode$record"
+    --wrap="scripts/check.sh $mode$only$record"
 echo "check_sbatch.sh: snapshot ${snap#"$REPO_ROOT"/} (revision $rev)"
