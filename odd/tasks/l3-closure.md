@@ -45,7 +45,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; mesh Bredt 863ff38 (mesh = yaml), H7 refuted, FE torsionally soft 0.65-0.85 (twist integral); element vs distortion open (Handoff 4) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
-- T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
+- T8 | S6 | worker + parent | prediction written (section "T8 prediction"); extraction from the existing .lin, shell modes es 0.25 on login | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
 - T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6; step 4 test drafted uncommitted in this worktree (`TestS2InteriorStation`, `tests/support/s2_station.py` + 8 unit tests green), committed only after P1/P2; BeamDyn node `result.json` must be copied into `tests/IEA15MW/bd_static/*-nodes/`) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T15 | S15 S8 S10 | worker | done: box option, P2 refuted on the 15 (section "T15/T16 RESULT") | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
@@ -804,6 +804,23 @@ Open code work, not L3 acceptance: T19 (node-count-independent ring fit), T6, T7
 - L4 now: trusted 10, regression_pin 3, unarbitrated 10 (the V-01 rows, single arbiter Gaertner / WISDEM CCBlade), over ceiling 0. Declared: the second look at the same BEM is
   group 11 against AeroDyn (rotor performance at 8 / 9 / 12 m/s within 0.45 %, yaw/shear 0.35 %, repo polars 1.2-2.2 %), a different operating set from the V-01 rated/curve rows.
 - Deferred by the user (L28): re-measuring closed L3 rows after the TE closure (T7) changes the mesh; correction proceeds from here.
+
+## T8 prediction (written before any mode-shape number, session 19, main 246382f)
+
+Scope (S6: the rotating-frequency analysis of the torque signal needs the shapes, not only the frequencies). Reference: BeamDyn p20 single member,
+official v1.1 deck, eigenvectors of the state-space blade block already on disk (`logs/check/of_bd/bp20_0/case.1.lin`, parked; `bp20_7.56`, 12 .lin, MBC3 collective,
+rated) - no OpenFAST run. Shell: es 0.25 mid-surface, parked and rated 7.56 rpm, eigenvectors saved. Compare on the BeamDyn GLL nodes: section-mean
+translations u_x, u_y and the section twist (rigid fit, all-node and box), BeamDyn axes -> shell by (x, y, z) -> (-y, x, z) (`tools/bd_static_reference.py` header).
+Metric: MAC on the (u_x, u_y) vector (bending) and on the twist vector separately, plus the combined vector with rotation scaled by the local chord/2; modes paired by
+the Hungarian algorithm on MAC (`tests/support/modal_pairing.py`), frequency gap reported beside. Bound: MAC >= 0.95 (the 5 % rule translated; not a thesis tolerance, flagged).
+- P1: 1F 1E 2F 2E 3F, parked: MAC >= 0.98 each (frequencies within 2.4 %, same families, EI_edge energy 1.0002).
+- P2: rated: MAC within 0.02 of parked for the same modes (centrifugal loading changes shapes weakly at 7.56 rpm).
+- P3: 1T: the combined-vector MAC is the weakest of the set, 0.80-0.95; the shell's 1T carries more flap/edge translation than BeamDyn's (the shell cluster at 4.1-4.4 Hz has
+  two modes with ~99 % span rotation, group 5 MAC), so the 1T +1.6 % frequency match is not a shape match. If MAC(1T) < 0.80 the 1T row is declared not an arbiter of GJ.
+- P4: 3E and 4F, parked: MAC 0.90-0.98.
+Consequences (predeclared): P1 refuted (bending MAC < 0.95) -> shapes differ in the EI distribution, which matters directly for the rotating torque analysis (S6) and goes to
+the user before anything else. P3 held -> 1T and the torsion-coupled modes are the ones the TE closure option (user decision, TE closed by default) can move: they get
+re-measured after it. No bound is moved; rows are added to the store only after the user fixes the MAC tolerance.
 
 ## Log
 
