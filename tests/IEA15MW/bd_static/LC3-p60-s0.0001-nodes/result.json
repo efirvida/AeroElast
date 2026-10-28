@@ -1,0 +1,161 @@
+{
+  "case": "LC3",
+  "order": 60,
+  "scale": 0.0001,
+  "tip_bd_m": {
+    "TipTDxr": 7.4601150118e-05,
+    "TipTDyr": -0.0034469440579,
+    "TipTDzr": -1.452192646e-05
+  },
+  "linear_shell_uy_m": 0.7460115011799999,
+  "linear_shell_ux_m": 34.469440579,
+  "binary": "/scratch/leahk/eduardo.donestevez/tools/openfast-env/bin/beamdyn_driver",
+  "geometry": "/scratch/leahk/eduardo.donestevez/ofruns/OpenFAST/IEA-15-240-RWT/IEA-15-240-RWT_BeamDyn.dat",
+  "properties": "/scratch/leahk/eduardo.donestevez/wt/l3-pass2/tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat",
+  "nodes": [
+    {
+      "node": 53,
+      "bd_xyz_init": [
+        -3.48105,
+        0.0,
+        111.71893
+      ],
+      "z": 111.71893,
+      "td_bd_m": [
+        0.00010259511328,
+        -0.0028480140027,
+        -1.3943575141e-05
+      ],
+      "linear_shell_uy_m": 1.0259511328,
+      "linear_shell_ux_m": 28.480140026999997
+    },
+    {
+      "node": 54,
+      "bd_xyz_init": [
+        -3.5941,
+        0.0,
+        112.90867
+      ],
+      "z": 112.90867,
+      "td_bd_m": [
+        9.7328091215e-05,
+        -0.0029746068176,
+        -8.6028376245e-06
+      ],
+      "linear_shell_uy_m": 0.97328091215,
+      "linear_shell_ux_m": 29.746068176
+    },
+    {
+      "node": 55,
+      "bd_xyz_init": [
+        -3.69495,
+        0.0,
+        113.95174
+      ],
+      "z": 113.95174,
+      "td_bd_m": [
+        9.2313734058e-05,
+        -0.0030892782379,
+        -1.2217165931e-05
+      ],
+      "linear_shell_uy_m": 0.9231373405799999,
+      "linear_shell_ux_m": 30.892782379
+    },
+    {
+      "node": 56,
+      "bd_xyz_init": [
+        -3.78271,
+        0.0,
+        114.84533
+      ],
+      "z": 114.84533,
+      "td_bd_m": [
+        8.7651322247e-05,
+        -0.0031903816853,
+        -1.4107378774e-05
+      ],
+      "linear_shell_uy_m": 0.87651322247,
+      "linear_shell_ux_m": 31.903816853
+    },
+    {
+      "node": 57,
+      "bd_xyz_init": [
+        -3.85657,
+        0.0,
+        115.58701
+      ],
+      "z": 115.58701,
+      "td_bd_m": [
+        8.3439263108e-05,
+        -0.0032764528878,
+        -1.2934811821e-05
+      ],
+      "linear_shell_uy_m": 0.83439263108,
+      "linear_shell_ux_m": 32.764528878
+    },
+    {
+      "node": 58,
+      "bd_xyz_init": [
+        -3.91579,
+        0.0,
+        116.1748
+      ],
+      "z": 116.1748,
+      "td_bd_m": [
+        8.0007150245e-05,
+        -0.0033462063875,
+        -1.0931369616e-05
+      ],
+      "linear_shell_uy_m": 0.80007150245,
+      "linear_shell_ux_m": 33.462063875
+    },
+    {
+      "node": 59,
+      "bd_xyz_init": [
+        -3.95974,
+        0.0,
+        116.60709
+      ],
+      "z": 116.60709,
+      "td_bd_m": [
+        7.7187905845e-05,
+        -0.0033985120244,
+        -1.167458413e-05
+      ],
+      "linear_shell_uy_m": 0.7718790584499999,
+      "linear_shell_ux_m": 33.985120244
+    },
+    {
+      "node": 60,
+      "bd_xyz_init": [
+        -3.98795,
+        0.0,
+        116.88271
+      ],
+      "z": 116.88271,
+      "td_bd_m": [
+        7.5488671428e-05,
+        -0.0034323858563,
+        -1.6326299374e-05
+      ],
+      "linear_shell_uy_m": 0.75488671428,
+      "linear_shell_ux_m": 34.323858563
+    },
+    {
+      "node": 61,
+      "bd_xyz_init": [
+        -4.0,
+        0.0,
+        117.0
+      ],
+      "z": 117.0,
+      "td_bd_m": [
+        7.4601150118e-05,
+        -0.0034469440579,
+        -1.452192646e-05
+      ],
+      "linear_shell_uy_m": 0.7460115011799999,
+      "linear_shell_ux_m": 34.469440579
+    }
+  ]
+}

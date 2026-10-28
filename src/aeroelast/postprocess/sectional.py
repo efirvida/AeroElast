@@ -63,6 +63,52 @@ class SectionProperties:
     cg: np.ndarray         # (n, 3) section centroids (m)
 
 
+#: Fewest box nodes a station needs for a rigid-fit rotation (six unknowns u0, theta; ``lstsq`` on fewer is under-determined).
+BOX_MIN_NODES = 6
+
+
+def _check_fit_nodes(fit_nodes: str) -> None:
+    if fit_nodes not in ("all", "box"):
+        raise ValueError(f"fit_nodes must be 'all' or 'box', got {fit_nodes!r}")
+
+
+def box_node_mask(mesh: MeshModel) -> np.ndarray:
+    """Boolean mask (per node index) of the box nodes of a blade mesh: the caps and the webs.
+
+    A node is in the box when it belongs to an element set whose name contains ``SPAR`` (spar caps) or ends with
+    ``_SW`` (shear webs): the C3 rule of ``tools/l3_twist_integral.py box_region``
+    (``odd/tasks/core-torsion.md``). The skin, TE panels and TE reinforcement are outside; they distort in their
+    own plane under torsion, which an all-node rigid fit reads as rotation. A mesh without such sets gives an
+    all-False mask.
+    """
+    idx = mesh.node_id_to_index
+    mask = np.zeros(mesh.node_count, dtype=bool)
+    for name, eset in mesh.element_sets.items():
+        if "SPAR" in name or name.endswith("_SW"):
+            for e in eset.elements:
+                mask[[idx[n] for n in e.node_ids]] = True
+    return mask
+
+
+def station_rigid_rotation(xyz, nodes, u, fit_nodes: str = "all", box_mask=None) -> np.ndarray:
+    """Rigid-fit rotation vector of one station.
+
+    ``xyz`` and ``u`` are the (n, 3) coordinates and translations of the mesh, ``nodes`` the station's node
+    indices. ``fit_nodes="all"`` fits every station node (the historical reading). ``"box"`` fits only the
+    station nodes flagged in ``box_mask`` (``box_node_mask``); a station with fewer than ``BOX_MIN_NODES`` of them
+    returns NaN, never a fit over all its nodes.
+    """
+    _check_fit_nodes(fit_nodes)
+    nodes = np.asarray(nodes)
+    if fit_nodes == "box":
+        if box_mask is None:
+            raise ValueError("fit_nodes='box' needs box_mask (box_node_mask(mesh))")
+        nodes = nodes[np.asarray(box_mask)[nodes]]
+        if nodes.size < BOX_MIN_NODES:
+            return np.full(3, np.nan)
+    return rigid_rotation_fit(np.asarray(xyz)[nodes], np.asarray(xyz)[nodes].mean(axis=0), np.asarray(u)[nodes])
+
+
 def _dofs_of_nodes(node_indices: np.ndarray, dpn: int) -> np.ndarray:
     return np.concatenate([node_indices * dpn + d for d in range(dpn)])
 
@@ -222,6 +268,9 @@ class SectionalExtractor:
         self, properties: Optional[dict] = None, load: float = 1e6,
         frame: str = "global",
         stations: Optional[np.ndarray] = None,
+        fit_nodes: str = "all",
+        info: Optional[dict] = None,
+        solutions: Optional[dict] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extract EI_flap(r) and EI_edge(r) from full-mesh static tip-load
         solves (classical curvature method: EI = M(r)/kappa(r)).
@@ -264,9 +313,21 @@ class SectionalExtractor:
         does not depend on how many stations the mesher inserted (``BladeMesh.max_bay_length``;
         the spline smoothing and the local-fit window both scale with the station count). The
         static solves still run on the full mesh. ``None`` keeps every station.
+
+        ``fit_nodes`` (``frame="tangent"`` only): ``"all"`` (default, unchanged) fits the rigid rotation of each
+        station on all its nodes; ``"box"`` on its box nodes (caps and webs, ``box_node_mask``), so the in-plane
+        distortion of the skin and TE panels does not enter the curvature (odd/tasks/core-torsion.md C3, l3-closure
+        S15). A station with fewer than ``BOX_MIN_NODES`` box nodes has no rotation: its EI is NaN, and the
+        neighbours' local fits skip it. ``info``, when a dict, receives ``n_box_nan`` (stations without a fit) and
+        ``solutions`` ({"flap": u, "edge": u}, the two static solutions, ``tip_nodes`` and ``load``);
+        passing that ``solutions`` dict back (same mesh, properties and ``load``) skips the two solves, so the
+        all-node and box readings can share them.
         """
         if frame not in ("global", "tangent"):
             raise ValueError(f"frame must be 'global' or 'tangent', got {frame!r}")
+        _check_fit_nodes(fit_nodes)
+        if fit_nodes == "box" and frame != "tangent":
+            raise ValueError("fit_nodes='box' needs frame='tangent' (the global frame has no rigid fit)")
         from aeroelast.core.bc import DirichletCondition, NodalLoad
         from aeroelast.elements import ElementFamily
         from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
@@ -291,8 +352,14 @@ class SectionalExtractor:
         rootd = sorted(idx[n] * dpn + d for n in root for d in range(dpn))
 
         profiles = {}
+        reused = solutions or {}
         solutions = {}
         for name, comp in (("flap", 1), ("edge", 0)):
+            if name in reused:
+                u = reused[name]
+                solutions[name] = u
+                profiles[name] = np.array([u[membership[st]["nodes"] * dpn + comp].mean() for st in sts])
+                continue
             s = StaticLinearSolver(self.mesh, model)
             s.add_dirichlet_conditions([DirichletCondition(rootd, 0.0)])
             s.add_nodal_loads([NodalLoad([int(t) * dpn + comp],
@@ -304,9 +371,13 @@ class SectionalExtractor:
             profiles[name] = u_mean
             solutions[name] = u
 
+        if info is not None:
+            info["solutions"] = dict(solutions)
+            info["tip_nodes"] = tip_nodes
+            info["load"] = load
         if frame == "tangent":
             return self._ei_tangent_frame(zs, [membership[st]["nodes"] for st in sts],
-                                          solutions, load, stations)
+                                          solutions, load, stations, fit_nodes, info)
 
         # Note: the global load directions bend the twisted blade with a
         # small flap/edge mixing inboard (twist ~15 deg at the root, ~0-2
@@ -323,7 +394,7 @@ class SectionalExtractor:
             ei[name] = np.where(kappa > 1e-12, M / np.maximum(kappa, 1e-12), np.nan)
         return zs, ei["flap"], ei["edge"]
 
-    def _ei_tangent_frame(self, zs, station_nodes, solutions, load, stations=None):
+    def _ei_tangent_frame(self, zs, station_nodes, solutions, load, stations=None, fit_nodes="all", info=None):
         """Tangent-frame EI from the two tip-load displacement fields (see
         ``ei_from_static_response``, ``frame="tangent"``)."""
         dpn = self.dpn
@@ -346,12 +417,15 @@ class SectionalExtractor:
         flap = np.cross(t, edge)
 
         tip_c = cen[-1]
+        box_mask = box_node_mask(self.mesh) if fit_nodes == "box" else None
         ei = {}
         for name, comp, bend_axis in (("flap", 1, edge), ("edge", 0, flap)):
             u = solutions[name].reshape(-1, dpn)[:, :3]
             theta = np.zeros((n_st, 3))
             for i, nodes in enumerate(station_nodes):
-                theta[i] = rigid_rotation_fit(self.coords[nodes], cen[i], u[nodes])
+                theta[i] = station_rigid_rotation(self.coords, nodes, u, fit_nodes, box_mask)
+            if info is not None:
+                info["n_box_nan"] = int(np.isnan(theta).any(axis=1).sum())
             kappa = np.column_stack([local_fit(zs, theta[:, k], True)
                                      for k in range(3)]) * t[:, 2:3]
             force = np.zeros(3)
@@ -549,15 +623,26 @@ def _local_quadratic(zs, y, half, deriv):
     """Value or slope of a local quadratic fit about every station.
 
     The window is ``|z - z_i| <= half``, widened to the three nearest stations when it holds fewer:
-    non-uniform stations (``BladeMesh.max_bay_length``) can leave a station alone in the window.
+    non-uniform stations (``BladeMesh.max_bay_length``) can leave a station alone in the window. NaN samples are
+    skipped by their neighbours' fits; a NaN station stays NaN.
     """
     zs = np.asarray(zs, dtype=float)
     out = np.empty(zs.size)
+    y = np.asarray(y, dtype=float)
+    fin = np.isfinite(y)
     for i in range(zs.size):
+        if not fin[i]:  # a station without a value (box fit with too few nodes) has no fit
+            out[i] = np.nan
+            continue
         d = np.abs(zs - zs[i])
         m = d <= half + 1e-9
         if m.sum() < 3:
             m = d <= np.sort(d)[min(2, zs.size - 1)] + 1e-12
+        if not fin[m].all():  # skip the NaN stations in the window; fewer than 3 left -> no fit
+            m = m & fin
+            if m.sum() < 3:
+                out[i] = np.nan
+                continue
         c = np.polyfit(zs[m] - zs[i], y[m], min(2, int(m.sum()) - 1))
         out[i] = c[-2] if deriv else c[-1]
     return out

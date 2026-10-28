@@ -82,9 +82,16 @@ def run_shell_case(mesh, properties, load) -> np.ndarray:
         z = coords[:, 2]
         tip_mask = z >= z.max() - 1e-6
         tip_idxs = np.nonzero(tip_mask)[0]
-        f_node = np.asarray(load["value"], dtype=np.float64) / len(tip_idxs)
+        force = np.asarray(load["value"], dtype=np.float64)
+        if load.get("distribution", "equal") == "arc":
+            # work-equivalent uniform line traction on the free tip edge: a line load stays finite on a
+            # Reissner-Mindlin shell, equal nodal forces are point loads (l3-closure T10c)
+            tip_idxs, w = ring_arc_weights(mesh, tip_idxs)
+            f_nodes = np.outer(w / w.sum(), force)
+        else:
+            f_nodes = np.tile(force / len(tip_idxs), (len(tip_idxs), 1))
         dofs, vals = [], []
-        for i in tip_idxs:
+        for i, f_node in zip(tip_idxs, f_nodes, strict=True):
             for d in range(3):
                 dofs.append(int(i) * dpn + d)
                 vals.append(float(f_node[d]))
@@ -95,17 +102,19 @@ def run_shell_case(mesh, properties, load) -> np.ndarray:
         q = np.asarray(load["value"], dtype=np.float64)
         n_slices = load["n_slices"]
         edges = np.linspace(z.min(), z.max(), n_slices + 1)
+        area = nodal_areas(mesh) if load.get("distribution", "equal") == "area" else None
         for a, bnd in zip(edges[:-1], edges[1:]):
             mask = (z >= a) & (z < bnd) if bnd < z.max() else (z >= a) & (z <= bnd)
             idxs = np.nonzero(mask)[0]
             if len(idxs) == 0:
                 continue
-            f_node = q * (bnd - a) / len(idxs)
+            # "area": a uniform surface traction per slice (tributary-area nodal forces), not point loads
+            share = area[idxs] / area[idxs].sum() if area is not None else np.full(len(idxs), 1.0 / len(idxs))
             dofs, vals = [], []
-            for i in idxs:
+            for i, c in zip(idxs, share, strict=True):
                 for d in range(3):
                     dofs.append(int(i) * dpn + d)
-                    vals.append(float(f_node[d]))
+                    vals.append(float(q[d] * (bnd - a) * c))
             solver.add_nodal_loads([NodalLoad(dofs, vals)])
     else:
         raise ValueError(f"unknown load type {load['type']}")
@@ -118,6 +127,84 @@ def shell_tip_displacement(mesh, u: np.ndarray) -> np.ndarray:
     coords = mesh.coords_array
     tip_idx = int(np.argmax(coords[:, 2]))
     return np.asarray(u[tip_idx * dpn : tip_idx * dpn + 3], dtype=np.float64)
+
+
+def _element_node_indices(mesh) -> list[list[int]]:
+    idx = mesh.node_id_to_index
+    return [[idx[n.id] for n in e.nodes] for e in mesh.elements]
+
+
+def ring_arc_weights(mesh, ring: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Arc-length weight of each ring node: half the length of the element edges joining it to ring neighbours.
+
+    The edges are the element sides with both corner nodes on the ring, so the weights sum to the ring perimeter
+    whatever the node spacing; nodes with no ring edge are dropped (they carry no arc length).
+    """
+    coords = mesh.coords_array
+    on_ring = {int(i) for i in ring}
+    w = {}
+    seen = set()
+    for nodes in _element_node_indices(mesh):
+        for a, b in zip(nodes, nodes[1:] + nodes[:1], strict=True):
+            if a in on_ring and b in on_ring and (key := (min(a, b), max(a, b))) not in seen:
+                seen.add(key)
+                half = 0.5 * float(np.linalg.norm(coords[a] - coords[b]))
+                w[a] = w.get(a, 0.0) + half
+                w[b] = w.get(b, 0.0) + half
+    idxs = np.array(sorted(w), dtype=int)
+    return idxs, np.array([w[i] for i in idxs])
+
+
+def nodal_areas(mesh) -> np.ndarray:
+    """Tributary shell area per node: each element's area split equally among its corner nodes."""
+    coords = mesh.coords_array
+    area = np.zeros(len(coords))
+    for nodes in _element_node_indices(mesh):
+        x = coords[nodes]
+        a = 0.5 * np.linalg.norm(np.cross(x[1] - x[0], x[2] - x[0]))
+        if len(nodes) == 4:
+            a += 0.5 * np.linalg.norm(np.cross(x[2] - x[0], x[3] - x[0]))
+        area[nodes] += a / len(nodes)
+    return area
+
+
+def ring_mean_at(mesh, u: np.ndarray, z_target: float, weighting="node") -> tuple[float, np.ndarray, int]:
+    """Mean translation of the node ring on the mesh z-plane nearest ``z_target``: (z, mean u, node count).
+
+    ``weighting="node"`` is the arithmetic node mean (biased toward dense parts of the ring, and stepping where the
+    ring node count changes: T10b); ``"arc"`` weights each node by its arc length (``ring_arc_weights``).
+    """
+    z = mesh.coords_array[:, 2]
+    z_s = float(z[np.argmin(np.abs(z - z_target))])
+    ring = np.nonzero(np.abs(z - z_s) < 1e-6)[0]
+    uu = np.asarray(u).reshape(-1, 6)
+    if weighting == "arc":
+        ring, w = ring_arc_weights(mesh, ring)
+        return z_s, (uu[ring, :3] * w[:, None]).sum(axis=0) / w.sum(), len(ring)
+    return z_s, uu[ring, :3].mean(axis=0), len(ring)
+
+
+def saint_venant_tip(mesh, u: np.ndarray, scale: float, depths=(1.0, 1.5, 2.0, 2.5, 3.0), degree=3,
+                     weighting="node") -> np.ndarray:
+    """Tip translation extrapolated from ring means ``depths * scale`` inboard of the tip (l3-closure T10a).
+
+    A tip load split equally over the tip ring bends flat walls out of their plane; that local term decays within
+    about one section depth (Saint-Venant), so the rings inboard carry the beam translation. A polynomial in z
+    through them, evaluated at the tip, estimates the beam-equivalent tip translation. ``scale`` is the section
+    size that sets the decay length (the largest tip-ring extent).
+    """
+    z_tip = float(mesh.coords_array[:, 2].max())
+    pts = [ring_mean_at(mesh, u, z_tip - d * scale, weighting) for d in depths]
+    zs = np.array([p[0] for p in pts])
+    us = np.array([p[1] for p in pts])
+    return np.array([np.polyval(np.polyfit(zs - z_tip, us[:, k], degree), 0.0) for k in range(3)])
+
+
+def tip_ring_scale(mesh) -> float:
+    """Largest in-plane extent of the tip ring [m] (the chord at a blade tip)."""
+    c = mesh.coords_array
+    ring = c[c[:, 2] >= c[:, 2].max() - 1e-6, :2]
+    return float(np.max(np.linalg.norm(ring[:, None, :] - ring[None, :, :], axis=-1)))
 
 
 def beam_tip_displacement(beam: BeamReference, load) -> np.ndarray:

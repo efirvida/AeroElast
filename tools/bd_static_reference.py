@@ -6,6 +6,7 @@ python tools/bd_static_reference.py post --case LC2 --order 60 --scale .0001
 
 Run `run` on a compute node (sbatch -p sequana_cpu --ntasks=1). Build writes
 inputs only under tests/IEA15MW/bd_static; run/post write logs/check/bd_static.
+--blade iea34 uses the IEA-3.4 deck (tests/IEA34/bd_static, logs/check/bd_static/iea34).
 Use distinct order/scale combinations to preserve prior evidence. No overwrite.
 
 Frame: BD (x,y,z) -> shell (-y,x,z). The published prebend in BD x maps to
@@ -19,6 +20,11 @@ Small-load displacement / scale estimates the linear response; compare at least
 two scales before using it. Full LC2 is outside the small-deflection regime
 (~82 m linear reference). p40..60 changed normalized tip uy by at most 0.13%
 in the initial campaign; do not infer convergence from p15..20 alone.
+
+--nodes 53,54,...,61 (at most 9) also writes the translations of those FE nodes (N#TDxr/yr/zr; with Gauss
+quadrature BeamDyn's output nodes are the GLL FE nodes, node order_elem+1 is the tip) and the reference mesh
+at init (VTK), whose positions give each node's initial z: the interior-station comparison of l3-closure S12.
+Its directories carry a `-nodes` suffix, so tip-only evidence is never overwritten.
 
 Limitations: BD tip is its reference axis, shell tip is the first maximum-z
 node, not the same material point. BD q is per reference arc length whereas
@@ -46,6 +52,13 @@ PROPERTIES = ROOT / 'tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat'
 BINARY = BASE / 'tools/openfast-env/bin/beamdyn_driver'
 INPUTS = ROOT / 'tests/IEA15MW/bd_static'
 LOGS = ROOT / 'logs/check/bd_static'
+# Second official blade (l3-closure T10b): same OpenFAST v5 deck chain, its own inputs and logs.
+BLADES = {
+    'iea15': (GEOMETRY, PROPERTIES, INPUTS, LOGS),
+    'iea34': (ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn.dat',
+              ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat',
+              ROOT / 'tests/IEA34/bd_static', ROOT / 'logs/check/bd_static/iea34'),
+}
 CHANNELS = ('TipTDxr', 'TipTDyr', 'TipTDzr')
 
 
@@ -60,7 +73,7 @@ def case_loads(case, scale):
     return loads
 
 
-def driver_text(case, scale, beam):
+def driver_text(case, scale, beam, vtk=0):
     gravity, tip, distributed = case_loads(case, scale)
     lines = ['BeamDyn driver v5', 'S-2 small-load static reference',
              '--- simulation', 'False DynamicSolve', '0 t_initial', '10 t_final',
@@ -73,20 +86,25 @@ def driver_text(case, scale, beam):
         lines += [f'{v:.12g} {name}{component}' for component, v in
                   zip(('Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz'), (*vector, 0, 0, 0), strict=True)]
     lines += ['0 NumPointLoads', '! point load table', '! units', '--- beam',
-              f'"{beam}" InputFile', '--- outputs', '0 WrVTK', '1 VTK_fps']
+              f'"{beam}" InputFile', '--- outputs', f'{vtk} WrVTK', '1 VTK_fps']
     return '\n'.join(lines) + '\n'
 
 
-def parse_output(text):
-    """Parse last finite driver row, requiring all tip translation channels."""
+def node_channels(nodes):
+    """Translation channels of the requested output nodes, in OutNd order (N1 is the first listed node)."""
+    return tuple(f'N{k}TD{a}r' for k in range(1, len(nodes) + 1) for a in 'xyz')
+
+
+def parse_output(text, channels=CHANNELS):
+    """Parse last finite driver row, requiring all the given translation channels (default: the tip)."""
     lines = text.splitlines()
     for i, line in enumerate(lines):
         headers = line.split()
-        if headers and headers[0] == 'Time' and all(c in headers for c in CHANNELS):
+        if headers and headers[0] == 'Time' and all(c in headers for c in channels):
             if i + 1 >= len(lines):
                 break
             units = lines[i+1].split()
-            if len(units) != len(headers) or any(units[headers.index(c)] != '(m)' for c in CHANNELS):
+            if len(units) != len(headers) or any(units[headers.index(c)] != '(m)' for c in channels):
                 raise ValueError('expected tip translations in metres')
             rows = [row.split() for row in lines[i+2:] if row.strip()]
             if not rows or len(rows[-1]) != len(headers):
@@ -99,12 +117,28 @@ def parse_output(text):
                 raise ValueError('nonfinite BeamDyn output')
             if values[0] <= 0:
                 raise ValueError('no solved static output after initialization')
-            return {c: values[headers.index(c)] for c in CHANNELS}
-    raise ValueError('missing BeamDyn tip channels or data')
+            return {c: values[headers.index(c)] for c in channels}
+    raise ValueError('missing BeamDyn translation channels or data')
 
 
-def build(case, order, scale):
-    name = f'{case}-p{order}-s{scale:g}'
+def run_name(case, order, scale, nodes=()):
+    return f'{case}-p{order}-s{scale:g}' + ('-nodes' if nodes else '')
+
+
+def reference_points(path):
+    """Initial (x, y, z) of the BeamDyn motion-mesh nodes from the init VTK (``WrVTK`` 1), BD axes."""
+    text = path.read_text()
+    block = re.search(r'<Points>\s*<DataArray[^>]*>(.*?)</DataArray>', text, flags=re.S)
+    if block is None:
+        raise ValueError(f'no Points block in {path}')
+    values = [float(v) for v in block[1].split()]
+    if len(values) % 3:
+        raise ValueError(f'Points block of {path} is not 3 x n')
+    return [tuple(values[i:i + 3]) for i in range(0, len(values), 3)]
+
+
+def build(case, order, scale, nodes=()):
+    name = run_name(case, order, scale, nodes)
     target = INPUTS / name
     target.mkdir(parents=True, exist_ok=False)
     prop = replace(PROPERTIES.read_text(), 'damp_type', 0)
@@ -120,8 +154,17 @@ def build(case, order, scale):
                        'BldFile': f'"{target / "blade.dat"}"',
                        'OutFmt': '"ES20.10E3"'}.items():
         beam = replace(beam, key, value)
+    if nodes:
+        beam = replace(beam, 'NNodeOuts', len(nodes))
+        beam, count = re.subn(r'^[^\n]*?([ \t]+OutNd[ \t]+[^\n]*)$',
+                              lambda m: ', '.join(map(str, nodes)) + m[1], beam, flags=re.M)
+        if count != 1:
+            raise ValueError(f'OutNd: expected exactly one parameter, got {count}')
+        # first OutList only (the BldNd section after it has its own)
+        beam = re.sub(r'(^[ \t]*OutList[^\n]*\n)', lambda m: m[1] + '"' + ', '.join(node_channels(nodes)) + '"\n',
+                      beam, count=1, flags=re.M)
     (target / 'beam.dat').write_text(beam)
-    (target / 'driver.dvr').write_text(driver_text(case, scale, target / 'beam.dat'))
+    (target / 'driver.dvr').write_text(driver_text(case, scale, target / 'beam.dat', vtk=1 if nodes else 0))
     return name
 
 
@@ -131,13 +174,23 @@ def main():
     parser.add_argument('--case', choices=('LC1', 'LC2', 'LC3', 'LC4'), required=True)
     parser.add_argument('--order', type=int, default=60, help='single member polynomial order, >=10 (default: 60)')
     parser.add_argument('--scale', type=float, default=.0001, help='positive load scale (default: .0001); check linearity across scales')
+    parser.add_argument('--blade', choices=tuple(BLADES), default='iea15', help='official deck (default: iea15)')
+    parser.add_argument('--nodes', default='', help='comma list of FE output nodes, at most 9 (interior station, S12)')
     args = parser.parse_args()
+    try:
+        nodes = tuple(int(n) for n in args.nodes.split(',') if n.strip())
+    except ValueError:
+        parser.error('--nodes must be a comma list of integers')
+    if len(nodes) > 9 or any(not 1 <= n <= args.order + 1 for n in nodes):
+        parser.error(f'--nodes: at most 9 nodes in 1..{args.order + 1}')
+    global GEOMETRY, PROPERTIES, INPUTS, LOGS
+    GEOMETRY, PROPERTIES, INPUTS, LOGS = BLADES[args.blade]
     case_loads(args.case, args.scale)
     if args.order < 10:
         parser.error('order must be >=10')
-    name = f'{args.case}-p{args.order}-s{args.scale:g}'
+    name = run_name(args.case, args.order, args.scale, nodes)
     if args.action == 'build':
-        print(build(args.case, args.order, args.scale))
+        print(build(args.case, args.order, args.scale, nodes))
         return
     output = LOGS / name
     if args.action == 'run':
@@ -158,6 +211,22 @@ def main():
                   'tip_bd_m': tip, 'linear_shell_uy_m': tip['TipTDxr'] / args.scale,
                   'linear_shell_ux_m': -tip['TipTDyr'] / args.scale,
                   'binary': str(BINARY), 'geometry': str(GEOMETRY), 'properties': str(PROPERTIES)}
+        if nodes:
+            values = parse_output((output / 'driver.out').read_text(), node_channels(nodes))
+            points = reference_points(output / 'driver.BD_BldMotion_Reference.vtp')
+            if len(points) != args.order + 1:
+                raise ValueError(f'expected {args.order + 1} FE nodes in the reference mesh, got {len(points)}')
+            record['nodes'] = []
+            for k, node in enumerate(nodes, start=1):
+                td = [values[f'N{k}TD{a}r'] for a in 'xyz']
+                record['nodes'].append({'node': node, 'bd_xyz_init': points[node - 1], 'z': points[node - 1][2],
+                                        'td_bd_m': td, 'linear_shell_uy_m': td[0] / args.scale,
+                                        'linear_shell_ux_m': -td[1] / args.scale})
+            # Gauss quadrature: output nodes are FE nodes, so the last one is the tip (predeclared check)
+            last = record['nodes'][-1] if nodes[-1] == args.order + 1 else None
+            if last is not None and any(abs(a - tip[c]) > 1e-9 * max(1.0, abs(tip[c]))
+                                        for a, c in zip(last['td_bd_m'], CHANNELS, strict=True)):
+                raise ValueError('output node order_elem+1 does not reproduce TipTD*: nodes are not FE nodes')
         (output / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
         print(json.dumps(record))
 
