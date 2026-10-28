@@ -131,6 +131,12 @@ _aeroenv_setup() {
     export LD_LIBRARY_PATH="$lib_path"
     export AEROENV_GCC_LIB="$gcc_lib"
 
+    # The AeroDyn parity tests skip (and check.sh records the skip as green) when OpenFAST is not found.
+    # Point them at the cluster build unless the caller already chose one.
+    if [ -z "${OPENFAST_BIN:-}" ] && [ -x /scratch/leahk/eduardo.donestevez/openfast-5.0.0-dp/bin/openfast ]; then
+        export OPENFAST_BIN=/scratch/leahk/eduardo.donestevez/openfast-5.0.0-dp/bin/openfast
+    fi
+
     if [ "${AEROENV_VERBOSE:-0}" = "1" ]; then
         echo "aeroenv: gcc14=$gcc_lib venv=$venv" >&2
     fi

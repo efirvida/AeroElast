@@ -2431,7 +2431,7 @@ verdicts:
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2440,10 +2440,11 @@ verdicts:
     note: >-
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 8 m/s, 7.56 rpm, pitch 0: thrust +0.449 %, torque -0.672 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2452,10 +2453,11 @@ verdicts:
     note: >-
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 9 m/s, 7.56 rpm, pitch 0: thrust +0.399 %, torque -0.067 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.2
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2464,10 +2466,11 @@ verdicts:
     note: >-
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 12 m/s, 7.56 rpm, pitch 0: thrust +0.363 %, torque +0.828 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2476,10 +2479,11 @@ verdicts:
     note: >-
       B4 K1-K5. 9 m/s, yaw 10 deg, azimuth-averaged: thrust +0.347 %, torque -0.367 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2488,57 +2492,67 @@ verdicts:
     note: >-
       B4 K1-K5. 9 m/s, shear exponent 0.2, azimuth-averaged: thrust +0.159 %, torque -0.258 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.0
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 32bd208
     arbiters:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K4/K5. V = 8 m/s, interior stations. The 2 deg atol is judged through e_alpha = max|d alpha| / max|alpha_AeroDyn| (K4): dt 0.661/8.57 = 7.72 %, dt/2 0.239/8.99 = 2.65 %; mean |d Cn| 0.87 -> 0.73 %. K5 fails (e_alpha moves 5-7 pp, Cn 0.14-0.42 pp, threshold 0.1 pp), so the row is undecided whatever e (F7: the AeroDyn spanwise reference is not time-converged at the test's dt = 1 s). Needs a third dt to show convergence; the store cannot read this row's print (UNMAPPED).
+      L4 close (2026-10-28, 32bd208): the AeroDyn side was one azimuth. The reader now returns the last-revolution mean of every channel (thrust and torque already were); alpha varies 2.3-6.6 deg over a revolution with the 6 deg shaft tilt, so the old K5 failure was azimuth sampling (last row at 156/179/190 deg for dt 1/0.5/0.25), not an unconverged reference. 8 m/s: e_alpha = max|d alpha| / max|alpha_AeroDyn| 4.30 % (dt 1 s) -> 4.15 % (dt 0.25 s), max|d alpha| 0.380 -> 0.367 deg (bound 2 deg), mean|d Cn| 1.58 -> 1.48 % (bound 2.5 %); dt-halving moves e_alpha <= 0.08 pp and Cn <= 0.08 pp (K5 passes). Trusted (K3: under the 5 % ceiling and converged). Evidence: logs/check/l3/close/l4_azimuth_check.log, l4_e_alpha.log. The store still cannot read this row's print (UNMAPPED); value entered by hand.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.1
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 32bd208
     arbiters:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K4/K5. V = 9 m/s, interior stations. The 2 deg atol is judged through e_alpha = max|d alpha| / max|alpha_AeroDyn| (K4): dt 0.764/10.98 = 6.96 %, dt/2 0.206/11.56 = 1.79 %; mean |d Cn| 1.06 -> 0.64 %. K5 fails (e_alpha moves 5-7 pp, Cn 0.14-0.42 pp, threshold 0.1 pp), so the row is undecided whatever e (F7: the AeroDyn spanwise reference is not time-converged at the test's dt = 1 s). Needs a third dt to show convergence; the store cannot read this row's print (UNMAPPED).
+      L4 close (2026-10-28, 32bd208): the AeroDyn side was one azimuth. The reader now returns the last-revolution mean of every channel (thrust and torque already were); alpha varies 2.3-6.6 deg over a revolution with the 6 deg shaft tilt, so the old K5 failure was azimuth sampling (last row at 156/179/190 deg for dt 1/0.5/0.25), not an unconverged reference. 9 m/s: e_alpha = max|d alpha| / max|alpha_AeroDyn| 3.34 % (dt 1 s) -> 3.19 % (dt 0.25 s), max|d alpha| 0.380 -> 0.363 deg (bound 2 deg), mean|d Cn| 1.54 -> 1.48 % (bound 2.5 %); dt-halving moves e_alpha <= 0.08 pp and Cn <= 0.08 pp (K5 passes). Trusted (K3: under the 5 % ceiling and converged). Evidence: logs/check/l3/close/l4_azimuth_check.log, l4_e_alpha.log. The store still cannot read this row's print (UNMAPPED); value entered by hand.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.2
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 32bd208
     arbiters:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K4/K5. V = 12 m/s, interior stations. The 2 deg atol is judged through e_alpha = max|d alpha| / max|alpha_AeroDyn| (K4): dt 1.814/18.45 = 9.83 %, dt/2 0.498/19.77 = 2.52 %; mean |d Cn| 1.83 -> 1.59 %. K5 fails (e_alpha moves 5-7 pp, Cn 0.14-0.42 pp, threshold 0.1 pp), so the row is undecided whatever e (F7: the AeroDyn spanwise reference is not time-converged at the test's dt = 1 s). Needs a third dt to show convergence; the store cannot read this row's print (UNMAPPED).
+      L4 close (2026-10-28, 32bd208): the AeroDyn side was one azimuth. The reader now returns the last-revolution mean of every channel (thrust and torque already were); alpha varies 2.3-6.6 deg over a revolution with the 6 deg shaft tilt, so the old K5 failure was azimuth sampling (last row at 156/179/190 deg for dt 1/0.5/0.25), not an unconverged reference. 12 m/s: e_alpha = max|d alpha| / max|alpha_AeroDyn| 4.78 % (dt 1 s) -> 4.60 % (dt 0.25 s), max|d alpha| 0.925 -> 0.891 deg (bound 2 deg), mean|d Cn| 1.71 -> 1.70 % (bound 2.5 %); dt-halving moves e_alpha <= 0.08 pp and Cn <= 0.08 pp (K5 passes). Trusted (K3: under the 5 % ceiling and converged), thin margin (0.4 pp): flagged. Evidence: logs/check/l3/close/l4_azimuth_check.log, l4_e_alpha.log. The store still cannot read this row's print (UNMAPPED); value entered by hand.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.0
     class: regression_pin
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
     note: >-
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 8 m/s: thrust +1.182 %, torque -1.382 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.1
     class: regression_pin
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
     note: >-
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 9 m/s: thrust +1.397 %, torque +0.063 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.2
     class: regression_pin
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 32bd208
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
     note: >-
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 12 m/s: thrust +2.004 %, torque +2.153 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
   - target: openfast_parity.test_viterna_extension_matches_official.single
     class: physics
     verdict: trusted
