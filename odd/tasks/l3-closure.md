@@ -53,7 +53,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T17 | S16 | parent | answered in chat (session 19) | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | done: group 23 verdicts, LC3/LC2, stale rows restamped, g5 audited; guards re-pin waits on T19; merge integration in this session | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
 - T21 | S6 | parent | pending | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
-- T19 | S15 | parent/worker | in progress (session 20, branch l3/t19-ring-fit; prediction "T19 prediction") | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
+- T19 | S15 | parent/worker | done (session 20, branch l3/t19-ring-fit; section "T19 RESULT"; production twist unchanged by user decision L31, left to L5/C5) | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | done: declaration section "L3 DECLARATION" | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -864,6 +864,41 @@ Consequences (predeclared): P2 held -> the guards assert monotonicity with the p
 in-plane distortion between rings, not sampling: reported, guard left red with that cause. |dQ| > 0.3 % -> a finding against
 the T4 twist sensitivity (+0.34 %), and the L3 declaration's twist line is restated. No bound moves in any case.
 
+## T19 RESULT (session 20, 2026-10-28; login only; logs `logs/check/l3/t19/{guards,production,skin}/`)
+
+Shared estimator `section_contour.ring_section_rotation` + `ring_tributary_lengths`, edges `force_projection.mesh_corner_edges`
+(deduplicated: a ring edge has an element on each side except on the end rings). Same pure-torque solve for P2/P3, the C6 rated
+field `disp.npy` for P4/P5; the equal-weight path reproduces the old guard fit and the old production twist to round-off.
+- **P1 held** (closed form, graded circle): arc 1.0003 / 1.00004 theta0 (n 48 / 96); equal weights 1.065 / 1.036.
+- **P2 refuted at z 9.551, held at 11.939.** Skin+web arc fit keeps the one non-increasing step at 9.551 (-4.05e-4, equal
+  -3.32e-4; ring 65 -> 80 nodes) and smooths 11.939 (+5.71e-4 -> +2.39e-4). **H-web held** (written after P2, tested on the same
+  solve): a shear web enters at z 9.551 (18 web nodes, 36 at 9.790); wall length 14.80 -> 18.95 -> 22.98 m. The skin-only arc fit
+  has no step there (1.82e-4 -> 2.03e-4 -> 2.35e-4). The step is a change of the wall graph, not node sampling.
+- **P3:** GJ_static / GJ_ref over 20-100 m, 446 intervals: equal weights median 1.0386 (range 0.397-1.534); skin+web arc 1.0203
+  (0.575-1.099); skin arc 0.914 (0.546-0.986). Narrowing held; the "0.987" base of the prediction was the 2026-10-22 mesh, not
+  this tree. The skin reading (-8.6 % median) sits next to the S-1 GJ red (-10.7 %); the guard asserts no bound against the deck.
+- **P4 refuted on the effect, held on the sampling.** Production with skin+web arc weights on the C6 field: rated torque
+  -0.564 %, thrust -1.10 % (band <= 0.15 %, finding threshold 0.3 %), mid-span strips up to 0.10 deg, tip strips up to 1.10 deg;
+  ring deviation from the local trend at node-count changes 0.178 -> 0.036 deg (band 0.03). The equal-weight estimator is also
+  offset (~0.3 deg at z ~ 113) wherever the nodes are unevenly spread around the section, not only stepped.
+- **P5 refuted:** tip elastic twist -3.7576 (equal) -> -4.5721 deg (arc), 0.81 deg. The -1.5112 deg quoted in the P7 test
+  docstring belongs to an earlier field (stale text; the test's assertions are exact invariances and pass).
+- **Anchor-beam arbiter** (`test_blade_twist_anchor_beam`, BeamDyn K66 beam under the same aero load): tip beam -1.7765 deg,
+  shell ring -4.9746 (skin and skin+web: the 16-node tip ring has no web; ratio 2.80); 105 m -3.70 vs -1.74. No estimator of the
+  ring brings the shell to the beam; the arc weighting does not move the shell toward it.
+- **Decision (user, L31): production BEM twist unchanged** (equal nodal weights), because the definition of the twist fed back to
+  the BEM is S8's L5 decision (C5) and the arbiter does not support the change; the -0.56 % torque / -1.10 % thrust and the
+  0.81 deg tip move are the data for that decision. The guards read the skin arc fit (`_skin_wall_edges`).
+- **Guards** (login, es 0.25): `test_blade_section_torsion_stiffness` green (monotone over the whole span). `test_blade_section_frame_tear`
+  re-pinned (T18): tear signature = one interior tear, 4 free edges at z 112.2245 (root tear healed); axis bound asserted outboard of
+  the yaml circular blend (z >= 0.15 L = 17.55 m, read from `airfoil_position`): max 2.87 deg over 595 stations, blend reported (12.73
+  deg at 11.70). Two tests green. **New red, finding:** the tear bracket now runs and fails on the shoelace area at z 112.224
+  (0.42357 outside [0.42618, 0.44395]) while extent, xmin, xmax and hull area stay inside: the tip tear moves the ordered-ring area
+  (a torn ring's angular order, or real geometry; not separated). r > 111 m is already outside the trusted band (22.10).
+  `test_blade_twist_anchor_beam` 2 passed.
+- No bound moved. The known-red registry changes at the next `check.sh full --record`: torsion guard and frame invariants out,
+  the tear test stays with a new cause.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -896,3 +931,4 @@ the T4 twist sensitivity (+0.34 %), and the L3 declaration's twist line is resta
 - L28 (2026-10-28, session 19) User: closed measurements are deferred until after T7 (5 h of simulation), correct forward from here unless a more significant change appears; TE closed by default with the flat-back cut as an option for the external CFD; "te doy el OK para seguir el plan". Parent: L4 diagnosed and restamped, spanwise rows fixed (section above).
 - L29 (2026-10-28, session 19) User: "vamos a cerrar T8 aqui y luego en otra vamos a T19". Parent: T8 closed with the corrected rerun; group 23 rows .5-.7 withdrawn; T19 next session.
 - L30 (2026-10-28, session 20) User: "ahora vamos a cerrar t19". Parent: branch l3/t19-ring-fit from main c6af735; prediction "T19 prediction" written before any number; measured on login from existing instruments (no SLURM, L25).
+- L31 (2026-10-28, session 20) User chose "Producción sin cambios; arco-piel en guards (Recomendado)" over production with skin-only or skin+web arc weights, after P2 (web entry, H-web) and P4 (dQ -0.56 %, anchor beam -1.78 vs shell -4.97 deg at the tip). Parent: participant reverted, guards on skin arc, T18 re-pin, section "T19 RESULT".
