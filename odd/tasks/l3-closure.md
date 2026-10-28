@@ -900,6 +900,16 @@ field `disp.npy` for P4/P5; the equal-weight path reproduces the old guard fit a
   (16fce45; 12 tests, 7 min, `logs/check/full-only-20261028T174811.log`): torsion guard and frame invariants out, the tear test
   stays with its new cause, 17 entries outside the scope kept. Store group 20 restamped (4 residuals same, aabebf2).
 
+## Handoff 7 (2026-10-28, session 20 close)
+
+Branch `l3/t19-ring-fit` (11 commits on top of main c6af735 + the 3 unpushed session-19 commits; push/merge are the user's).
+T19 closed (section "T19 RESULT"); `check.sh --only` added (16fce45, b8e7796) and documented in AGENTS.md.
+Next session: **T21** (group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors, fixture from
+`logs/check/l3/t8/bd-parked.npz`, then re-verdict rows .5-.7; section "T8 RESULT" item 3). Re-measure only the touched tests
+with `scripts/check.sh full --only <file> --record` and the store with `regression --group 23`.
+Open, not T21: tear bracket red on the shoelace area at z 112.224 (T19 RESULT); stale -1.5112 deg in the P7 test docstring
+(current equal-weight tip -3.7576 on the C6 field); production twist definition waits for L5/C5.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -933,3 +943,4 @@ field `disp.npy` for P4/P5; the equal-weight path reproduces the old guard fit a
 - L29 (2026-10-28, session 19) User: "vamos a cerrar T8 aqui y luego en otra vamos a T19". Parent: T8 closed with the corrected rerun; group 23 rows .5-.7 withdrawn; T19 next session.
 - L30 (2026-10-28, session 20) User: "ahora vamos a cerrar t19". Parent: branch l3/t19-ring-fit from main c6af735; prediction "T19 prediction" written before any number; measured on login from existing instruments (no SLURM, L25).
 - L31 (2026-10-28, session 20) User chose "Producción sin cambios; arco-piel en guards (Recomendado)" over production with skin-only or skin+web arc weights, after P2 (web entry, H-web) and P4 (dQ -0.56 %, anchor beam -1.78 vs shell -4.97 deg at the tip). Parent: participant reverted, guards on skin arc, T18 re-pin, section "T19 RESULT".
+- L32 (2026-10-28, session 20) User asked for `check.sh` scoped re-recording ("no quiero tener que esperar 5h para ver si 4 tests pasan"); parent: `--only` (16fce45, fix b8e7796), registry re-derived for the T19 files. User: "ok entonces cerramos aqui. actualiza el @AGENTS.md y voy para otra sesion con el T21". Parent: AGENTS.md updated, Handoff 7.
