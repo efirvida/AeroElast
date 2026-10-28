@@ -2712,7 +2712,7 @@ verdicts:
       RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 3F signed -2.54 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.5
     class: physics
-    verdict: trusted
+    verdict: rejected
     audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
@@ -2726,9 +2726,10 @@ verdicts:
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
       RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 1T signed +1.59 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59). The 1T frequency is NOT evidence about GJ: it is paired by frequency inside a three-mode cluster at 4.1-4.4 Hz (group 5 MAC); mode-shape MAC against p20 is open (T8).
+      CORRECTED 2026-10-28 (T8, logs/check/l3/t8/RESULT.md): the verdict above was written from a frequency pairing and is withdrawn. 1T: paired by SHAPE (twist MAC 0.990, combined 0.848) the shell 1T is 3.8044 Hz vs BeamDyn 4.0937 Hz, -7.07 % parked (-6.54 % rated vs the MBC3 collective). The +1.59 % of the frequency pairing compared BeamDyn 1T with the shell's 3E mode (4.1588 Hz). -7.07 % is 2.07 pp over the ceiling: rejected (K3a); f ~ sqrt(GJ/Ip) with Ip within a few %, so -7 % is about -14 % in effective GJ, consistent with S-1 GJ -10.7 % and S-7. The test pairs by frequency (the defect T12 removed from group 5); fix: pair by MAC against the T8 BeamDyn eigenvectors.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.6
     class: physics
-    verdict: trusted
+    verdict: undecided
     audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
@@ -2742,9 +2743,10 @@ verdicts:
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
       RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 3E signed -1.32 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
+      CORRECTED 2026-10-28 (T8, logs/check/l3/t8/RESULT.md): the verdict above was written from a frequency pairing and is withdrawn. 3E: paired by shape (bending MAC 0.973, combined 0.963) the shell 3E is 4.1588 Hz vs 4.3798 Hz, -5.05 % parked (0.05 pp over the ceiling, inside the 1 pp band, no es 0.125 run): undecided. The frequency pairing of the test compared BeamDyn 3E with the shell mode at 4.322 Hz (-1.32 %), which by shape is the shell 4F-like mode. The test pairs by frequency (the defect T12 removed from group 5); fix: pair by MAC against the T8 BeamDyn eigenvectors.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.7
     class: physics
-    verdict: trusted
+    verdict: undecided
     audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
@@ -2758,6 +2760,7 @@ verdicts:
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
       RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 4F signed -3.06 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
+      CORRECTED 2026-10-28 (T8, logs/check/l3/t8/RESULT.md): the verdict above was written from a frequency pairing and is withdrawn. 4F: the shell splits BeamDyn's single 4F mode (4.8448 Hz) over modes at 4.32, 4.52 and 4.63 Hz; best shape match is shell 5F 4.6340 Hz (-4.35 %, combined MAC 0.870, bending 0.924), the 8x8 pairing gives -10.79 % at MAC 0.638. Not identifiable at the 0.95 MAC level the T8 prediction set: undecided. The test's -3.06 % compared frequencies of modes that are not the same shape. The test pairs by frequency (the defect T12 removed from group 5); fix: pair by MAC against the T8 BeamDyn eigenvectors.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.0
     class: physics
     verdict: trusted
