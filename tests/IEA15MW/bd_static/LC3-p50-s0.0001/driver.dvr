@@ -1,0 +1,46 @@
+BeamDyn driver v5
+S-2 small-load static reference
+--- simulation
+False DynamicSolve
+0 t_initial
+10 t_final
+1 dt
+--- gravity
+0 gravity_x
+0 gravity_y
+0 gravity_z
+--- frame
+0 x
+0 y
+0 z
+! DCM rows
+! global to root
+1 0 0
+0 1 0
+0 0 1
+True GlbRotBladeT0
+--- velocity
+0 omega_x
+0 omega_y
+0 omega_z
+--- loads
+0 DistrFx
+0 DistrFy
+0 DistrFz
+0 DistrMx
+0 DistrMy
+0 DistrMz
+0 TipFx
+-100 TipFy
+0 TipFz
+0 TipMx
+0 TipMy
+0 TipMz
+0 NumPointLoads
+! point load table
+! units
+--- beam
+"/scratch/leahk/eduardo.donestevez/fem-shell/tests/IEA15MW/bd_static/LC3-p50-s0.0001/beam.dat" InputFile
+--- outputs
+0 WrVTK
+1 VTK_fps

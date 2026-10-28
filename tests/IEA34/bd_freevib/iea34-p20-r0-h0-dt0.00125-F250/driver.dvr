@@ -1,0 +1,46 @@
+BeamDyn driver v5
+K10 rotating free vibration
+--- simulation
+True DynamicSolve
+0 t_initial
+200 t_final
+0.00125 dt
+--- gravity
+0 gravity_x
+0 gravity_y
+0 gravity_z
+--- frame
+0 x
+0 y
+0 z
+! DCM rows
+! global to root
+1 0 0
+0 1 0
+0 0 1
+True GlbRotBladeT0
+--- velocity
+0 omega_x
+0 omega_y
+0 omega_z
+--- loads
+0 DistrFx
+0 DistrFy
+0 DistrFz
+0 DistrMx
+0 DistrMy
+0 DistrMz
+250 TipFx
+250 TipFy
+0 TipFz
+0 TipMx
+0 TipMy
+0 TipMz
+0 NumPointLoads
+! point load table
+! units
+--- beam
+"/scratch/leahk/eduardo.donestevez/fem-shell/tests/IEA34/bd_freevib/iea34-p20-r0-h0-dt0.00125-F250/beam.dat" InputFile
+--- outputs
+0 WrVTK
+1 VTK_fps

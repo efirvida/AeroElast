@@ -105,8 +105,8 @@ Cost is roughly the sum of the per-turn context, so it grows with the **square**
 session length. Measured here: 13 sessions, 3 000 turns, 1.0 B cache-read tokens, of which
 tool payload was 0.15 %. The marathons (944 and 570 turns) were 64 % of it.
 
-- Long work goes in bounded sessions. Before the context passes ~200 k, write the state
-  into the feature document and start a fresh session.
+- Keep the feature document current so any session can resume from it. There is no close
+  rule on context size: the status bar notifies once at 400 k, and closing is the user's call.
 - The handoff is `odd/tasks/<feature>.md` (trigger, scope, findings with `path:line`,
   tasks as checkboxes, evidence). Resume from it plus one narrow `mem_search` — not from a
   transcript.
@@ -118,9 +118,8 @@ tool payload was 0.15 %. The marathons (944 and 570 turns) were 64 % of it.
 ### The session contract
 
 `.pi/extensions/session-guard.ts` puts the budget in the status bar every session
-(`ctx 132k · 41t · ok` → `cerrá pronto` → `CERRÁ + /handoff` → `CARO: CERRÁ YA`, at 150 k /
-250 k / 500 k). It costs no tokens: it is UI, not context. Use it as the cue, and shape the
-session like this:
+(`ctx 132k · 41t · ok` → `ctx 412k · 90t · >400k`, one notification at 400 k). It costs no
+tokens: it is UI, not context. Shape the session like this:
 
 **Open** with one objective, the evidence level, and the boundaries:
 
@@ -129,7 +128,7 @@ session like this:
 **During**: bounded tool output, no re-reading, and stop to propose a split if a second
 workstream appears.
 
-**Close** at a work-unit boundary, before the context passes ~200 k:
+**Close** at a work-unit boundary, when the user decides to:
 
 ```text
 /handoff <feature>

@@ -1,12 +1,8 @@
 # Known-red registry for scripts/check.sh (mode: full).
 # Re-derived automatically by: scripts/check.sh full --record
-# Recorded: 2026-10-25T16:00:46-03:00 at revision a9ca498
+# Recorded: 2026-10-28T10:42:38-03:00 at revision bd3e73f+dirty (git snapshot taken at submission)
 # Invalidated by: any change under crates/, a maturin rebuild, or a new failure
 # that appears here outside this list. Never hand-edit to make a run green.
-tests/software/mesh/test_blade_mesh.py::test_blade_mesh_generation[IEA-15-240-RWT.yaml]
-tests/software/mesh/test_blade_mesh.py::test_blade_mesh_generation[IEA-15-240-RWT_rigid.yaml]
-tests/test_blade_ccx_parity.py::test_blade_parity_ccx[tip_axial_tension]
-tests/test_blade_ccx_parity.py::test_blade_parity_ccx[tip_axial_compression]
 tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn
 tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_gj_distribution_matches_beamdyn
 tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
@@ -17,6 +13,9 @@ tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominan
 tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-utd]
 tests/validation/blade/test_blade_rated_twist.py::test_section_moment_as_a_couple_sets_the_physical_sign
 tests/validation/blade/test_blade_rated_twist.py::test_rated_twist_under_production_loads
+tests/validation/blade/test_blade_section_frame_tear.py::test_section_frame_invariants_per_station
+tests/validation/blade/test_blade_section_frame_tear.py::test_the_grid_and_the_tear_do_not_move_the_section_geometry
+tests/validation/blade/test_blade_section_torsion_stiffness.py::test_static_pure_torsion_sets_gj_per_station
 tests/validation/blade/test_blade_twist_mechanism.py::test_blade_twist_is_load_path_dominated
 tests/validation/blade/test_blade_twist_mechanism.py::test_mesh_free_edges_document_the_open_finding
 tests/validation/blade/test_iea15mw_s7_torsion.py::test_s7_global_torsion_ratio_within_band
