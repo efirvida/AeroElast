@@ -833,7 +833,7 @@ Predictions: P1 HELD (bending MAC >= 0.992 for 1F 1E 2F 2E 3F, rated >= 0.989), 
    (S-1 GJ -10.7 %, S-7 +7.2 %) and settles the T15 question: not the fit, not the element: the section representation. T7 (TE closure) is justified.
 3. **Group 23 rows .5 (1T), .6 (3E), .7 (4F) were mispaired by frequency** (the +1.59 % "1T" compared BeamDyn 1T with the shell's 3E): verdicts trusted -> rejected / undecided /
    undecided in contract.yaml, with a CORRECTED note. Group 23 now: 7 trusted, 1 rejected, 2 undecided. The test must pair by MAC (follow-up T21).
-4. BeamDyn has one 4F mode (4.84 Hz); the shell splits it over 4.32/4.52/4.63 Hz.
+4. BeamDyn has one 4F mode (4.84 Hz); the shell splits it over 4.32/4.63/4.70 Hz (bending MAC 0.766/0.924/0.901; 4.52 in the first note was the stale build).
 5. **Stale binary trap:** `PYTHONPATH=<repo>/src` in the main checkout selected `src/_aeroelast/*.so` of 2026-09-25 over the venv build (2026-10-26); the first rated numbers were wrong
    (1F +4.50 % instead of +1.85 %). The stale file was moved to `*.stale-20260925` and replaced by a symlink to the venv build (git-ignored). Worktrees were not affected.
 Not done: the IEA-3.4 (no p20 `.lin`; S10 incomplete for modes), store rows for MAC (tolerance not fixed by the user), rated driver-hub comparison.
