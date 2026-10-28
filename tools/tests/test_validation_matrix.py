@@ -2809,3 +2809,27 @@ def test_contract_only_an_unbounded_gap_blocks_its_level(
     level = {"id": "L1", "title": "elements", "scope": "s", "groups": ["3"], "gaps": [entry["id"]]}
     write_contract(store, [trusted()], levels=[level])
     assert contract_report(store)["levels"][0]["closed"] is closed
+
+
+def test_head_revision_on_a_node_without_git_reads_the_submission_snapshot(tmp_path, monkeypatch) -> None:
+    # Compute nodes have no git (l3-closure T21, job 11627035): `regression --write` must record the
+    # revision scripts/check_sbatch.sh snapshotted on the login node, not crash after the run.
+    module = _load_tool_module()
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    (snap / "revision").write_text("abc1234\n")
+    monkeypatch.setenv("PATH", str(tmp_path / "no-git"))
+    monkeypatch.setenv("CHECK_GIT_SNAPSHOT", str(snap))
+    assert module.head_revision() == "abc1234"
+    monkeypatch.delenv("CHECK_GIT_SNAPSHOT")
+    assert module.head_revision() == "unknown"
+
+
+def test_head_revision_with_git_ignores_the_snapshot(tmp_path, monkeypatch) -> None:
+    module = _load_tool_module()
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    (snap / "revision").write_text("abc1234\n")
+    monkeypatch.setenv("CHECK_GIT_SNAPSHOT", str(snap))
+    expected = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True).stdout.strip()
+    assert module.head_revision() == expected

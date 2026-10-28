@@ -57,6 +57,7 @@ import hashlib
 import io
 from collections import Counter
 import json
+import os
 import re
 import subprocess
 import sys
@@ -4802,14 +4803,27 @@ def compare_row(
 
 
 def head_revision() -> str:
-    completed = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return completed.stdout.strip() or "unknown"
+    """The short HEAD revision; on a node without git, the one ``scripts/check_sbatch.sh`` snapshotted.
+
+    Compute nodes have no git, so a SLURM ``regression --write`` reads ``$CHECK_GIT_SNAPSHOT/revision``
+    (written on the login node at submission) instead of crashing after the run; neither -> ``unknown``.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.stdout.strip():
+            return completed.stdout.strip()
+    except FileNotFoundError:
+        pass
+    snapshot = os.environ.get("CHECK_GIT_SNAPSHOT")
+    if snapshot and (Path(snapshot) / "revision").is_file():
+        return (Path(snapshot) / "revision").read_text(encoding="utf-8").strip() or "unknown"
+    return "unknown"
 
 
 def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, Any]) -> None:
