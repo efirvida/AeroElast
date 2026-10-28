@@ -2431,7 +2431,7 @@ verdicts:
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2439,10 +2439,11 @@ verdicts:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 8 m/s, 7.56 rpm, pitch 0: thrust +0.449 %, torque -0.672 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2450,10 +2451,11 @@ verdicts:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 9 m/s, 7.56 rpm, pitch 0: thrust +0.399 %, torque -0.067 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.2
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2461,10 +2463,11 @@ verdicts:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 12 m/s, 7.56 rpm, pitch 0: thrust +0.363 %, torque +0.828 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2472,10 +2475,11 @@ verdicts:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K1-K5. 9 m/s, yaw 10 deg, azimuth-averaged: thrust +0.347 %, torque -0.367 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2483,6 +2487,7 @@ verdicts:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K1-K5. 9 m/s, shear exponent 0.2, azimuth-averaged: thrust +0.159 %, torque -0.258 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.0
     class: physics
     verdict: undecided
@@ -2507,128 +2512,143 @@ verdicts:
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.0
     class: regression_pin
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
     note: >-
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 8 m/s: thrust +1.182 %, torque -1.382 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.1
     class: regression_pin
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
     note: >-
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 9 m/s: thrust +1.397 %, torque +0.063 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.2
     class: regression_pin
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
     note: >-
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 12 m/s: thrust +2.004 %, torque +2.153 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: openfast_parity.test_viterna_extension_matches_official.single
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     files:
       - tools/b4_l4_measure.py
     arbiters:
       - {kind: reference_model, label: "official IEA 15 MW AeroDyn polar tables (post-stall extension)"}
     note: >-
       B4 K1/K3. Fed the official attached polar at 0.9R (FFA-W3-211), the Viterna extension reproduces the official post-stall table over 48-87 deg: worst dCl 0.23 %, dCd 0.13 % (source bound 1 %). No AeroDyn run involved. F4: the aspect ratio is fitted from the reference's own Cd(90 deg), so Cd near 90 deg agrees by construction; F5: the module docstring's 0.23/0.13 % now matches, the test docstring's 0.48/0.18 % is the older figure. Verification against the turbine's official model, not validation against physics (#33 amendment).
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
   - target: rotor_v01_performance.rated_thrust
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': thrust 2.67 % (rtol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.rated_torque
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': torque 3.34 % (rtol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.rated_cp
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.4739 vs 0.4618, |dCp| 0.0121 = 2.61 % (atol 0.02); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.rated_ct
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Ct 0.7866 vs 0.7718, |dCt| 0.0148 = 1.91 % (atol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.curve_5_006
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp |d| 0.0070 = 1.69 %, Ct |d| 0.0105 = 1.34 % (atol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.curve_7_159
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0120 = 2.60 %, Ct 0.0150 = 1.93 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.curve_9_027
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0120 = 2.60 %, Ct 0.0149 = 1.92 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.curve_10_659
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0121 = 2.61 %, Ct 0.0148 = 1.91 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.curve_12_259
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0043 = 1.40 %, Ct 0.0044 = 1.13 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: rotor_v01_performance.curve_15_471
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0027 = 1.75 %, Ct 0.0013 = 0.72 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: viterna_manual.closed_form
     class: physics
     verdict: trusted
-    audited_rev: 9f72c6b
+    audited_rev: ff27f70
     arbiters:
       - {kind: analytical, label: "AeroDyn Theory Manual eqs [98]-[102], Viterna & Janetzke 1982"}
     note: >-
       B4 K6. _viterna_extrapolation against the AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982), hand-coded in the test, at 20/30/45/60/90 deg: residual 0.0 on CL and CD, CL(90) 8.7e-17, CD(90) = Cd_max exactly; the 1e-10 atol is a round-off bound, relative equivalent 0. Measured at f1a1a18 (logs/check/b4/T7/group-60.log); no residual pattern for group 60.
+      Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
   - target: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
     class: identity
     verdict: trusted
