@@ -15,24 +15,34 @@ and asserted its bounds on the unconverged 0.5 m mesh.
   directors across folds (the pre-7dfe78d convention) the same modes sit 6-7 % lower and change
   sign between 0.5 and 0.35 m, so their smaller gap was a cancellation.
 
-Signed AeroElast-vs-CCX gaps per CCX mode (SLURM 11622478/80/81, logs/check/l3-ccx-es025/):
+Mode pairing (T29, T12, 2026-10-27).  Until T12 the modes were paired by frequency (Hungarian on
+``|f_ae - f_ccx| / f_ccx``).  CCX modes 7 and 8 are within 1 % of each other and swap order
+between 0.5 and 0.35 m: at 0.5 m CCX 7 (4.179 Hz) is the second edgewise mode, at 0.35 / 0.25 m
+the edgewise mode is CCX 8 (4.183 / 4.179 Hz) and CCX 7 is a y-translation mode with the rotation
+about the span axis.  The frequency pairing kept CCX 7 with the edgewise AeroElast mode, with MAC
+0.32 / 0.15 at 0.35 / 0.25 m, so T29's "mode 7: 0.89 / 1.01 / 1.01 %" paired different shapes
+(SLURM 11625834, ``logs/check/l3/g5/diag-11625834.log``).  By shape: the edgewise mode is
++0.89 / +0.39 / +0.25 % (converges) and the y / span-rotation mode +8.64 / +4.61 % at 0.35 / 0.25 m
+with MAC 0.63 / 0.83; at 0.5 m its partner is not identifiable (best MAC 0.625).  The test now
+pairs AeroElast and CCX modes by MAC of the corner-node translations and follows one physical
+mode across meshes by a span-station signature (``tests/support/modal_pairing.py``).  The gaps are
+indexed by the finest-mesh CCX mode order; the pairing MAC is printed per mode.  A finest-mesh
+mode with pairing MAC below ``MAC_IDENTIFIABLE`` is reported as not identifiable.
 
-| element_size | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0.5 m | +0.09% | +0.20% | +0.25% | +0.51% | +0.69% | +3.97% | +0.95% | +13.98% |
-| 0.35 m | +0.01% | +0.08% | +0.10% | +0.25% | +0.36% | +3.27% | +0.73% | +8.26% |
-| 0.25 m | -0.02% | +0.03% | +0.03% | +0.12% | +0.18% | +2.97% | +0.52% | +5.23% |
+CCX version: the CalculiX resolved on this cluster (``ccx_bin_or_skip``) is **2.20**, not 2.23.
+The 2.23 numbers quoted in the constants below came from another binary; the frequency-paired
+table that used to stand here (SLURM 11622478/80/81) is superseded by the shape-paired values
+above and by the test's own printed lines.
 
-The bounds are unchanged; on the 0.25 m mesh the worst high-mode gap reads 5.23 % against the 5 %
-bound, a measured discretisation residual and not a tolerance to move.  The run is slow (three
-CCX modal solves, about 15 minutes at these meshes), so it is marked ``slow``.
+The bounds are unchanged; they are measured discretisation residuals and not tolerances to move.
+The run is slow (three CCX modal solves, about 15 minutes at these meshes), so it is marked
+``slow``.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
-from scipy.optimize import linear_sum_assignment
 
 from tests.conftest import ccx_bin_or_skip
 
@@ -42,6 +52,12 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
 from tests.support.assertions import assert_residual_below  # noqa: E402
 from tests.support.ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
+from tests.support.modal_pairing import (  # noqa: E402
+    ModalSet,
+    check_corner_nodes_first,
+    followed_gaps,
+    parse_frd_mode_translations,
+)
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
@@ -59,29 +75,21 @@ LOW_TOL = 0.01
 HIGH_TOL = 0.05
 #: Below this a gap difference is not resolvable across the comparison.
 NOISE_FLOOR = 0.002
+#: A pair of modes is taken as the same shape when its MAC is at least this: the usual lower
+#: limit of the standard modal-correlation consistency criterion (MAC >= 0.9 consistent,
+#: <= 0.05 distinct; Allemang, "The Modal Assurance Criterion - twenty years of use and abuse",
+#: Sound and Vibration 37(8), 2003).
+MAC_IDENTIFIABLE = 0.8
 
 pytestmark = pytest.mark.slow
 
 
-def _matched_gaps(ae: np.ndarray, ccx: np.ndarray, n: int) -> list[float]:
-    """Relative gap of each CCX mode to its AeroElast partner, in CCX mode order.
+def _modal_couple(element_size: float, workdir, ccx_bin: str) -> ModalSet:
+    """Build the blade at ``element_size`` and solve it with both solvers.
 
-    The pairing is the smallest-cost one-to-one assignment (Hungarian), so a mode
-    that one solver orders differently cannot masquerade as a mismatch.  Entry ``j``
-    belongs to CCX mode ``j + 1`` on every mesh, which is what lets the convergence
-    check compare one mode across meshes; the earlier version returned the gaps
-    sorted by size, so its "mode 6" was the sixth-smallest gap, a different physical
-    mode from mesh to mesh (T29).
+    Besides the frequencies it returns the translations of the corner nodes of both solvers
+    (the eigenvectors are on the free DOFs in sorted order), which the pairing needs.
     """
-    cost = np.abs(ae[:, None] - ccx[None, :]) / np.maximum(ccx[None, :], 1e-14)
-    row_ind, col_ind = linear_sum_assignment(cost)
-    by_ccx = np.empty(len(col_ind))
-    by_ccx[col_ind] = cost[row_ind, col_ind]
-    return [float(g) for g in by_ccx[:n]]
-
-
-def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarray, np.ndarray]:
-    """Build the blade at ``element_size`` and solve it with both solvers."""
     Node._id_counter = 0
     MeshElement._id_counter = 0
 
@@ -102,22 +110,26 @@ def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarra
     fixed = {6 * i + d for i in root for d in range(6)}
     free = np.array([i for i in range(n) if i not in fixed], dtype=np.int64)
 
-    freqs_ae = np.sort(
-        np.asarray(
-            modal_solve_coo(
-                np.asarray(k_rows, dtype=np.int64),
-                np.asarray(k_cols, dtype=np.int64),
-                np.asarray(k_vals, dtype=np.float64),
-                np.asarray(m_rows, dtype=np.int64),
-                np.asarray(m_cols, dtype=np.int64),
-                np.asarray(m_vals, dtype=np.float64),
-                n,
-                free,
-                N_MODES,
-            )[0],
-            dtype=float,
-        )
+    freqs, flat = modal_solve_coo(
+        np.asarray(k_rows, dtype=np.int64),
+        np.asarray(k_cols, dtype=np.int64),
+        np.asarray(k_vals, dtype=np.float64),
+        np.asarray(m_rows, dtype=np.int64),
+        np.asarray(m_cols, dtype=np.int64),
+        np.asarray(m_vals, dtype=np.float64),
+        n,
+        free,
+        N_MODES,
     )
+    freqs_ae = np.asarray(freqs, dtype=float)
+    vecs = np.asarray(flat, dtype=float).reshape(len(freqs_ae), len(free))
+    full = np.zeros((len(freqs_ae), n))
+    full[:, np.sort(free)] = vecs
+    coords = np.array([[nd.x, nd.y, nd.z] for nd in mesh.nodes])
+    n_nodes = len(coords)
+    order_ae = np.argsort(freqs_ae)
+    freqs_ae = freqs_ae[order_ae]
+    ae_t = full[order_ae].reshape(len(freqs_ae), n_nodes, 6)[:, :, :3]
 
     inp_path = workdir / f"blade_es{element_size:.2f}.inp"
     write_ccx_mesh(
@@ -133,52 +145,74 @@ def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarra
     result = run_ccx(inp_path, ccx_bin)
     if result.returncode != 0:
         fail_ccx(result, inp_path)
-    freqs_ccx = np.sort(parse_ccx_frequencies(inp_path, n_modes=N_MODES))
+    # The corner nodes keep their index in the quadratic deck: the FRD and the AeroElast
+    # translations then share one node numbering.
+    check_corner_nodes_first(inp_path.with_suffix(".msh"), coords)
+    freqs_ccx = np.asarray(parse_ccx_frequencies(inp_path, n_modes=N_MODES), dtype=float)
+    shapes_ccx = parse_frd_mode_translations(inp_path.with_suffix(".frd"), n_nodes, N_MODES)
+    order_ccx = np.argsort(freqs_ccx)
+    freqs_ccx, shapes_ccx = freqs_ccx[order_ccx], shapes_ccx[order_ccx]
 
     print(
         f"  es={element_size:.2f} m: {mesh.node_count} nodes, {n} dofs  "
         f"ae={np.array2string(freqs_ae, precision=4)}"
     )
-    return freqs_ae, freqs_ccx
+    span = int(np.argmax(np.abs(blade_val.SPAN_DIRECTION)))
+    return ModalSet(freqs_ae, freqs_ccx, ae_t, shapes_ccx, coords[:, span])
 
 
 @pytest.fixture(scope="module")
 def convergence(
     tmp_path_factory: pytest.TempPathFactory,
-) -> dict[float, tuple[np.ndarray, np.ndarray]]:
+) -> dict[float, ModalSet]:
     """Solve the blade with AeroElast and CCX at each mesh in ``MESHES``."""
     ccx_bin = ccx_bin_or_skip()
     workdir = tmp_path_factory.mktemp("blade_mesh_convergence")
     return {es: _modal_couple(es, workdir, ccx_bin) for es in MESHES}
 
 
-def test_blade_modal_gap_converges_with_mesh(
-    convergence: dict[float, tuple[np.ndarray, np.ndarray]],
-) -> None:
+def test_blade_modal_gap_converges_with_mesh(convergence: dict[float, ModalSet]) -> None:
     """The AeroElast-vs-CCX modal gap is discretisation for the low modes.
 
-    Modes 1-4 fall under refinement, so their finest-mesh gap is bounded by
-    ``LOW_TOL``.  Modes 5-8 are bounded by ``HIGH_TOL``; they also fall with refinement
-    (module docstring), but the bound was set when they were read as an element-order plateau.  The coarse-to-medium
-    improvement is asserted only where the coarse gap is above ``NOISE_FLOOR``,
-    because below it the difference is inside the comparison's resolution.
+    Modes are paired by shape (MAC) and followed across meshes by signature, so entry ``j`` of a
+    mesh is the finest-mesh CCX mode ``j + 1`` (``tests/support/modal_pairing.py``).  Modes 1-4
+    fall under refinement, so their finest-mesh gap is bounded by ``LOW_TOL``.  Modes 5-8 are
+    bounded by ``HIGH_TOL``; they also fall with refinement (module docstring), but the bound was
+    set when they were read as an element-order plateau.  The coarse-to-medium improvement is
+    asserted only where the coarse gap is above ``NOISE_FLOOR``, because below it the difference
+    is inside the comparison's resolution.  A finest-mesh mode whose pairing MAC is below
+    ``MAC_IDENTIFIABLE`` has no partner to compare with: it is printed and listed in the failure
+    message, and its gap is not taken as a residual.
     """
-    gaps = {es: _matched_gaps(*convergence[es], N_MODES) for es in MESHES}
+    fine_key = MESHES[-1]
+    followed = followed_gaps(convergence, fine_key)
+    gaps = {es: [float(g) for g in followed[es][0]] for es in MESHES}
+    macs = {es: [float(m) for m in followed[es][1]] for es in MESHES}
     for es in MESHES:
-        print(f"  es={es:.2f} m gaps by CCX mode: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
+        print(f"  es={es:.2f} m gaps by finest CCX mode: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
+        print(f"  es={es:.2f} m pairing MAC by finest CCX mode: {[f'{m:.3f}' for m in macs[es]]}")
 
     coarse, medium, fine = MESHES
+    not_identifiable = [mode for mode in range(N_MODES) if macs[fine][mode] < MAC_IDENTIFIABLE]
+    identifiable = [mode for mode in range(N_MODES) if mode not in not_identifiable]
+    for mode in not_identifiable:
+        print(
+            f"  finest CCX mode {mode + 1}: not identifiable (pairing MAC "
+            f"{macs[fine][mode]:.3f} < {MAC_IDENTIFIABLE}), gap {gaps[fine][mode] * 100:.2f}% not used"
+        )
     # Mesh-convergence claim: the first refinement improves every mode whose
-    # coarse gap is above the noise floor.
-    for mode in range(N_MODES):
-        if gaps[coarse][mode] > NOISE_FLOOR:
-            assert gaps[medium][mode] < gaps[coarse][mode], (
-                f"CCX mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
-                f"below the {coarse} m gap {gaps[coarse][mode] * 100:.2f}%"
-            )
+    # coarse gap is above the noise floor.  The violations are asserted last so
+    # that both residual lines below always print: the store reads them from the
+    # log, and a failing monotonicity check used to hide them (T12).
+    not_improving = [
+        f"finest CCX mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
+        f"below the {coarse} m gap {gaps[coarse][mode] * 100:.2f}%"
+        for mode in identifiable
+        if gaps[coarse][mode] > NOISE_FLOOR and not gaps[medium][mode] < gaps[coarse][mode]
+    ]
 
-    low_worst = max(gaps[fine][:LOW_MODES])
-    high_worst = max(gaps[fine][LOW_MODES:])
+    low_worst = max(gaps[fine][mode] for mode in identifiable if mode < LOW_MODES)
+    high_worst = max(gaps[fine][mode] for mode in identifiable if mode >= LOW_MODES)
     assert_residual_below(
         low_worst,
         tol=LOW_TOL,
@@ -193,3 +227,9 @@ def test_blade_modal_gap_converges_with_mesh(
         reference_name="the CalculiX frequencies for the same blade and mesh",
         what="worst high-mode gap on the finest mesh (linear MITC4 vs quadratic S8R discretisation)",
     )
+    problems = not_improving + [
+        f"finest CCX mode {mode + 1}: not identifiable, pairing MAC {macs[fine][mode]:.3f} "
+        f"< {MAC_IDENTIFIABLE} on the {fine} m mesh"
+        for mode in not_identifiable
+    ]
+    assert not problems, "; ".join(problems)
