@@ -537,6 +537,11 @@ def parse_aerodyn_out(path: str | Path) -> List[AeroDynResult]:
     col = {name: j for j, name in enumerate(header)}
     n_nodes = sum(1 for name in header if name.startswith("AB1N") and name.endswith("Alpha"))
 
+    def _revolution_rows(rows: np.ndarray) -> np.ndarray:
+        az = rows[:, col["Azimuth"]]
+        wraps = np.where(np.diff(az) < 0)[0]
+        return rows[wraps[-2] + 1 :] if len(wraps) >= 2 else rows
+
     def _revolution_mean(rows: np.ndarray, names: Sequence[str]) -> np.ndarray:
         """Mean over the last full rotor revolution (azimuth wrap to wrap).
 
@@ -544,10 +549,7 @@ def parse_aerodyn_out(path: str | Path) -> List[AeroDynResult]:
         case must be compared against an azimuth-averaged AeroDyn value, not
         against one instantaneous row.
         """
-        az = rows[:, col["Azimuth"]]
-        wraps = np.where(np.diff(az) < 0)[0]
-        segment = rows[wraps[-2] + 1 :] if len(wraps) >= 2 else rows
-        return segment[:, [col[n] for n in names]].mean(axis=0)
+        return _revolution_rows(rows)[:, [col[n] for n in names]].mean(axis=0)
 
     results: List[AeroDynResult] = []
     for case_id in np.unique(data[:, col["Case"]]):
@@ -556,14 +558,19 @@ def parse_aerodyn_out(path: str | Path) -> List[AeroDynResult]:
         thrust, torque, cp, ct = _revolution_mean(
             rows, ["RtFldFxh", "RtFldMxh", "RtFldCp", "RtFldCt"]
         )
-        alpha = np.array([last[col[f"AB1N{i:03d}Alpha"]] for i in range(1, n_nodes + 1)])
+        # Per-node channels are the same last-revolution mean as thrust and torque: with the shaft tilt
+        # alpha varies 2-7 deg over a revolution, and one row is an arbitrary azimuth (it moved with dt).
+        seg = _revolution_rows(rows)
+
+        def arr(suffix: str) -> np.ndarray:
+            names = [f"AB1N{i:03d}{suffix}" for i in range(1, n_nodes + 1)]
+            return seg[:, [col[n] for n in names]].mean(axis=0)
+
+        alpha = arr("Alpha")
 
         # Radial station: HubRad + BlSpn.  The driver does not print BlSpn, so
         # the caller supplies the station radii from the blade file; here we
         # return the raw per-node arrays and leave r to the caller.
-        def arr(suffix: str) -> np.ndarray:
-            return np.array([last[col[f"AB1N{i:03d}{suffix}"]] for i in range(1, n_nodes + 1)])
-
         results.append(
             AeroDynResult(
                 time=float(last[col["Time"]]),

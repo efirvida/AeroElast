@@ -1,0 +1,9 @@
+V= 8.0 dt=1.000 max|da|=0.380 max|alpha_AD|=8.85 e_alpha= 4.30% mean|dCn|=1.58%
+V= 9.0 dt=1.000 max|da|=0.380 max|alpha_AD|=11.36 e_alpha= 3.34% mean|dCn|=1.54%
+V=12.0 dt=1.000 max|da|=0.925 max|alpha_AD|=19.34 e_alpha= 4.78% mean|dCn|=1.71%
+V= 8.0 dt=0.500 max|da|=0.375 max|alpha_AD|=8.85 e_alpha= 4.23% mean|dCn|=1.50%
+V= 9.0 dt=0.500 max|da|=0.374 max|alpha_AD|=11.37 e_alpha= 3.29% mean|dCn|=1.48%
+V=12.0 dt=0.500 max|da|=0.917 max|alpha_AD|=19.35 e_alpha= 4.74% mean|dCn|=1.70%
+V= 8.0 dt=0.250 max|da|=0.367 max|alpha_AD|=8.86 e_alpha= 4.15% mean|dCn|=1.48%
+V= 9.0 dt=0.250 max|da|=0.363 max|alpha_AD|=11.38 e_alpha= 3.19% mean|dCn|=1.48%
+V=12.0 dt=0.250 max|da|=0.891 max|alpha_AD|=19.38 e_alpha= 4.60% mean|dCn|=1.70%
