@@ -100,7 +100,7 @@ RING_GAP_FRACTION = 1e-4
 RING_EDGE_SLOPE = 0.3
 
 
-def mesh_corner_edges(mesh: MeshModel) -> np.ndarray:
+def mesh_corner_edges(mesh: MeshModel, elements=None) -> np.ndarray:
     """``(E, 2)`` undirected corner edges of the shell elements, each once, as ``(min, max)`` rows.
 
     Positional indices into ``mesh.nodes``.  Only the corner cycle of the triangle / quad
@@ -108,10 +108,11 @@ def mesh_corner_edges(mesh: MeshModel) -> np.ndarray:
     node cannot make a spurious pair; other element types contribute nothing.  An edge shared
     by two elements (a ring's chordwise edge has one element on each side, except on the end
     rings) is returned once, so a tributary length never counts it twice.  Empty ``(0, 2)``
-    for an element-less mesh.
+    for an element-less mesh.  ``elements`` restricts the walk to a subset of ``mesh.elements``
+    (e.g. one element set's members); ``None`` walks them all.
     """
     pairs: list[tuple[int, int]] = []
-    for element in mesh.elements:
+    for element in mesh.elements if elements is None else elements:
         if element.element_type in (ElementType.triangle, ElementType.triangle6):
             corner_count = 3
         elif element.element_type in (ElementType.quad, ElementType.quad8, ElementType.quad9):

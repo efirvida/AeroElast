@@ -14,6 +14,12 @@ Three independent routes to the blade's torsional stiffness:
   circle-tangential and not a shear flow), remove the six rigid modes, solve once, and read the
   local twist rate ``dphi/dz`` between consecutive physical stations from the ring section
   rotation - the antisymmetric part of the ring's affine fit (section 22.8), never ``mean(theta_z)``.
+The fit is ``ring_section_rotation`` weighted by each node's tributary length of **skin** wall
+(``ring_tributary_lengths`` over ``_skin_wall_edges``; l3-closure T19), so it does not follow where the
+mesher puts nodes (equal nodal weights stepped where the ring node count changes, z 11.939).  The webs
+are left out: a web entering the ring at z 9.551 adds wall to the graph and steps a skin+web fit there
+(T19 H-web).  The skin is the closed wall that carries the Bredt flow.  The production BEM twist keeps
+equal nodal weights until L5 decides its definition (S8, user choice 2026-10-28).
 
 The applied system is checked with the independent torque ruler ``sum(x Fy - y Fx)`` (section
 22.9's pattern) and with ``sum F = 0``; the enclosed area ``A`` is a hand-written shoelace of the
@@ -36,6 +42,11 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 
+from aeroelast.solvers.bem.force_projection import mesh_corner_edges  # noqa: E402
+from aeroelast.solvers.bem.section_contour import (  # noqa: E402
+    ring_section_rotation,
+    ring_tributary_lengths,
+)
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
@@ -140,13 +151,27 @@ def _realised_torque(coords: np.ndarray, f: np.ndarray, centre=None) -> float:
     return float(np.sum((coords[:, 0] - xc) * f[1::6] - (coords[:, 1] - yc) * f[0::6]))
 
 
-def _ring_section_rotation(coords: np.ndarray, u: np.ndarray, ring) -> float:
-    """The antisymmetric part of the ring's in-plane affine fit [rad] (section 22.8)."""
-    pts = coords[ring]
-    design = np.column_stack([pts[:, 0], pts[:, 1], np.ones(len(ring))])
-    a12 = np.linalg.lstsq(design, u[6 * ring], rcond=None)[0][1]
-    a21 = np.linalg.lstsq(design, u[6 * ring + 1], rcond=None)[0][0]
-    return float(0.5 * (a21 - a12))
+def _skin_wall_edges(mesh) -> np.ndarray:
+    """Deduplicated corner edges of the skin: every element edge except the shear webs' (``*_SW``)."""
+    edges = mesh_corner_edges(mesh)
+    web = mesh_corner_edges(mesh, [element for name, members in mesh.element_sets.items()
+                                   if name.endswith("_SW") for element in members.elements])
+    if web.size == 0:
+        return edges
+    n = len(mesh.nodes)
+    return edges[~np.isin(edges[:, 0] * n + edges[:, 1], web[:, 0] * n + web[:, 1])]
+
+
+def _ring_section_rotation(coords: np.ndarray, u: np.ndarray, ring, edges: np.ndarray) -> float:
+    """The antisymmetric part of the ring's arc-weighted in-plane affine fit [rad] (section 22.8, T19).
+
+    Weights are the nodal tributary wall lengths of the ring over ``edges`` (``_skin_wall_edges``,
+    computed once per mesh).
+    """
+    ring = np.asarray(ring)
+    weights = ring_tributary_lengths(ring, edges, coords)
+    return float(ring_section_rotation(coords[ring], u.reshape(-1, 6)[ring, :3],
+                                       np.asarray(blade_validation.SPAN_DIRECTION), weights))
 
 
 @pytest.fixture(scope="module")
@@ -156,6 +181,9 @@ def static_torsion():
     Mid-surface skin at element_size 0.25 (32,656 nodes), because the result is compared with a
     section (BeamDyn deck) stiffness.  Measured 2026-10-22 (1.0 m OML skin -> 0.25 m mid skin):
     median GJ_static/GJ_ref over 20-100 m 1.048 -> 0.987, range 0.570-1.153 -> 0.569-1.263.
+    l3-closure T19 (2026-10-28, same solve, logs/check/l3/t19/guards/): equal nodal weights
+    median 1.0386, range 0.397-1.534; skin+web arc weights 1.0203, 0.575-1.099; skin arc weights
+    (this fit) 0.914, 0.546-0.986 (logs/check/l3/t19/skin/). No bound is asserted on it.
     """
     if not DECK.exists():
         pytest.skip(f"BeamDyn deck not present: {DECK}")
@@ -176,11 +204,12 @@ def static_torsion():
     f = f_tip + f_root
     modes = tube._rigid_modes(coords)
     u = tube._solve_rigid_removed(K, f, modes)
-    phi = np.array([_ring_section_rotation(coords, u, rings[zz]) for zz in stations])
+    edges = _skin_wall_edges(mesh)
+    phi = np.array([_ring_section_rotation(coords, u, rings[zz], edges) for zz in stations])
     distortion = np.array([tube._parallelogram(coords, u, rings[zz])[2] for zz in stations])
     return {"coords": coords, "u": u, "f_tip": f_tip, "f_root": f_root, "f": f, "modes": modes,
             "stations": stations, "rings": rings, "tip": tip, "root": root, "dofs": dofs,
-            "phi": phi, "distortion": distortion, "deck": _deck_gkt()}
+            "phi": phi, "distortion": distortion, "deck": _deck_gkt(), "edges": edges}
 
 
 def test_static_pure_torsion_sets_gj_per_station(static_torsion):

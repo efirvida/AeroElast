@@ -7,7 +7,8 @@ section 22.10 excluded ``r >~ 111 m`` from its trustworthy band.  The discrimina
 tolerance-free: at the tear station the ring's chordwise extents, enclosed area and declared chord
 must lie **inside the interval spanned by their two immediate neighbours** (a connectivity tear
 would move them off the local trend), while the fitted section rotation's non-affine residual
-(``distort``, section 22.10) is printed beside them as the estimator side of the discriminator.
+(``distort``, section 22.10) is printed beside them as the estimator side of the discriminator.  ``phi`` is the skin
+arc-weighted ring fit of the torsion guard (l3-closure T19), not the equal-weight one.
 
 **The frame, pinned once.**  ``x = (pitch_axis - f) * c``: ``x = 0`` is the pitch axis, the leading
 edge sits at ``+pitch_axis * c``, the trailing edge at ``-(1 - pitch_axis) * c``; ``pitch_axis`` is a
@@ -25,9 +26,17 @@ at 0.25 m: that corner is mesh-dependent.
 
 Mesh: ``element_size=0.25`` (``docs/blade_mesh_size_rule.md``; 32656 nodes, 33813 elements, 671
 stations; the skin keeps its default reference because this is a section-frame/geometry guard, not a
-beam-reference comparison).  The free-edge tear signature pinned in the last test (8 edges at
-z~11.94, 2 at z~112.22) is red at 1.0 m (10 at z=9.55, 2 at z=112.22) and at 0.25 m (34 at z=9.55,
-4 at z=112.22, measured 2026-10-22): it is not a property of the converged mesh.
+beam-reference comparison).  The free-edge tear signature pinned in the last test is the current
+mesh's: one interior tear, 4 free edges at z~112.22 (measured 2026-10-28, l3-closure T18/T19).  The
+root tear is healed (0 free edges at z 9.55 / 11.94; 34 at z=9.55 on 2026-10-22, 8 at z~11.94 and 2
+at z~112.22 when this guard was first pinned); the guard was re-pinned, no tolerance moved.
+
+**Which rings have a chord axis.**  The declared twist is the chord direction of an airfoil.  The
+yaml ``airfoil_position`` blends ``circular`` into ``SNL-FFA-W3-500`` up to the first non-circular
+label (0.15 L = 17.55 m); inside that blend the ring is near-round and its SVD axis is not the
+declared chord (12.73 deg at z 11.70, neighbours 7.6-8.3 deg, 2026-10-28).  The axis bound is
+asserted only outboard of the blend, a limit read from the input, and the blend's deviation is
+printed.
 """
 from __future__ import annotations
 
@@ -64,7 +73,7 @@ SPLIT_TOL = 0.05          # the suite rule: pitch axis within 5 % of its declare
 TIE_REL = 0.10            # blunt/sharp tie: <=10 % spread difference is a tie
 END_SLAB = 0.25           # outer quarter of the chord, per end
 AXIS_BOUND_DEG = 10.0     # the P5 per-section axis bound (section 22.3)
-TEAR_STATIONS = (11.9379, 112.2245)
+TEAR_STATIONS = (112.2245,)  # re-pinned 2026-10-28 (T18/T19): the root tear healed
 SPAN = np.array([0.0, 0.0, 1.0])
 
 
@@ -104,6 +113,14 @@ def _declared_frame(stations):
             "prebend": np.interp(stations, np.asarray(axis["grid"], dtype=float) * L_BLADE,
                                  np.asarray(axis["values"], dtype=float)),
             "grid": outer["pitch_axis"]["grid"], "values": outer["pitch_axis"]["values"]}
+
+
+def _circular_blend_end():
+    """Span [m] of the first non-``circular`` airfoil label: the circular blend ends there."""
+    position = _yaml.safe_load(YAML.read_text())["components"]["blade"]["outer_shape_bem"][
+        "airfoil_position"]
+    first = next(i for i, label in enumerate(position["labels"]) if label != "circular")
+    return float(position["grid"][first]) * L_BLADE
 
 
 def _deck_pitch_axis():
@@ -186,9 +203,10 @@ def blade():
                                      -torsion.TORQUE)
     u = tube._solve_rigid_removed(K, f, tube._rigid_modes(coords))
     del K, f
+    edges = torsion._skin_wall_edges(mesh)
     return {"mesh": mesh, "coords": coords, "stations": stations, "rings": rings, "free": free,
             "adj": adj, "declared": _declared_frame(stations), "u": u,
-            "phi": np.array([torsion._ring_section_rotation(coords, u, rings[zz]) for zz in stations]),
+            "phi": np.array([torsion._ring_section_rotation(coords, u, rings[zz], edges) for zz in stations]),
             "distort": np.array([tube._parallelogram(coords, u, rings[zz])[2] for zz in stations])}
 
 
@@ -220,14 +238,18 @@ def test_section_frame_invariants_per_station(blade):
         twist_dev.append(float(np.rad2deg(np.arccos(np.clip(c_hat @ twist, -1.0, 1.0)))))
         blunts.append(_blunt_at_plus_x(x, y))
     split, chord_dev, twist_dev = map(np.asarray, (split, chord_dev, twist_dev))
-    defined = np.asarray(ratios)[:, 0] > 1.2 * np.asarray(ratios)[:, 1]  # near-circular: no axis
+    round_ring = np.asarray(ratios)[:, 0] <= 1.2 * np.asarray(ratios)[:, 1]  # near-circular: no axis
+    in_blend = stations < _circular_blend_end()
+    defined = ~round_ring & ~in_blend
     print(f"pitch-axis split: median {np.median(split):.3%}, max {split.max():.3%} at "
           f"z={stations[np.argmax(split)]:.3f}; declared-chord extent: median "
           f"{np.median(chord_dev):.3%}, max {chord_dev.max():.1%} at "
           f"z={stations[np.argmax(chord_dev)]:.3f} ({int(np.sum(chord_dev > 0.05))} stations >5 %); "
           f"ring axis vs declared twist: median {np.median(twist_dev):.2f} deg, max "
-          f"{twist_dev[defined].max():.2f} deg over {int(defined.sum())} stations (near-circular "
-          f"root stations without a defined axis: {[round(z, 3) for z in stations[~defined]]}); "
+          f"{twist_dev[defined].max():.2f} deg over {int(defined.sum())} stations outboard of the "
+          f"circular blend (z >= {_circular_blend_end():.2f} m; inside it, reported only: max "
+          f"{twist_dev[in_blend & ~round_ring].max():.2f} deg at z="
+          f"{stations[in_blend & ~round_ring][np.argmax(twist_dev[in_blend & ~round_ring])]:.3f}); "
           f"blunt at +x on all: {all(blunts)}")
 
     assert np.all(np.asarray(xmins) < 0.0) and np.all(np.asarray(xmaxs) > 0.0), (
@@ -313,9 +335,9 @@ def test_the_grid_and_the_tear_do_not_move_the_section_geometry(blade):
                   f"ring_n={len(blade['rings'][zz])} "
                   f"buckets={len(_clusters(np.unique(np.round(coords[blade['rings'][zz], 2], 9))))} "
                   f"free={int(np.sum(np.abs(edge_z - zz) < STATION_GAP_TOLERANCE))}")
-    assert len(interior) == 2 and len(interior[0]) == 8 and len(interior[1]) == 2, (
-        "the recorded tear signature (8 free edges at z~11.94, 2 at z~112.22) is gone; update "
-        "verdict sections 14.3 / 22.10 and this guard")
+    assert len(interior) == 1 and len(interior[0]) == 4, (
+        "the recorded tear signature (4 free edges at z~112.22, root tear healed) changed; update "
+        "verdict sections 14.3 / 22.10, l3-closure T18 and this guard")
     assert np.allclose([np.mean(g) for g in interior], TEAR_STATIONS, atol=2e-3)
     assert np.all(spacing > 0.0), "physical stations are not strictly increasing"
 
@@ -330,8 +352,8 @@ def test_the_grid_and_the_tear_do_not_move_the_section_geometry(blade):
         print(f"  {row['z']:>9.4f} {g['n']:>3} {g['xmax'] - g['xmin']:>8.4f} {g['xmin']:>8.4f} "
               f"{g['xmax']:>8.4f} {g['thick']:>7.4f} {g['hull_area']:>8.5f} {g['shoelace']:>8.5f} "
               f"{row['chord']:>7.4f} {row['distort']:>8.3f}")
-    tear = int(np.argmin(np.abs(np.asarray([r["z"] for r in rows]) - TEAR_STATIONS[1])))
-    assert abs(rows[tear]["z"] - TEAR_STATIONS[1]) < STATION_GAP_TOLERANCE
+    tear = int(np.argmin(np.abs(np.asarray([r["z"] for r in rows]) - TEAR_STATIONS[0])))
+    assert abs(rows[tear]["z"] - TEAR_STATIONS[0]) < STATION_GAP_TOLERANCE
     before, after = rows[tear - 1], rows[tear + 1]
     quantities = {"chordwise extent": lambda r: r["geom"]["xmax"] - r["geom"]["xmin"],
                   "xmin": lambda r: r["geom"]["xmin"], "xmax": lambda r: r["geom"]["xmax"],
