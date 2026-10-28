@@ -180,6 +180,10 @@ def test_only_record_rewrites_its_scope_and_keeps_the_rest(sandbox):
     assert lines[: len(header)] == header
     assert any(ln.startswith("# Partially re-derived") and str(selection) in ln for ln in lines), lines
     assert "recorded 1 known-red entry(ies) in scope (2 test(s)), kept 1 outside" in res.stdout
+    # an empty scope (no skips here) is still written, and no scratch file is left behind
+    skip_lines = (registry / "known-skip-quick.txt").read_text().splitlines()
+    assert any(ln.startswith("# Partially re-derived") for ln in skip_lines), skip_lines
+    assert not list(registry.glob("*.tmp")), list(registry.glob("*.tmp"))
 
 
 def test_only_reports_healed_entries_inside_its_scope_alone(sandbox):

@@ -2,6 +2,8 @@
 # Re-derived automatically by: scripts/check.sh full --record
 # Recorded: 2026-10-28T10:42:38-03:00 at revision bd3e73f+dirty (git snapshot taken at submission)
 # A test outside this list that skips is NEW-SKIP. Never hand-edit to make a run green.
+# Partially re-derived by: scripts/check.sh full --only tests/validation/blade/test_blade_section_torsion_stiffness.py --only tests/validation/blade/test_blade_section_frame_tear.py --only tests/validation/blade/test_blade_twist_anchor_beam.py --only tests/software/test_ring_section_rotation.py --record
+#   at 2026-10-28T17:55:27-03:00, revision 28140bb: 12 test(s) re-measured
 tests/software/test_check_git_snapshot.py::test_mesh_size_from_snapshot_matches_the_git_run
 tests/software/test_check_sources_guard.py::test_a_recorded_skip_that_runs_again_is_reported_not_failed
 tests/software/test_check_sources_guard.py::test_full_without_sources_stops_before_pytest

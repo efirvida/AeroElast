@@ -240,12 +240,13 @@ record_scope() {
     local kept
     kept="$(read_registry "$file" | outside_scope)"
     {
-        [ -f "$file" ] && grep -E '^#' "$file"
+        if [ -f "$file" ]; then grep -E '^#' "$file"; fi
         echo "# Partially re-derived by: scripts/check.sh $mode $(printf -- '--only %s ' "${only[@]}")--record"
         echo "#   at $(date -Iseconds), revision $revision: $scope_count test(s) re-measured"
-        [ -n "$kept" ] && printf '%s\n' "$kept"
-        [ "$#" -gt 0 ] && printf '%s\n' "$@"
-    } >"$file.tmp" && mv "$file.tmp" "$file"
+        if [ -n "$kept" ]; then printf '%s\n' "$kept"; fi
+        if [ "$#" -gt 0 ]; then printf '%s\n' "$@"; fi
+    } >"$file.tmp" || return 1
+    mv "$file.tmp" "$file"
     echo "check[$mode]: recorded $# $kind entry(ies) in scope ($scope_count test(s)), kept $(printf '%s\n' "$kept" | grep -c . || true) outside in ${file#"$REPO_ROOT"/}"
 }
 
