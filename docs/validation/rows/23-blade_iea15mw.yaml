@@ -20,7 +20,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 0.0465
@@ -48,7 +48,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 0.0473
@@ -76,7 +76,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 0.0096
@@ -104,7 +104,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 0.0475
@@ -132,7 +132,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 0.1202
@@ -160,7 +160,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 2.1119
@@ -188,7 +188,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
       margin_pct: 2.5443
@@ -216,12 +216,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
-      margin_pct: 1.5907
-      text: '1st torsion (reference mode 6) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 1.5907% (bound: 5.0000%)'
-      digest: 83d0e93b815aeb5c
+      margin_pct: 7.0664
+      text: '1st torsion (reference mode 6) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 7.0664% (bound: 5.0000%)'
+      digest: 430805869c9941ce
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.6
@@ -244,12 +244,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 64976d8
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
-      margin_pct: 1.3173
-      text: '3rd edge (reference mode 7) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 1.3173% (bound: 5.0000%)'
-      digest: d1abe6f761f44b53
+      margin_pct: 5.046
+      text: '3rd edge (reference mode 7) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 5.0460% (bound: 5.0000%)'
+      digest: abe6bef87c862c1d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.7
@@ -271,12 +271,11 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: measured
-      run: 64976d8
+      status: not_printed
+      run: 73b2b19
       date: '2026-10-28'
       raw: null
-      margin_pct: 3.0599
-      text: '4th flap (reference mode 8) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 3.0599% (bound: 5.0000%)'
-      digest: e860b10553fcce56
+      margin_pct: null
+      text: 'not identifiable by shape (T21, S17): BeamDyn 4F pairs with shell mode 9 (4.6340 Hz) at bending MAC 0.924 < 0.95 (combined 0.870), so the test fails before the residual print; the -4.35 % gap of that pair is not judged. The earlier 3.0599 % (64976d8) compared frequencies of modes that are not the same shape and is withdrawn. SLURM 11627068.'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

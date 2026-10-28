@@ -53,7 +53,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T16 | S15 S10 | worker (with T15) | done: edge energy 1.0002 (P4), flap 0.937 (P5), torsion energy tip-dominated | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
 - T17 | S16 | parent | answered in chat (session 19) | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | done: group 23 verdicts, LC3/LC2, stale rows restamped, g5 audited; guards re-pin waits on T19; merge integration in this session | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
-- T21 | S6 S17 | parent, SLURM | in progress (session 21, branch l3/t21-mac-pairing; test dd400ed; login dry run of the fixture path reproduces the prediction exactly; SLURM 11627035 `--only --record` + `regression --group 23`, `logs/check/l3/t21/`) | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
+- T21 | S6 S17 | parent, SLURM | done (session 21, branch l3/t21-mac-pairing; test dd400ed, tooling 01d3106 + 73b2b19, store/registry in the closing commit; section "T21 RESULT") | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
 - T19 | S15 | parent/worker | done (session 20, branch l3/t19-ring-fit; section "T19 RESULT"; production twist unchanged by user decision L31, left to L5/C5) | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | done: declaration section "L3 DECLARATION" | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
@@ -913,6 +913,18 @@ Predicted rows of `test_blade_modal_frequencies_match_beamdyn_p20` (S17 rule):
 Refuted if the test fixture (`build_blade_mesh`, not the S-4 `_build_assembly`) gives other pairs or frequencies off T8 by more than 0.1 %.
 Then: `known-red-full.txt` gains .5-.7 via `check.sh full --only ... --record`; store group 23 rows .5-.7 re-measured with `regression --group 23`.
 
+## T21 RESULT (session 21, 2026-10-28; SLURM 11627035 regression, 11627065 `check_sbatch.sh full --only ... --record` at 67d82b1, 11627068 `regression --group 23 --write` at 73b2b19; `logs/check/l3/t21/`)
+
+Prediction held on every row; the login dry run of the fixture path (`fixture_dry.log`, 164 s, 4.4 GB, mesh 33,827 nodes) gave the T8 frequencies and pairs exactly.
+- .3 2E -2.11 %, .4 3F -2.54 %: same as before (pairs unchanged), restamped with the five CCX rows (test file changed, residuals `same`).
+- .5 1T: shell mode 6, twist MAC 0.990, **7.0664 %** (was 1.5907 % by frequency): rejected, red.
+- .6 3E: shell mode 7, bending MAC 0.973, **5.046 %** (was 1.3173 %): 0.05 pp over, undecided, red.
+- .7 4F: shell mode 9, bending MAC 0.924 < 0.95: **not identifiable** (S17), red; the row's measurement is `not_printed` (no residual is printed, regression `unmapped`), the old 3.0599 % withdrawn.
+- `known-red-full.txt` gains .5-.7 (partial re-derivation, 39 tests: 3 failed, 29 passed, 7 xfailed). `validation_matrix check` 0 errors; `contract --level L3`: trusted 12, undecided 4, rejected 8, stale 1 (anchor beam, by T19 6a6ad35), unarbitrated 1, absent 2.
+- Tooling defects found on the way (no git on compute nodes): `check_sbatch.sh` did not forward `--only` (01d3106); `head_revision` crashed without git, now reads the submission snapshot (73b2b19, RED->GREEN, 2 tests).
+- Pre-existing, not T21 (fail identically at 67d82b1): 6 reds in `tools/tests/test_validation_matrix.py` (real-store coherence: groups 4/5/6 rows differ from extraction, group 7 comparison moved :345 -> :340, `depends_on` misses `src/aeroelast/core/mesh.py` for dtube); `tools/tests/` is in no `check.sh` selection. Refresh with `validation_matrix coherence`, own session.
+- Slice: T21 adds about 300 authored lines on top of the unpushed T19 branch; push/merge are the user's.
+
 ## Handoff 7 (2026-10-28, session 20 close)
 
 Branch `l3/t19-ring-fit` (11 commits on top of main c6af735 + the 3 unpushed session-19 commits; push/merge are the user's).
@@ -958,3 +970,4 @@ Open, not T21: tear bracket red on the shoelace area at z 112.224 (T19 RESULT); 
 - L31 (2026-10-28, session 20) User chose "Producción sin cambios; arco-piel en guards (Recomendado)" over production with skin-only or skin+web arc weights, after P2 (web entry, H-web) and P4 (dQ -0.56 %, anchor beam -1.78 vs shell -4.97 deg at the tip). Parent: participant reverted, guards on skin arc, T18 re-pin, section "T19 RESULT".
 - L32 (2026-10-28, session 20) User asked for `check.sh` scoped re-recording ("no quiero tener que esperar 5h para ver si 4 tests pasan"); parent: `--only` (16fce45, fix b8e7796), registry re-derived for the T19 files. User: "ok entonces cerramos aqui. actualiza el @AGENTS.md y voy para otra sesion con el T21". Parent: AGENTS.md updated, Handoff 7.
 - L33 (2026-10-28, session 21) User, verbatim: "vamos a validar T21 e intentar cerrarlo". Parent: offline 10x8 MAC pairing from the T8 eigenvectors (table in "T21 prediction"); asked the MAC threshold and the below-threshold action. User chose "0.95 (el de la predicción T8) (Recomendado)" and "Falla: 'no identificable' (Recomendado)" (S17).
+- L34 (2026-10-28, session 21) Parent: T21 closed (section "T21 RESULT"); the prediction held on all rows.

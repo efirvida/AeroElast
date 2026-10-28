@@ -5,6 +5,8 @@
 # that appears here outside this list. Never hand-edit to make a run green.
 # Partially re-derived by: scripts/check.sh full --only tests/validation/blade/test_blade_section_torsion_stiffness.py --only tests/validation/blade/test_blade_section_frame_tear.py --only tests/validation/blade/test_blade_twist_anchor_beam.py --only tests/software/test_ring_section_rotation.py --record
 #   at 2026-10-28T17:55:27-03:00, revision 28140bb: 12 test(s) re-measured
+# Partially re-derived by: scripts/check.sh full --only tests/validation/blade/test_blade_iea15mw_validation.py --only tests/support/test_modal_pairing.py --only tests/software/test_mode_shapes.py --record
+#   at 2026-10-28T19:22:04-03:00, revision 67d82b1 (git snapshot taken at submission): 39 test(s) re-measured
 tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn
 tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_gj_distribution_matches_beamdyn
 tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
@@ -23,3 +25,6 @@ tests/validation/blade/test_iea15mw_v02_natural_frequencies.py::TestBladeNatural
 tests/validation/parity/test_blade_iea15mw_mesh_convergence.py::test_blade_modal_gap_converges_with_mesh
 tests/validation/parity/test_thin_walled_tube_projection.py::test_production_projector_reproduces_the_exact_twist
 tests/validation/blade/test_blade_section_frame_tear.py::test_the_grid_and_the_tear_do_not_move_the_section_geometry
+tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[5]
+tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[6]
+tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[7]
