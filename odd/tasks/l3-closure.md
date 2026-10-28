@@ -53,7 +53,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T17 | S16 | parent | answered in chat (session 19) | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | done: group 23 verdicts, LC3/LC2, stale rows restamped, g5 audited; guards re-pin waits on T19; merge integration in this session | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
 - T21 | S6 | parent | pending | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
-- T19 | S15 | parent/worker | pending (next session, user L29) | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
+- T19 | S15 | parent/worker | in progress (session 20, branch l3/t19-ring-fit; prediction "T19 prediction") | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | done: declaration section "L3 DECLARATION" | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -838,6 +838,32 @@ Predictions: P1 HELD (bending MAC >= 0.992 for 1F 1E 2F 2E 3F, rated >= 0.989), 
    (1F +4.50 % instead of +1.85 %). The stale file was moved to `*.stale-20260925` and replaced by a symlink to the venv build (git-ignored). Worktrees were not affected.
 Not done: the IEA-3.4 (no p20 `.lin`; S10 incomplete for modes), store rows for MAC (tolerance not fixed by the user), rated driver-hub comparison.
 
+## T19 prediction (written before any arc-weighted number, session 20, at c6af735)
+
+Estimator: a physical ring's section rotation stays the antisymmetric part of its in-plane affine fit, now weighted by each
+node's tributary wall length `w_a = 1/2 sum l_ab` over the ring's wall-graph edges (skin + webs, the edges `ring_section`
+already enumerates). Its continuum limit is the wall-length integral, which does not depend on where the mesher puts nodes.
+One function, shared by production (`_section_rotation`), the guards (torsion stiffness, frame tear) and the anchor-beam
+report. The S-1 / S-7 slice rigid fits are not touched (closed L3 rows, L28).
+- P1 (closed form): circle of radius R, tangential field `u_t = R theta0 (1 + a cos s)`, a = 0.5, nodes graded 1:4 around
+  the ring. Weighted: theta0 within 1e-3 relative at n >= 48, and two node counts / gradings agree within 1e-3. Unweighted:
+  off by > 5 %. A rigid rotation is exact (1e-12) for both.
+- P2 (pure-torque guard, IEA-15 es 0.25, the guard's own solve): the unweighted fit reproduces T18 (-3.3e-4 at z 9.551).
+  The weighted fit has no non-increasing step over z < 111 m; at the node-count changes z 9.551 / 11.939 its step lies
+  within +-50 % of the neighbouring smooth increments (~3e-4 rad).
+- P3 (GJ per station, 20-100 m): median GJ_static / GJ_ref moves by < 2 % (0.987), and the range 0.569-1.263 narrows
+  (single-station rates amplify the sampling noise).
+- P4 (production BEM twist, the C6 rated field `logs/check/core-torsion/tip/disp.npy`): the per-ring rotation between
+  z 112 and 117 has no reversal at node-count changes (deviation from the local trend < 0.03 deg, against 0.1-0.34 deg in
+  C6). Rated deformed torque and thrust change by <= 0.15 % against the unweighted twist (C6: smoothing the last 3 strips
+  moved Q -0.05..-0.13 %). Mid-span strips move by < 0.05 deg.
+- P5 (P7 production test): its independent reference becomes an arc-weighted fit written in the test. The nose-down
+  assertion holds, and the tip twist moves from -1.5112 deg by < 0.2 deg.
+Consequences (predeclared): P2 held -> the guards assert monotonicity with the production estimator, and the T18 re-pin
+(tear signature, axis check on identifiable rings) follows as its own commit. P2 refuted -> the step is a real difference in
+in-plane distortion between rings, not sampling: reported, guard left red with that cause. |dQ| > 0.3 % -> a finding against
+the T4 twist sensitivity (+0.34 %), and the L3 declaration's twist line is restated. No bound moves in any case.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -869,3 +895,4 @@ Not done: the IEA-3.4 (no p20 `.lin`; S10 incomplete for modes), store rows for 
 - L27 (2026-10-28, session 19) User, verbatim: "vamos por partes, Cierra L3, y vamos a limpiar el codigo mezclando y eliminando los worktrees. luego de eso volvemos a lo que hay que hacer para decidir". Parent: L3 declared (section above); branches merged into l3/integration, 41 worktrees removed with logs archived in logs/check/worktree-archive/, 4 unmerged experiment branches kept (cap-arcs, input-T30, s1-gj-metric, te-closure-T37).
 - L28 (2026-10-28, session 19) User: closed measurements are deferred until after T7 (5 h of simulation), correct forward from here unless a more significant change appears; TE closed by default with the flat-back cut as an option for the external CFD; "te doy el OK para seguir el plan". Parent: L4 diagnosed and restamped, spanwise rows fixed (section above).
 - L29 (2026-10-28, session 19) User: "vamos a cerrar T8 aqui y luego en otra vamos a T19". Parent: T8 closed with the corrected rerun; group 23 rows .5-.7 withdrawn; T19 next session.
+- L30 (2026-10-28, session 20) User: "ahora vamos a cerrar t19". Parent: branch l3/t19-ring-fit from main c6af735; prediction "T19 prediction" written before any number; measured on login from existing instruments (no SLURM, L25).
