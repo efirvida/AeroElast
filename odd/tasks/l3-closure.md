@@ -896,8 +896,9 @@ field `disp.npy` for P4/P5; the equal-weight path reproduces the old guard fit a
   (0.42357 outside [0.42618, 0.44395]) while extent, xmin, xmax and hull area stay inside: the tip tear moves the ordered-ring area
   (a torn ring's angular order, or real geometry; not separated). r > 111 m is already outside the trusted band (22.10).
   `test_blade_twist_anchor_beam` 2 passed.
-- No bound moved. The known-red registry changes at the next `check.sh full --record`: torsion guard and frame invariants out,
-  the tear test stays with a new cause.
+- No bound moved. Known-red registry re-derived for the T19 files only with the new `check.sh full --only ... --record`
+  (16fce45; 12 tests, 7 min, `logs/check/full-only-20261028T174811.log`): torsion guard and frame invariants out, the tear test
+  stays with its new cause, 17 entries outside the scope kept. Store group 20 restamped (4 residuals same, aabebf2).
 
 ## Log
 
