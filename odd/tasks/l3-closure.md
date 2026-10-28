@@ -792,6 +792,19 @@ BeamDyn p20 2E/3F/1T/3E/4F -2.1..+1.6 %, all trusted; masses +2.4 % shell vs dec
 artefact, T19). Largest single torque effect of any L3 red: twist +0.34 %, definition 0.25-0.46 % (C5), against a 5 % acceptance.
 Open code work, not L3 acceptance: T19 (node-count-independent ring fit), T6, T7, T8 (MAC vs p20), T11.
 
+## L4 DIAGNOSIS AND STATE (session 19, 2026-10-28; turbinesFoam `aerodyn-olaf` jobs are another project, not read)
+
+- The 20 stale rows came from fsi_participant.py (8290dc2, f1c9e91, f767814) and models/blade (188c997, a4b3ca2) commits; the rigid BEM did not change:
+  re-run with OpenFAST available (23 passed, 1 xfailed, 16 s), group 11 residuals moved <= 0.011 pp.
+- `OPENFAST_BIN` was unset in the login environment, so 12 AeroDyn parity tests SKIPPED (the full-suite known-skip registry lists 12); `scripts/aeroenv.sh` now
+  points at `/scratch/leahk/eduardo.donestevez/openfast-5.0.0-dp/bin/openfast`. The next full suite will report them as now-runs.
+- The 3 undecided spanwise rows were an azimuth-sampling defect of the reference reader (alpha/Cn from the last row while thrust/torque were revolution means;
+  alpha varies 2.3-6.6 deg over a revolution with the 6 deg tilt). Fixed (32bd208, RED/GREEN `tests/software/test_openfast_bem_parser.py`); e_alpha 4.2 / 3.3 /
+  4.6 % (8 / 9 / 12 m/s) converged in dt, mean|dCn| 1.5-1.7 %: trusted, 12 m/s thin. Bounds unchanged.
+- L4 now: trusted 10, regression_pin 3, unarbitrated 10 (the V-01 rows, single arbiter Gaertner / WISDEM CCBlade), over ceiling 0. Declared: the second look at the same BEM is
+  group 11 against AeroDyn (rotor performance at 8 / 9 / 12 m/s within 0.45 %, yaw/shear 0.35 %, repo polars 1.2-2.2 %), a different operating set from the V-01 rated/curve rows.
+- Deferred by the user (L28): re-measuring closed L3 rows after the TE closure (T7) changes the mesh; correction proceeds from here.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -821,3 +834,4 @@ Open code work, not L3 acceptance: T19 (node-count-independent ring fit), T6, T7
 - L25 (2026-10-28, session 19) User, verbatim: "vamos a continuar la validacion. ya terminaron todos los jobs que mandamos, vamos a analizarlos, no te ffies en los numeros de jobs poruqe los estuve moviendo de colas para que terminaran. no quiero que lances mas ningun job salvo que sea estrictamente necesario ya hemos medido demasiado y no arreglado nada, estoy seguro que podemos tener conclusiones precisas con todas las mediciones y diagnosticos que se han hecho". Parent: read every output by name and date, no job launched (section "Session 19").
 - L26 (2026-10-28, session 19) User, verbatim: "vamos con a y b, y lo demas dejalo bajo tu criterio." and "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque". Parent: S15, S16, T15-T18; prediction written before any run.
 - L27 (2026-10-28, session 19) User, verbatim: "vamos por partes, Cierra L3, y vamos a limpiar el codigo mezclando y eliminando los worktrees. luego de eso volvemos a lo que hay que hacer para decidir". Parent: L3 declared (section above); branches merged into l3/integration, 41 worktrees removed with logs archived in logs/check/worktree-archive/, 4 unmerged experiment branches kept (cap-arcs, input-T30, s1-gj-metric, te-closure-T37).
+- L28 (2026-10-28, session 19) User: closed measurements are deferred until after T7 (5 h of simulation), correct forward from here unless a more significant change appears; TE closed by default with the flat-back cut as an option for the external CFD; "te doy el OK para seguir el plan". Parent: L4 diagnosed and restamped, spanwise rows fixed (section above).
