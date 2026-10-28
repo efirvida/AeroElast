@@ -52,6 +52,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T16 | S15 S10 | worker (with T15) | pending | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
 - T17 | S16 | parent | pending | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | pending | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
+- T19 | S15 | parent/worker | pending | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -720,6 +721,20 @@ Basis: C3 (box vs all-node, FE / mesh-Bredt: 15 at 0.6-0.85 0.952 -> 1.018, 0.7-
 Consequences (predeclared): P2+P3 held -> the torsion reds are the measure, S-1 GJ / S-7 move to the box reading with the
 history in the docstrings, T7 stays parked. P3 refuted (W torsion < 0.95) -> the shell is torsionally soft for real, T7 is
 back. P4 refuted -> EI_edge is a stiffness difference, not the extractor. No bound moves in any case.
+
+## T18 guard step diagnosis (session 19, login 130 s, 4.0 GB; `logs/check/l3/t15/guard_step.py|log`, es 0.25, the guard's pure-torque realisation)
+
+Canonical copy of this document moves to branch l3/box-kinematics (`wt/l3-box`) from here on.
+Per-station twist step read three ways around the root blend (ring nodes / box nodes in brackets):
+z 9.551 (65 -> 80 / 11 -> 27): affine-all -3.3e-4, rigid-all +5.6e-4, rigid-box -4.3e-4; z 11.939 (102 -> 92 / 49 -> 41):
++5.7e-4 / -6.0e-4 / +2.7e-4; smooth rows z 12.2-13.5: +3.0e-4 / +1.2e-4 / +4.2e-4. Every estimator jumps by the order of the
+true increment exactly where the ring node count changes, with inconsistent signs: the guards' non-monotone step at z 9.551
+is a ring-topology artefact of the per-station fit (as C6 at the tip: 0.1-0.34 deg at node-count changes), not a stiffness
+defect. The monotone assertion at single-station resolution tests estimator noise there. The fix is a node-count-independent
+ring fit (arc-length weighting, C6 open item), which also feeds the production BEM twist (`_section_rotation`): T19.
+**Box-fit finding:** rigid-box degenerates outboard of z ~ 109.7 m (41 non-increasing steps 109.7-117, nonsense cumulative
+total): the box (caps + webs) becomes ill-conditioned near the tip; the >= 6-node rule does not catch it. S-1 (0.2-0.85 R)
+and S-7 (0.3-0.9 R) bands end before it; check the T15 band stations, and the box option needs a conditioning guard.
 
 ## Log
 
