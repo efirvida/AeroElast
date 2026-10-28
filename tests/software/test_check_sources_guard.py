@@ -131,3 +131,73 @@ def test_without_a_skip_registry_skips_do_not_fail(sandbox):
     assert res.returncode == 0, res.stdout + res.stderr
     assert "NEW-SKIP" not in res.stdout
     assert "check[quick]: OK" in res.stdout
+
+
+# ---- --only: re-measure a few tests without the full suite ------------------------------------
+
+BOTH_FAIL = """\
+def test_passes():
+    assert False
+
+
+def test_fails():
+    assert False
+"""
+ONE_HEALED = BOTH_FAIL.replace("def test_passes():\n    assert False", "def test_passes():\n    pass")
+KEPT = "tests/elsewhere.py::test_kept"
+
+
+def _red_entries(registry: Path) -> list[str]:
+    return _skip_entries(registry / "known-red-quick.txt")
+
+
+def _record_both_red_plus_one_outside(registry, sources, selection):
+    """A registry holding the probe's two failures and one entry the probe does not run."""
+    selection.write_text(BOTH_FAIL)
+    rec = _run("quick", "--record", CHECK_SOURCES_DIR=str(sources), CHECK_REGISTRY_DIR=str(registry),
+               CHECK_SELECTION=str(selection))
+    assert rec.returncode == 0, rec.stdout + rec.stderr
+    red = registry / "known-red-quick.txt"
+    red.write_text(red.read_text() + KEPT + "\n")
+    entries = _red_entries(registry)
+    assert len(entries) == 3, entries
+    return red
+
+
+def test_only_record_rewrites_its_scope_and_keeps_the_rest(sandbox):
+    registry, sources, selection = sandbox
+    red = _record_both_red_plus_one_outside(registry, sources, selection)
+    header = [ln for ln in red.read_text().splitlines() if ln.startswith("#")]
+    selection.write_text(ONE_HEALED)
+    res = _run("quick", "--only", str(selection), "--record", CHECK_SOURCES_DIR=str(sources),
+               CHECK_REGISTRY_DIR=str(registry))
+    assert res.returncode == 0, res.stdout + res.stderr
+    entries = _red_entries(registry)
+    assert len(entries) == 2 and KEPT in entries, entries
+    assert any(e.endswith("::test_fails") for e in entries), entries
+    assert not any(e.endswith("::test_passes") for e in entries), entries
+    lines = red.read_text().splitlines()
+    assert lines[: len(header)] == header
+    assert any(ln.startswith("# Partially re-derived") and str(selection) in ln for ln in lines), lines
+    assert "recorded 1 known-red entry(ies) in scope (2 test(s)), kept 1 outside" in res.stdout
+
+
+def test_only_reports_healed_entries_inside_its_scope_alone(sandbox):
+    registry, sources, selection = sandbox
+    red = _record_both_red_plus_one_outside(registry, sources, selection)
+    before = red.read_bytes()
+    selection.write_text(ONE_HEALED)
+    res = _run("quick", "--only", str(selection), CHECK_SOURCES_DIR=str(sources),
+               CHECK_REGISTRY_DIR=str(registry))
+    assert res.returncode == 0, res.stdout + res.stderr
+    healed = [ln for ln in res.stdout.splitlines() if ln.strip().startswith("now-passes")]
+    assert len(healed) == 1 and "::test_passes" in healed[0], res.stdout
+    assert "--only" in healed[0], healed[0]
+    assert KEPT not in res.stdout
+    assert red.read_bytes() == before
+
+
+def test_only_without_a_selector_is_an_argument_error():
+    res = _run("quick", "--only")
+    assert res.returncode == 2
+    assert "--only needs a test file or node id" in res.stderr
