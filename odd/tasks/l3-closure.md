@@ -20,6 +20,7 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S14 (user choice, verbatim): "Una corrida es 0.0625 de LC1/LC4 (Recomendado)" — same predeclared rule one mesh level finer; outside 5 % -> rejected, crossing again -> stays undecided.
 - S15 (user, verbatim, session 19): "vamos con a y b, y lo demas dejalo bajo tu criterio." — (a) twist read with the box (caps + webs) rigid fit in S-7 and S-1 GJ; (b) EI_edge extractor checked against an extractor-free energy measure; the rest (guards, group 23 verdicts, LC4) at the parent's criterion.
 - S16 (user, verbatim, session 19): "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque"
+- S17 (user choices, verbatim, session 21): "0.95 (el de la predicción T8) (Recomendado)" and "Falla: 'no identificable' (Recomendado)" — group 23 BeamDyn p20 rows pair by the combined MAC (Hungarian); a pair is identified when the MAC of the BeamDyn mode's dominant family vector (bending for F/E, twist for T) is >= 0.95; below it the row fails as not identifiable (store undecided), otherwise the 5 % frequency bound is asserted.
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -52,7 +53,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T16 | S15 S10 | worker (with T15) | done: edge energy 1.0002 (P4), flap 0.937 (P5), torsion energy tip-dominated | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
 - T17 | S16 | parent | answered in chat (session 19) | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | done: group 23 verdicts, LC3/LC2, stale rows restamped, g5 audited; guards re-pin waits on T19; merge integration in this session | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
-- T21 | S6 | parent | pending | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
+- T21 | S6 S17 | parent, SLURM | in progress (session 21; prediction in "T21 prediction") | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
 - T19 | S15 | parent/worker | done (session 20, branch l3/t19-ring-fit; section "T19 RESULT"; production twist unchanged by user decision L31, left to L5/C5) | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | done: declaration section "L3 DECLARATION" | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
@@ -900,6 +901,18 @@ field `disp.npy` for P4/P5; the equal-weight path reproduces the old guard fit a
   (16fce45; 12 tests, 7 min, `logs/check/full-only-20261028T174811.log`): torsion guard and frame invariants out, the tear test
   stays with its new cause, 17 entries outside the scope kept. Store group 20 restamped (4 residuals same, aabebf2).
 
+## T21 prediction (written before the test change and any run, session 21, at 8ce950f)
+
+From the T8 eigenvectors already on disk (`logs/check/l3/t8/compare.json`, parked, fit A, no new run): the combined-MAC Hungarian pairing is the same
+over 8, 10 (the test's `N_SEARCH`) and 12 shell modes for BeamDyn modes 4-7 and the same for 8 from 10 modes up; fit B (box) gives the same pairs.
+Predicted rows of `test_blade_modal_frequencies_match_beamdyn_p20` (S17 rule):
+- .3 2E -> shell 4, -2.11 %, bend MAC 0.993: pass. .4 3F -> shell 5, -2.54 %, bend 0.995: pass (both unchanged from the frequency pairing).
+- .5 1T -> shell 6 (3.8044 Hz), -7.07 %, twist MAC 0.990: identified, FAIL on the 5 % bound (rejected, as the T8 CORRECTED note).
+- .6 3E -> shell 7 (4.1588 Hz), -5.05 %, bend 0.973: identified, FAIL by 0.05 pp (undecided band, no es 0.125 run).
+- .7 4F -> shell 9 (4.6340 Hz), -4.35 %, bend 0.924 < 0.95: FAIL as not identifiable (undecided).
+Refuted if the test fixture (`build_blade_mesh`, not the S-4 `_build_assembly`) gives other pairs or frequencies off T8 by more than 0.1 %.
+Then: `known-red-full.txt` gains .5-.7 via `check.sh full --only ... --record`; store group 23 rows .5-.7 re-measured with `regression --group 23`.
+
 ## Handoff 7 (2026-10-28, session 20 close)
 
 Branch `l3/t19-ring-fit` (11 commits on top of main c6af735 + the 3 unpushed session-19 commits; push/merge are the user's).
@@ -944,3 +957,4 @@ Open, not T21: tear bracket red on the shoelace area at z 112.224 (T19 RESULT); 
 - L30 (2026-10-28, session 20) User: "ahora vamos a cerrar t19". Parent: branch l3/t19-ring-fit from main c6af735; prediction "T19 prediction" written before any number; measured on login from existing instruments (no SLURM, L25).
 - L31 (2026-10-28, session 20) User chose "Producción sin cambios; arco-piel en guards (Recomendado)" over production with skin-only or skin+web arc weights, after P2 (web entry, H-web) and P4 (dQ -0.56 %, anchor beam -1.78 vs shell -4.97 deg at the tip). Parent: participant reverted, guards on skin arc, T18 re-pin, section "T19 RESULT".
 - L32 (2026-10-28, session 20) User asked for `check.sh` scoped re-recording ("no quiero tener que esperar 5h para ver si 4 tests pasan"); parent: `--only` (16fce45, fix b8e7796), registry re-derived for the T19 files. User: "ok entonces cerramos aqui. actualiza el @AGENTS.md y voy para otra sesion con el T21". Parent: AGENTS.md updated, Handoff 7.
+- L33 (2026-10-28, session 21) User, verbatim: "vamos a validar T21 e intentar cerrarlo". Parent: offline 10x8 MAC pairing from the T8 eigenvectors (table in "T21 prediction"); asked the MAC threshold and the below-threshold action. User chose "0.95 (el de la predicción T8) (Recomendado)" and "Falla: 'no identificable' (Recomendado)" (S17).

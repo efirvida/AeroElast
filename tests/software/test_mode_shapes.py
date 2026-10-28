@@ -3,7 +3,10 @@
 * (i) the MAC of a complex mode is invariant to its sign and phase (``real_shape`` rotates to the dominant real phase);
 * (ii) the station projection of a synthetic rigid rotation plus translation of a ring set recovers both exactly;
 * (iii) the Hungarian pairing returns the inverse permutation for a permuted copy of the same shapes;
-* (iv) the BeamDyn ``.lin`` parser returns the frequencies of ``logs/check/of_bd/bp20_0/modes.json`` (skipped without it).
+* (iv) the BeamDyn ``.lin`` parser returns the frequencies of ``logs/check/of_bd/bp20_0/modes.json`` (skipped without it);
+* (v) the committed BeamDyn p20 parked eigenvectors (``tests/IEA15MW/of_bd_modal/bp20_0/eigvec-parked.npz``, T21) carry
+  the eight families of the group 23 arbiter, and the saved T8 shell modes pair with them as the T21 prediction
+  (skipped without ``logs/check/l3/t8/shell-parked.npz``).
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 sys.path.insert(0, str(REPO_ROOT))
 
 import l3_mode_shapes as ms  # noqa: E402
-from tests.support.modal_pairing import mac_matrix  # noqa: E402
+from tests.support.modal_pairing import mac_matrix, match_reference_by_shape  # noqa: E402
 
 
 def test_mac_invariant_to_sign_and_phase_of_complex_mode():
@@ -125,3 +128,26 @@ def test_lin_parser_reproduces_recorded_parked_frequencies():
     assert out["trans"].shape == (8, 20, 3)
     assert out["rot"].shape == (8, 20, 3)
     assert out["z"].shape == (20,)
+
+
+_BD_FIXTURE = REPO_ROOT / "tests/IEA15MW/of_bd_modal/bp20_0/eigvec-parked.npz"
+_T8_SHELL = REPO_ROOT / "logs/check/l3/t8/shell-parked.npz"
+
+
+def test_committed_beamdyn_eigenvectors_carry_the_eight_arbiter_families():
+    z, chord, shapes = ms.bd_station_modes(np.load(_BD_FIXTURE))
+    assert ms.family_labels(*shapes, chord) == ["1F", "1E", "2F", "2E", "3F", "1T", "3E", "4F"]
+    assert z.shape == (20,)
+    assert z[-1] == pytest.approx(117.0)
+
+
+@pytest.mark.skipif(not _T8_SHELL.exists(), reason="logs/check/l3/t8/shell-parked.npz (T8 shell eigenvectors) is absent")
+def test_t8_shell_modes_pair_with_beamdyn_as_the_t21_prediction():
+    # odd/tasks/l3-closure.md "T21 prediction": the first 10 shell modes (the group 23 N_SEARCH), fit over all ring nodes.
+    z, chord, bd = ms.bd_station_modes(np.load(_BD_FIXTURE))
+    sh = np.load(_T8_SHELL)
+    ux, uy, th, bad = ms.shell_station_modes(sh["coords"], sh["modes"][:10], sh["ring_id"], sh["ring_w"], None, z)
+    assert bad == 0
+    got = match_reference_by_shape(ms.vectors(ux, uy, th, chord), ms.vectors(*bd, chord), ["F", "E", "F", "E", "F", "T", "E", "F"])
+    assert [m.index for m in got] == [0, 1, 2, 3, 4, 5, 6, 8]
+    assert [round(m.mac_family, 3) for m in got[5:]] == [0.990, 0.973, 0.924]

@@ -59,6 +59,7 @@ the static tip deflection vs the article's DLC 1.4 (20.39 m vs 23.49 m, 13.21% v
 from __future__ import annotations
 
 import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -81,7 +82,12 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.core.mesh.generators import BladeMesh  # noqa: E402
 from aeroelast.models.blade.model import build_rust_properties  # noqa: E402
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.modal_pairing import match_reference_by_shape  # noqa: E402
+from tests.support.paths import DATA_DIR, REPO_ROOT  # noqa: E402
+
+sys.path.insert(0, str(REPO_ROOT / "tools"))
+import l3_mode_shapes  # noqa: E402
+from s2_ring_metric_blade import ring_profile  # noqa: E402
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 
 #: Working mesh of the blade (docs/blade_mesh_size_rule.md): 1.0 m is not converged.
@@ -157,6 +163,16 @@ BEAMDYN_P20_ROWS = [
     j for j, (_, label) in enumerate(BEAMDYN_P20_PARKED_MODES) if label not in BEAMDYN_P20_IN_S4
 ]
 BEAMDYN_MODE_TOL = 0.05  # K3, the S-4 bound against the same arbiter
+#: Eigenvectors of the same BeamDyn p20 parked run (l3-closure T8, ``tools/l3_mode_shapes.py bd`` from
+#: ``logs/check/of_bd/bp20_0/case.*.lin``, copied unchanged; sha256 649a5089...): node translations and rotations
+#: in BeamDyn axes at the 20 free GLL nodes.  The group 23 rows pair by shape against them (T21).
+BEAMDYN_P20_PARKED_EIGVEC = DATA_DIR / "IEA15MW/of_bd_modal/bp20_0/eigvec-parked.npz"
+#: Kinematic family of each ``BEAMDYN_P20_PARKED_MODES`` entry: the vector whose MAC decides identity.
+BEAMDYN_P20_FAMILIES = ["F", "E", "F", "E", "F", "T", "E", "F"]
+#: A shell mode is the BeamDyn mode it is paired with when the MAC of the family vector reaches this
+#: (user decision S17, l3-closure L33: the level the T8 prediction set).  Below it the frequencies of two
+#: different shapes would be compared, so the row fails as not identifiable.
+BEAMDYN_SHAPE_MAC_MIN = 0.95
 
 MASS_TOL = 0.05  # measured 66,683 kg = -2.0% under the article value (0.25 m mid, 2026-10-22)
 MODAL_TOL = 0.05  # measured worst over the first five matched pairs (see test)
@@ -271,22 +287,20 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     fixed = {6 * i + d for i in root for d in range(6)}
     free = np.array([i for i in range(n) if i not in fixed], dtype=np.int64)
 
-    freqs_ae = np.sort(
-        np.asarray(
-            modal_solve_coo(
-                np.asarray(k_rows, dtype=np.int64),
-                np.asarray(k_cols, dtype=np.int64),
-                np.asarray(k_vals, dtype=np.float64),
-                np.asarray(m_rows, dtype=np.int64),
-                np.asarray(m_cols, dtype=np.int64),
-                np.asarray(m_vals, dtype=np.float64),
-                n,
-                free,
-                N_SEARCH,
-            )[0],
-            dtype=float,
-        )
+    freqs_raw, modes_flat = modal_solve_coo(
+        np.asarray(k_rows, dtype=np.int64),
+        np.asarray(k_cols, dtype=np.int64),
+        np.asarray(k_vals, dtype=np.float64),
+        np.asarray(m_rows, dtype=np.int64),
+        np.asarray(m_cols, dtype=np.int64),
+        np.asarray(m_vals, dtype=np.float64),
+        n,
+        free,
+        N_SEARCH,
     )
+    order = np.argsort(np.asarray(freqs_raw, dtype=float))
+    freqs_ae = np.asarray(freqs_raw, dtype=float)[order]
+    p20_shape = _beamdyn_p20_shape_matches(mesh, free, np.asarray(modes_flat).reshape(-1, free.size)[order])
 
     workdir = tmp_path_factory.mktemp("blade_iea15mw")
     inp_path = workdir / "blade.inp"
@@ -359,9 +373,42 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
         "mass": mass,
         "ae": freqs_ae,
         "ccx": freqs_ccx,
+        "p20_shape": p20_shape,
         "static_ae": static_ae,
         "static_ccx": static_ccx,
     }
+
+
+def _beamdyn_p20_shape_matches(mesh, free: np.ndarray, modes: np.ndarray):
+    """Pair the shell modes with the BeamDyn p20 parked modes by shape (T21, S17).
+
+    ``modes`` (n_modes, n_free) are the eigenvectors on the sorted free DOFs.  Shell side: arc-weighted ring mean of
+    (u_x, u_y) and the rigid-fit twist over all ring nodes at the BeamDyn node heights; BeamDyn side: its eigenvectors
+    in shell axes; both as ``tools/l3_mode_shapes.py`` (T8).  The fixture's frequencies and families are checked
+    against ``BEAMDYN_P20_PARKED_MODES`` first, so a stale file cannot pass as the arbiter.
+    """
+    bd = np.load(BEAMDYN_P20_PARKED_EIGVEC)
+    n_ref = len(BEAMDYN_P20_PARKED_MODES)
+    ref_hz = np.array([f for f, _ in BEAMDYN_P20_PARKED_MODES])
+    assert np.allclose(bd["freqs"][:n_ref], ref_hz, rtol=1e-8), "BeamDyn eigenvector fixture is not the p20 parked run"
+    z, chord, bd_shapes = l3_mode_shapes.bd_station_modes(bd, n_ref)
+    labels = l3_mode_shapes.family_labels(*bd_shapes, chord)
+    assert [lab[-1] for lab in labels] == BEAMDYN_P20_FAMILIES, labels
+
+    full = np.zeros((len(modes), mesh.node_count, 6))
+    full[:, free // 6, free % 6] = modes
+    ring_id = np.full(mesh.node_count, -1)
+    weights = np.zeros(mesh.node_count)
+    for k, (_z, nodes, wk) in enumerate(ring_profile(mesh, -1e9)):
+        ring_id[nodes] = k
+        weights[nodes] = wk
+    ux, uy, th, bad = l3_mode_shapes.shell_station_modes(mesh.coords_array, full, ring_id, weights, None, z)
+    assert bad == 0, f"{bad} shell modes have a station outside the rings"
+    return match_reference_by_shape(
+        l3_mode_shapes.vectors(ux, uy, th, chord),
+        l3_mode_shapes.vectors(*bd_shapes, chord),
+        BEAMDYN_P20_FAMILIES,
+    )
 
 
 def _matched_pairs(freqs_ae: np.ndarray, freqs_ref: np.ndarray, n: int):
@@ -563,20 +610,34 @@ def test_blade_modal_frequencies_match_beamdyn_p20(blade: dict, index: int) -> N
     Table B1, beam-CSD modes of a blade that Fig. B1 does not tie to the v1.1 deck,
     docs/validation contract D8/K11.4; user decision L12 (3)).  The arbiter is the BeamDyn
     p20 parked run of the official deck (``BEAMDYN_P20_PARKED_MODES``).  Modes 1F, 1E and 2F
-    are asserted against the same numbers by S-4 (group 40) and are skipped here.  Pairing is
-    by Hungarian assignment over the 10 computed modes, and ``index`` is the reference mode
-    (row ``.k`` is reference mode ``k + 1``).  No xfail and no re-banding: a gap above the
-    bound is a finding.
+    are asserted against the same numbers by S-4 (group 40) and are skipped here.  ``index``
+    is the reference mode (row ``.k`` is reference mode ``k + 1``).
+
+    Pairing is by shape (l3-closure T21, user decision S17): Hungarian on the combined MAC
+    of the 10 computed modes against the BeamDyn eigenvectors (``_beamdyn_p20_shape_matches``).
+    The pair is the same mode when the MAC of the reference mode's family vector (bending for
+    F/E, twist for T) reaches ``BEAMDYN_SHAPE_MAC_MIN``; below it the row fails as not
+    identifiable, without judging the frequency.  The earlier frequency pairing compared
+    BeamDyn 1T with the shell's 3E (+1.59 %, T8).  No xfail and no re-banding: a gap above
+    the bound is a finding.
     """
-    freqs_ref = np.array([f for f, _ in BEAMDYN_P20_PARKED_MODES])
     label = BEAMDYN_P20_PARKED_MODES[index][1]
-    rel, freq_ae, freq_ref = _matched_pairs(blade["ae"], freqs_ref, len(freqs_ref))[index]
+    freq_ref = BEAMDYN_P20_PARKED_MODES[index][0]
+    match = blade["p20_shape"][index]
+    freq_ae = float(blade["ae"][match.index])
+    signed = freq_ae / freq_ref - 1
+    vector = "twist" if match.family == "T" else "bending"
     print(
-        f"  beamdyn-p20[{index}] {label}: aero={freq_ae:.3f} ref={freq_ref:.3f} "
-        f"signed={(freq_ae / freq_ref - 1) * 100:+.2f}% rel={rel * 100:.2f}%"
+        f"  beamdyn-p20[{index}] {label}: shell mode {match.index + 1} aero={freq_ae:.4f} ref={freq_ref:.4f} "
+        f"signed={signed * 100:+.2f}% MAC {vector}={match.mac_family:.3f} combined={match.mac_comb:.3f}"
+    )
+    assert match.mac_family >= BEAMDYN_SHAPE_MAC_MIN, (
+        f"{label} (reference mode {index + 1}) not identifiable by shape: best shell mode {match.index + 1} "
+        f"({freq_ae:.4f} Hz) has {vector} MAC {match.mac_family:.3f} < {BEAMDYN_SHAPE_MAC_MIN} "
+        f"(combined {match.mac_comb:.3f}); its {signed * 100:+.2f}% frequency gap is not judged"
     )
     assert_residual_below(
-        rel,
+        abs(signed),
         tol=BEAMDYN_MODE_TOL,
         kind="code",
         reference_name="OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3",

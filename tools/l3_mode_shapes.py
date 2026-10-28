@@ -204,6 +204,48 @@ def family(ux, uy, th, chord):
     return ("E", "F", "T")[int(np.argmax(e))], e
 
 
+def family_labels(ux, uy, th, chord) -> list[str]:
+    """``1F``, ``1E``, ``2F``, ... of the modes (rows of ``ux``, ``uy``, ``th``), counted per family in row order."""
+    counts = {"F": 0, "E": 0, "T": 0}
+    labels = []
+    for m in range(len(ux)):
+        fm, _e = family(ux[m], uy[m], th[m], chord)
+        counts[fm] += 1
+        labels.append(f"{counts[fm]}{fm}")
+    return labels
+
+
+def bd_station_modes(bd, n_modes: int = N_MODES):
+    """Real station shapes of the first ``n_modes`` BeamDyn modes in shell axes: ``(z, chord, (u_x, u_y, theta))``.
+
+    ``bd`` is the ``bd_modes_from_lin`` dict or its ``.npz``. Each complex mode is turned to the dominant real phase of
+    its combined vector ``[u_x; u_y; theta c / 2]`` (one common phase for the three parts), then its real part is kept.
+    """
+    z = np.asarray(bd["z"])
+    chord = chord_at(z)
+    t, r = bd_to_shell_axes(np.asarray(bd["trans"]), np.asarray(bd["rot"]))
+    ux, uy, th = (np.zeros((n_modes, len(z))) for _ in range(3))
+    for m in range(n_modes):
+        comb = np.concatenate([t[m, :, 0], t[m, :, 1], r[m, :, 2] * chord / 2])
+        ph = np.exp(-0.5j * np.angle(np.sum(comb * comb)))
+        ux[m], uy[m], th[m] = (t[m, :, 0] * ph).real, (t[m, :, 1] * ph).real, (r[m, :, 2] * ph).real
+    return z, chord, (ux, uy, th)
+
+
+def shell_station_modes(coords, modes, ring_id, w, box, z_st, fit: str = "all"):
+    """``(u_x, u_y, theta)`` of every shell mode (``modes`` (n_modes, n_nodes, >=3)) at the stations, by ``station_fields``.
+
+    A NaN station (box fit with fewer than 6 nodes, or outside the rings) counts zero; the number of modes that had one is
+    returned as the fourth item so the caller reports it.
+    """
+    n = len(modes)
+    ux, uy, th = (np.zeros((n, len(z_st))) for _ in range(3))
+    for m in range(n):
+        ux[m], uy[m], th[m] = station_fields(coords, modes[m], ring_id, w, box, z_st, fit=fit)
+    bad = int(np.isnan(th).any(axis=1).sum())
+    return ux, uy, np.nan_to_num(th), bad
+
+
 # ---------------------------------------------------------------- steps
 
 
@@ -263,46 +305,23 @@ def step_compare():
     for key in ("parked", "rated"):
         sh = np.load(OUT / f"shell-{key}.npz")
         bd = np.load(OUT / f"bd-{key}.npz")
-        z = bd["z"]
-        chord = chord_at(z)
-        t, r = bd_to_shell_axes(bd["trans"], bd["rot"])
         nb = N_MODES
         # BeamDyn: common phase from the combined complex vector, then real parts
+        z, chord, (bux, buy, bth) = bd_station_modes(bd, nb)
         bd_f = bd["freqs"][:nb]
-        bux, buy, bth = (np.zeros((nb, len(z))) for _ in range(3))
-        for m in range(nb):
-            comb = np.concatenate([t[m, :, 0], t[m, :, 1], r[m, :, 2] * chord / 2])
-            phi = 0.5 * np.angle(np.sum(comb * comb))
-            ph = np.exp(-1j * phi)
-            bux[m], buy[m], bth[m] = (t[m, :, 0] * ph).real, (t[m, :, 1] * ph).real, (r[m, :, 2] * ph).real
         bd_vec = {fit: vectors(bux, buy, bth, chord) for fit in ("all", "box")}
         n_sh = len(sh["freqs"])
         sh_f = sh["freqs"]
         res = {}
         for fit in ("all", "box"):
-            sux, suy, sth = (np.zeros((n_sh, len(z))) for _ in range(3))
-            for m in range(n_sh):
-                sux[m], suy[m], sth[m] = station_fields(sh["coords"], sh["modes"][m], sh["ring_id"], sh["ring_w"],
-                                                        sh["box"], z, fit=fit)
-            bad = int(np.isnan(sth).any(axis=1).sum())
-            sth = np.nan_to_num(sth)  # NaN stations (box < 6 nodes / outside rings) count zero; reported
+            sux, suy, sth, bad = shell_station_modes(sh["coords"], sh["modes"], sh["ring_id"], sh["ring_w"], sh["box"],
+                                                     z, fit=fit)
             shv = vectors(sux, suy, sth, chord)
             shv = tuple(v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-300) for v in shv)
             bdv = tuple(v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-300) for v in bd_vec[fit])
             res[fit] = {"sh": (sux, suy, sth), "shv": shv, "bdv": bdv, "nan_modes": bad}
-        fam_bd = [family(bux[m], buy[m], bth[m], chord) for m in range(nb)]
-        counts = {"F": 0, "E": 0, "T": 0}
-        labels_bd = []
-        for fm, _e in fam_bd:
-            counts[fm] += 1
-            labels_bd.append(f"{counts[fm]}{fm}")
-        fam_sh = [family(*res["all"]["sh"][0][m:m + 1], *res["all"]["sh"][1][m:m + 1], *res["all"]["sh"][2][m:m + 1],
-                         chord) for m in range(n_sh)]
-        counts = {"F": 0, "E": 0, "T": 0}
-        labels_sh = []
-        for fm, _e in fam_sh:
-            counts[fm] += 1
-            labels_sh.append(f"{counts[fm]}{fm}")
+        labels_bd = family_labels(bux, buy, bth, chord)
+        labels_sh = family_labels(*res["all"]["sh"], chord)
         lines += [f"## {key} ({'0' if key == 'parked' else RPM_RATED} rpm)", "",
                   "BeamDyn p20 modes (family by station energy, E = u_x, F = u_y, T = theta c/2): "
                   + ", ".join(f"{i + 1}:{labels_bd[i]} {bd_f[i]:.4f} Hz" for i in range(nb)), "",
