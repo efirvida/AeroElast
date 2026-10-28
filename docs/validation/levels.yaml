@@ -77,7 +77,10 @@ levels:
       - src/aeroelast/core/assembler.py
       - src/aeroelast/solvers/elasticity
       - crates/aeroelast-solvers/src/petsc/elasticity
-      - src/aeroelast/postprocess
+      # sectional.py is the blade S-1 extractor, used by no L2 group (it moved L2's 83 rows to stale at 60d2b34
+      # for a change that cannot reach them); it is an L3 dependency below.
+      - src/aeroelast/postprocess/stress_recovery.py
+      - src/aeroelast/postprocess/precice.py
       - tests/test_iea15mw_s3_newmark_transient.py
     gaps: [composite_stress_recovery]
     absent: []
@@ -107,6 +110,7 @@ levels:
       - tests/IEA-15-240-RWT.yaml
       - tests/IEA15MW/reference
       - tools/beam_reference.py
+      - src/aeroelast/postprocess/sectional.py
       - tests/test_iea15mw_s1_sectional.py
       - tests/test_iea15mw_s2_static_prescribed.py
       - tests/test_iea15mw_s4_rotating_modal.py

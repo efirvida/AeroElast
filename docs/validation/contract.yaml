@@ -2844,7 +2844,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
     class: physics
     verdict: rejected
-    audited_rev: 64976d8
+    audited_rev: 3995a4f
     audited_rev: f1c9e91
     files:
       - tools/bd_static_reference.py
