@@ -700,6 +700,9 @@ and S-7 +7.2 %. A 10 % global GJ deficit would put 1T ~5 % low. The static torsi
 measurement, not the shell's torsional stiffness: consistent with core-torsion C3 (3.4 outboard 1.3x = all-node rigid fit)
 and with S8 (box fit for S-7 / S-1 GJ).
 
+Slice boundary (session 19): l3/pass2-s2-ring stops at 4d1419e (S-2 station tools, T10-T14 docs; its own PR). T15/T16 code goes on
+the stacked branch l3/box-kinematics (worktree `wt/l3-box`), reviewed as its own slice.
+
 ## T15/T16 prediction (written before any box or energy number, session 19, at a604bcb)
 
 Basis: C3 (box vs all-node, FE / mesh-Bredt: 15 at 0.6-0.85 0.952 -> 1.018, 0.7-0.85 0.932 -> 1.032, 0.3-0.6 1.002 -> 0.971;
