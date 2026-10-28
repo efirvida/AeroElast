@@ -734,6 +734,13 @@ groups:
           and the static blade comparison is closed by S-2. The test stays as
           it is; the store carries no row for it.
 
+      - tests:
+          - test_blade_parked_modes_match_numad
+        reason: >-
+          NuMAD/Bernardi scatter-width comparison (bounds of 8-15 %, xfail beyond them), superseded by the BeamDyn p20
+          rows of this group and S-4 (maintainer L12 (3), 2026-10-26: "Bajarlas; Bernardi re-apuntado a p20"; the
+          NuMAD table cannot be tied to the v1.1 blade, D8/K11.4). The test stays as it is; the store carries no row.
+
     provenance_note: >-
       The tight comparison is AeroElast against CalculiX S8R on the same mesh
       (ELEMENT_SIZE 0.25, mid-surface skin) and the same composite properties;

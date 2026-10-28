@@ -20,12 +20,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
+      run: 64976d8
+      date: '2026-10-28'
       raw: null
-      margin_pct: 0.0096
-      text: 'matched blade mode 0 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0096% (bound: 5.0000%)'
-      digest: 752877322bbdd8dd
+      margin_pct: 0.0465
+      text: 'matched blade mode 0 vs CalculiX S8R (binary version in the run log), the same mesh and composite properties: 0.0465% (bound: 5.0000%)'
+      digest: 6ded5a3a01c78004
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.1
@@ -48,12 +48,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
+      run: 64976d8
+      date: '2026-10-28'
       raw: null
-      margin_pct: 0.0465
-      text: 'matched blade mode 1 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0465% (bound: 5.0000%)'
-      digest: 6ded5a3a01c78004
+      margin_pct: 0.0473
+      text: 'matched blade mode 1 vs CalculiX S8R (binary version in the run log), the same mesh and composite properties: 0.0473% (bound: 5.0000%)'
+      digest: 729094e56cfc61c6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.2
@@ -76,12 +76,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
+      run: 64976d8
+      date: '2026-10-28'
       raw: null
-      margin_pct: 0.0473
-      text: 'matched blade mode 2 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0473% (bound: 5.0000%)'
-      digest: 729094e56cfc61c6
+      margin_pct: 0.0096
+      text: 'matched blade mode 2 vs CalculiX S8R (binary version in the run log), the same mesh and composite properties: 0.0096% (bound: 5.0000%)'
+      digest: 752877322bbdd8dd
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.3
@@ -104,11 +104,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
+      run: 64976d8
+      date: '2026-10-28'
       raw: null
       margin_pct: 0.0475
-      text: 'matched blade mode 3 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0475% (bound: 5.0000%)'
+      text: 'matched blade mode 3 vs CalculiX S8R (binary version in the run log), the same mesh and composite properties: 0.0475% (bound: 5.0000%)'
       digest: 57f59a14ebab866e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -132,11 +132,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
+      run: 64976d8
+      date: '2026-10-28'
       raw: null
       margin_pct: 0.1202
-      text: 'matched blade mode 4 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.1202% (bound: 5.0000%)'
+      text: 'matched blade mode 4 vs CalculiX S8R (binary version in the run log), the same mesh and composite properties: 0.1202% (bound: 5.0000%)'
       digest: 417cb33c0e0d4d22
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -159,8 +159,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 64976d8
+      date: '2026-10-28'
+      raw: null
+      margin_pct: 2.1119
+      text: '2nd edge (reference mode 4) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 2.1119% (bound: 5.0000%)'
+      digest: abc5748e29e65eab
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.4
@@ -182,8 +187,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 64976d8
+      date: '2026-10-28'
+      raw: null
+      margin_pct: 2.5443
+      text: '3rd flap (reference mode 5) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 2.5443% (bound: 5.0000%)'
+      digest: 3ff6e1c914cc4fb8
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.5
@@ -205,8 +215,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 64976d8
+      date: '2026-10-28'
+      raw: null
+      margin_pct: 1.5907
+      text: '1st torsion (reference mode 6) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 1.5907% (bound: 5.0000%)'
+      digest: 83d0e93b815aeb5c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.6
@@ -228,8 +243,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 64976d8
+      date: '2026-10-28'
+      raw: null
+      margin_pct: 1.3173
+      text: '3rd edge (reference mode 7) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 1.3173% (bound: 5.0000%)'
+      digest: d1abe6f761f44b53
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.7
@@ -251,7 +271,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 64976d8
+      date: '2026-10-28'
+      raw: null
+      margin_pct: 3.0599
+      text: '4th flap (reference mode 8) against BeamDyn p20 vs OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3: 3.0599% (bound: 5.0000%)'
+      digest: e860b10553fcce56
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

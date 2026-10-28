@@ -40,7 +40,7 @@ verdicts:
   - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
     class: physics
     verdict: rejected
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s7_torsion.py
       - tools/beam_reference.py
@@ -58,6 +58,7 @@ verdicts:
       over the ceiling: rejected (K3a). The shell twists 9.1 % less than the beam. Replaces the
       `undecided` of the #20 audit (odd/tasks/issue18-closure-audit.md). Open: S-7 still runs on the
       OML skin while the other blade anchors run mid-surface (maintainer decision).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
 
 # --- PRE-2 (B1/L1), 2026-10-13: G25 mass matrix and G28 material suite, re-measured at 252a9b5 ---
   - target: material_suite.testisotropicanalytical_test_mitc4_out_o.single
@@ -2218,7 +2219,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_edgewise_ei
     class: physics
     verdict: rejected
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2233,10 +2234,11 @@ verdicts:
       signed mean against an 8 % absolute one says the error changes sign along the span. Arbiter
       reclassified to reference_model (l3-closure L12 (1)). Earlier record: mid-span mean |rel err|
       12.71 % (signed -12.12 %, n=32), 7.71 pp over the ceiling (K3a).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_sectional_distribution.s1_sectional_flapwise_ei
     class: physics
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2252,10 +2254,11 @@ verdicts:
       Arbiter reference_model (L12 (1)). Earlier record: mid-span mean |rel err| 5.31 % at es 0.125 (signed +4.09 %, n=32); the es 0.25 control
       reproduces 5.17 % exactly and the move is 0.14 pp, inside the 1 pp envelope (K7.2), so 5.31 % is
       the converged value and 0.31 pp over the ceiling (K7.3). SLURM 11619975, 11619956.
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_sectional_distribution.s1_sectional_mass
     class: physics
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2269,10 +2272,11 @@ verdicts:
       / +2.45 %, n=32), move 0.10 pp; 1.36 pp inside (K7.3). Arbiter reference_model (L12 (1)), so the
       row is now arbitrated. Earlier record: mid-span mean |rel err| 2.23 % (signed +0.73 %, n=31), 2.77 pp inside the ceiling (K3c). Single
       published numerical arbiter: the contract reports it unarbitrated (level open).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_sectional_distribution.s1_sectional_gj
     class: physics
     verdict: rejected
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2287,10 +2291,11 @@ verdicts:
       over the ceiling (K7.3). Was 10.18 % at d5d0fd2 before the twist-read fixes d81931b/a4b3ca2.
       Agrees in sign with S-7 (ratio 1.0717). Core-torsion investigation: odd/tasks/core-torsion.md.
       Arbiter reference_model (L12 (1)). Earlier record: mid-span mean |rel err| 6.22 % (signed -4.55 %, n=32), 1.22 pp over the ceiling (K3a).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_sectional_distribution.s1_sectional_ea
     class: physics
     verdict: rejected
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2303,10 +2308,11 @@ verdicts:
       11625628 / 11625627): mid-span mean |rel err| 6.68 % at es 0.25, 6.83 % at es 0.125 (signed +6.56
       / +6.72 %, n=32), move 0.15 pp, converged; 1.83 pp over the ceiling (K7.3). EA has no torque path
       (S3). Arbiter reference_model (L12 (1)). Earlier record: mid-span mean |rel err| 7.59 % (signed +7.57 %, n=32), 2.59 pp over the ceiling (K3a).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_static_prescribed.s2_official_lc1_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2319,6 +2325,7 @@ verdicts:
       BeamDyn. Was -7.41 / -7.20 % at 9f72c6b: the blade input audit T9 tree (yaml webs, laminate per
       row, T14/T15) closed 2.1 pp. Logs: logs/check/l3/store-pass1/pyt-s2*.txt. Open: shell vs BD
       load-wrench equivalence (T4).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_static_prescribed.s2_official_lc2_tip_displacement
     class: physics
     verdict: undecided
@@ -2338,10 +2345,11 @@ verdicts:
       local introduction of 1 MN over 16 cap nodes, which a beam does not have (T4 report). Printed,
       not asserted; stays undecided until measured on an inboard section or with a distributing tip
       load (K9.3).
+      L3 close 2026-10-28 (S13): stays undecided with its cause. Tip node -2.54 / -3.56 % is inside the band, but the interior station (-1.93 %) fails its convergence gate (0.52 pp > 0.5) and the 3.4 twin shows a 4 pp station dependence: the point-load introduction (no MPC) is not resolved by refinement, so the row is not trusted. Flap sensitivity of torque: -0.34 % (T4).
   - target: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2353,10 +2361,11 @@ verdicts:
       (K9.2); 0.90 pp over the ceiling (K9.3). Finding: refinement moves the shell away from BeamDyn
       (stiffer), as it does for LC1 (0.02 pp) and LC2 (1.02 pp), so the residual is not discretisation.
       Was -6.22 / -6.24 % at 9f72c6b. Open: shell vs BD load-wrench equivalence (T4).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_rotating_modes.s4_parked_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s4_rotating_modal.py
       - tests/IEA-15-240-RWT.yaml
@@ -2373,10 +2382,11 @@ verdicts:
       pp (K7.2) and every value is inside 5 % (K7.3). ElastoDyn disagrees with BeamDyn by 6-8 % on
       this blade (recorded finding about the references, not an aeroelast defect). Honesty note: the
       arbiter was chosen after the numbers (K8).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_rotating_modes.s4_rated_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tools/run_s4_rotating_modal.py
       - tools/bd_rotating_freevib.py
@@ -2399,10 +2409,11 @@ verdicts:
       MBC3 rated 1E stays inadmissible (linearization artefact, beamdyn-arbiter-midsurface T1/T7).
       K10.4 finding: the shell rotates about the blade root (hub 0); the MBC3 1F/2F carry HubRad 3.97 m,
       worth +0.21 / +0.08 % in the driver, small against the bound. ElastoDyn 1E -6.14 % (comparison).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_total_mass.v03_assembled_mass_vs_tabular
     class: physics
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tests/IEA-15-240-RWT.yaml
     arbiters:
@@ -2414,6 +2425,7 @@ verdicts:
       does not reach it. Earlier record: 66,682.346 kg, -1.82 %. Single
       published numerical arbiter (deck integrals of the same pipeline are not independent of it): the
       contract reports it unarbitrated (level open).
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
 
 # --- B4 (L4), 2026-10-20: BEM against OpenFAST 5.0.0 AeroDyn, measured at f1a1a18 (criterion K1-K6, odd/tasks/validation-l4-b4-audit.md) ---
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.0
@@ -2620,7 +2632,7 @@ verdicts:
   - target: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
     class: identity
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA15MW/reference/IEA-15-240-RWT_ElastoDyn_blade.dat
@@ -2631,9 +2643,11 @@ verdicts:
       same margins as e1b7da7). Not independent evidence and no physics verdict; counts as identity.
       Restamped 2026-10-27 at f1c9e91 (`regression --group 20 --write`, SLURM 11625625): four
       comparisons same, margins unchanged.
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.3
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/IEA-15-240-RWT.yaml
@@ -2645,9 +2659,11 @@ verdicts:
       of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 2E signed -2.11 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.4
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/IEA-15-240-RWT.yaml
@@ -2659,9 +2675,11 @@ verdicts:
       of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 3F signed -2.54 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.5
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/IEA-15-240-RWT.yaml
@@ -2673,9 +2691,11 @@ verdicts:
       of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 1T signed +1.59 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59). The 1T frequency is NOT evidence about GJ: it is paired by frequency inside a three-mode cluster at 4.1-4.4 Hz (group 5 MAC); mode-shape MAC against p20 is open (T8).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.6
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/IEA-15-240-RWT.yaml
@@ -2687,9 +2707,11 @@ verdicts:
       of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 3E signed -1.32 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_beamd.7
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/IEA-15-240-RWT.yaml
@@ -2701,9 +2723,11 @@ verdicts:
       of eight (fixed physical mode: the pairing helper no longer sorts by gap). 1F, 1E and 2F against the same p20 numbers are
       asserted by S-4 (group 40) and are not repeated here. Bound 5 % (K3), no xfail. Verdict pending the es 0.25 run
       (logs/check/l3/g23/PREDICTION.md); the Bernardi rows are removed from the store.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): 4F signed -3.06 % vs BeamDyn p20, inside the 5 % ceiling by more than 1.9 pp: trusted (K3). Prediction held except the 1T sign (predicted -3, measured +1.59).
   - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.0
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/support/ccx_io.py
@@ -2719,9 +2743,11 @@ verdicts:
       only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
       Second arbiter: BeamDyn p20 parked, expected family p20 1F (S-4 asserts it, group 40), valid only if the run shows shell mode 1
       is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): mode 1 gap 0.0465 % vs CalculiX 2.20 on the same mesh (prediction <= 0.3 %, held); p20 parked gives the same mode family and order for modes 1-5. Trusted (K3). This is code parity (same discretisation), not a physics arbiter of the blade.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.1
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/support/ccx_io.py
@@ -2737,9 +2763,11 @@ verdicts:
       only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
       Second arbiter: BeamDyn p20 parked, expected family p20 1E (S-4 asserts it), valid only if the run shows shell mode 2
       is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): mode 2 gap 0.0473 % vs CalculiX 2.20 on the same mesh (prediction <= 0.3 %, held); p20 parked gives the same mode family and order for modes 1-5. Trusted (K3). This is code parity (same discretisation), not a physics arbiter of the blade.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.2
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/support/ccx_io.py
@@ -2755,9 +2783,11 @@ verdicts:
       only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
       Second arbiter: BeamDyn p20 parked, expected family p20 2F (S-4 asserts it), valid only if the run shows shell mode 3
       is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): mode 3 gap 0.0096 % vs CalculiX 2.20 on the same mesh (prediction <= 0.3 %, held); p20 parked gives the same mode family and order for modes 1-5. Trusted (K3). This is code parity (same discretisation), not a physics arbiter of the blade.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.3
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/support/ccx_io.py
@@ -2773,9 +2803,11 @@ verdicts:
       only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
       Second arbiter: BeamDyn p20 parked, expected family p20 2E (row beamd.3), valid only if the run shows shell mode 4
       is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): mode 4 gap 0.0475 % vs CalculiX 2.20 on the same mesh (prediction <= 0.3 %, held); p20 parked gives the same mode family and order for modes 1-5. Trusted (K3). This is code parity (same discretisation), not a physics arbiter of the blade.
   - target: blade_iea15mw.test_blade_modal_frequencies_match_ccx.4
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: 64976d8
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
       - tests/support/ccx_io.py
@@ -2791,10 +2823,11 @@ verdicts:
       only CCX on this cluster prints "Version 2.20" (the test did not read it; the label said 2.23); the run log now prints it.
       Second arbiter: BeamDyn p20 parked, expected family p20 3F (row beamd.4), valid only if the run shows shell mode 5
       is that family (PREDICTION.md; no local mode below it). Verdict after the run.
+      RESULT 2026-10-28 (SLURM 11625842 es 0.25, regression --group 23 at 64976d8): mode 5 gap 0.1202 % vs CalculiX 2.20 on the same mesh (prediction <= 0.3 %, held); p20 parked gives the same mode family and order for modes 1-5. Trusted (K3). This is code parity (same discretisation), not a physics arbiter of the blade.
   - target: blade_structural_properties.v05_assembled_mass_vs_beam_table
     class: physics
     verdict: trusted
-    audited_rev: f1c9e91
+    audited_rev: 64976d8
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tools/beam_reference.py
@@ -2807,9 +2840,11 @@ verdicts:
       K11.2 (D6). Shell 66,682.3 kg vs 66,996.9 kg: -0.4695 % at es 0.25 (SLURM 11621355), -0.3529 % at es 0.125 (SLURM 11621349),
       move 0.12 pp. Honesty note: predicted before measuring (about -0.3 % from G41 and the straight-axis 66,912 kg). G41 judges the
       same shell mass against the xlsx 67,921 kg; the two official representations differ by 1.4 %.
+      Restamped 2026-10-28 at 64976d8 (session 19): re-measured at es 0.25 after the additive box-kinematics / S-2 station commits (60d2b34, 4e27c8d, defaults unchanged); value identical to the verdict above (logs/check/l3/close/, logs/check/l3/t15/).
   - target: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
     class: physics
-    verdict: undecided
+    verdict: rejected
+    audited_rev: 64976d8
     audited_rev: f1c9e91
     files:
       - tools/bd_static_reference.py
@@ -2826,6 +2861,7 @@ verdicts:
       Node vs tip-ring mean +1.19 % / +1.14 % > 0.5 %: not a clean metric, printed, not asserted (as LC2). The size of the gap
       (shell ~17 % more flexible edgewise, while LC1/LC4 are 6-7 % stiffer) is a finding for the model investigation, not explained
       by the 1.2 % node/ring spread. Open: an LC3 metric with a distributing tip load or an inboard section.
+      DECLARED 2026-10-28 (L3 close, S13): rejected. Tip node +10.26 / +11.44 % and tip-ring mean +9.01 / +9.78 % (es 0.25 / 0.125) are both outside 5 % by more than 1 pp; the interior station (T10c-station) reads +6.73 % and moves 0.13 pp with refinement, still outside. Cause: edgewise tip stiffness of the shell vs BeamDyn under a point load (no MPC / rigid tip coupling in the solver), with the EI_edge extractor scatter excluded by the energy check (edge W_FE / W_beam 1.0002). Torque sensitivity of edgewise: 0.005 % (T4).
 
   # --- L1/L2 closure (T1), 2026-10-26: the 12 material_suite rows added by 7d20c81 (production span frame) ---
   - target: material_suite.test_production_zero_ply_follows_span.tri
