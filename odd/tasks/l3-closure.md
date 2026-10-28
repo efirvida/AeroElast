@@ -18,6 +18,8 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S12 (user choice, verbatim, supersedes the metric of L12(4) and the cure of S11): "Estación interior vs nodo BeamDyn (recomendado)" — BeamDyn exports the displacement of a node 2-3 tip chords inboard; it is compared with the shell's arc-weighted ring mean at that same z, on both blades.
 - S13 (user choice, verbatim, after P2 refuted in T10c-station): "LC1+LC4 en estación; LC2/LC3 diagnóstico (Recomendado)" — S-2 asserts LC1 and LC4 at the interior station vs BeamDyn p60 with K3 5 %; LC2 / LC3 are printed as diagnostics with the reason (point-load introduction without MPC, P2 refuted) written in the test and the store.
 - S14 (user choice, verbatim): "Una corrida es 0.0625 de LC1/LC4 (Recomendado)" — same predeclared rule one mesh level finer; outside 5 % -> rejected, crossing again -> stays undecided.
+- S15 (user, verbatim, session 19): "vamos con a y b, y lo demas dejalo bajo tu criterio." — (a) twist read with the box (caps + webs) rigid fit in S-7 and S-1 GJ; (b) EI_edge extractor checked against an extractor-free energy measure; the rest (guards, group 23 verdicts, LC4) at the parent's criterion.
+- S16 (user, verbatim, session 19): "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque"
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -46,6 +48,10 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
 - T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6; step 4 test drafted uncommitted in this worktree (`TestS2InteriorStation`, `tests/support/s2_station.py` + 8 unit tests green), committed only after P1/P2; BeamDyn node `result.json` must be copied into `tests/IEA15MW/bd_static/*-nodes/`) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
+- T15 | S15 S8 S10 | worker | pending | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
+- T16 | S15 S10 | worker (with T15) | pending | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
+- T17 | S16 | parent | pending | Production-readiness assessment for FSI torque studies, after T15/T16.
+- T18 | S15 | parent | pending | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -694,6 +700,24 @@ and S-7 +7.2 %. A 10 % global GJ deficit would put 1T ~5 % low. The static torsi
 measurement, not the shell's torsional stiffness: consistent with core-torsion C3 (3.4 outboard 1.3x = all-node rigid fit)
 and with S8 (box fit for S-7 / S-1 GJ).
 
+## T15/T16 prediction (written before any box or energy number, session 19, at a604bcb)
+
+Basis: C3 (box vs all-node, FE / mesh-Bredt: 15 at 0.6-0.85 0.952 -> 1.018, 0.7-0.85 0.932 -> 1.032, 0.3-0.6 1.002 -> 0.971;
+3.4 0.6-0.85 1.314 -> 0.926), group 23 1T +1.59 % vs BeamDyn p20, S-4 1E +0.52 %, 2E -2.11 %, 3E -1.32 %, S-1 EI_edge signed -1.89
+(mean |rel| 8.01) %, the T9 section integral of EI_edge (-1.6..+11 %, consistent with 1E).
+- P1 (tube / prismatic): box and all-node agree within 0.5 % where the section does not distort (tube: box = all nodes by
+  construction is not available, so the prismatic extrusion is the check: box within 2 % of its Bredt, as C4 0.982).
+- P2 (15, GJ): box GJ signed mid-span moves from -10.7 % toward zero by 3-7 pt outboard of 0.6 and by < 3 pt inboard; mean
+  |rel| 10.7 -> 5-8 %. S-7 ratio 1.0717 -> 0.99-1.04.
+- P3 (15, energy torsion): W_FE / W_beam under pure torque within 0.96-1.04 (1T +1.6 % says the integrated GJ is not 10 % soft).
+- P4 (15, edge): W_FE / W_beam for the tip edge load within 0.97-1.03 (1E +0.5 %); box EI_edge mean |rel| < 5 %, signed -3..+2 %.
+- P5 (15, flap): W_FE / W_beam tip flap 0.93-0.97 (shell ~5 % stiffer: EI_flap +4.9, S-2 LC1/LC4 -5, 1F +2.3 %): a control
+  that the energy measure sees a known real difference.
+- P6 (3.4): box removes the outboard 1.3x torsional softness (C3); its W torsion within 0.95-1.08 of its BeamDyn deck.
+Consequences (predeclared): P2+P3 held -> the torsion reds are the measure, S-1 GJ / S-7 move to the box reading with the
+history in the docstrings, T7 stays parked. P3 refuted (W torsion < 0.95) -> the shell is torsionally soft for real, T7 is
+back. P4 refuted -> EI_edge is a stiffness difference, not the extractor. No bound moves in any case.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -721,3 +745,4 @@ and with S8 (box fit for S-7 / S-1 GJ).
 - L23 (2026-10-27, session 17) User, verbatim: "si a las 3 desiciones que tenia que tomar". Decisions: (1) the group 23 static CCX row (`test_blade_static_tip_deflection_matches_ccx`) is declared non-validation (its load matches no BeamDyn case; S-2 covers static); (2) a p20 row of group 23 above 5 % stays red and `known-red-full.txt` is re-recorded (`check.sh full --record`), no xfail; (3) the S-2 station test keeps the BeamDyn scale 1e-4 vs 2e-4 linearity gate at 0.1 %.
 - L24 (2026-10-27, session 18) User, verbatim: "podemos hacerlo en esta sesion" (pass 2 resumed here after the full-suite review of 11625665 and the check gate fix, branch check/sources-guard). Parent: read T10c-station (section "T10c-station RESULT"): P2 refuted, metric back to the user; user chose S13 and S14.
 - L25 (2026-10-28, session 19) User, verbatim: "vamos a continuar la validacion. ya terminaron todos los jobs que mandamos, vamos a analizarlos, no te ffies en los numeros de jobs poruqe los estuve moviendo de colas para que terminaran. no quiero que lances mas ningun job salvo que sea estrictamente necesario ya hemos medido demasiado y no arreglado nada, estoy seguro que podemos tener conclusiones precisas con todas las mediciones y diagnosticos que se han hecho". Parent: read every output by name and date, no job launched (section "Session 19").
+- L26 (2026-10-28, session 19) User, verbatim: "vamos con a y b, y lo demas dejalo bajo tu criterio." and "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque". Parent: S15, S16, T15-T18; prediction written before any run.
