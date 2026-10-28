@@ -5,17 +5,17 @@ rows:
   title: test_blade_modal_frequencies_match_ccx[0]
   tests:
   - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[0]
-  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  validates: CCX mode ``index + 1`` agrees with its AeroElast partner within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 371
+  - label: rtol at line 417
     asserted: true
     reference:
       kind: code
-      label: CalculiX 2.23 S8R, the same mesh and composite properties
+      label: CalculiX S8R (binary version in the run log), the same mesh and composite properties
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:371
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:417
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -33,17 +33,17 @@ rows:
   title: test_blade_modal_frequencies_match_ccx[1]
   tests:
   - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[1]
-  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  validates: CCX mode ``index + 1`` agrees with its AeroElast partner within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 371
+  - label: rtol at line 417
     asserted: true
     reference:
       kind: code
-      label: CalculiX 2.23 S8R, the same mesh and composite properties
+      label: CalculiX S8R (binary version in the run log), the same mesh and composite properties
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:371
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:417
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -61,17 +61,17 @@ rows:
   title: test_blade_modal_frequencies_match_ccx[2]
   tests:
   - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[2]
-  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  validates: CCX mode ``index + 1`` agrees with its AeroElast partner within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 371
+  - label: rtol at line 417
     asserted: true
     reference:
       kind: code
-      label: CalculiX 2.23 S8R, the same mesh and composite properties
+      label: CalculiX S8R (binary version in the run log), the same mesh and composite properties
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:371
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:417
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -89,17 +89,17 @@ rows:
   title: test_blade_modal_frequencies_match_ccx[3]
   tests:
   - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[3]
-  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  validates: CCX mode ``index + 1`` agrees with its AeroElast partner within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 371
+  - label: rtol at line 417
     asserted: true
     reference:
       kind: code
-      label: CalculiX 2.23 S8R, the same mesh and composite properties
+      label: CalculiX S8R (binary version in the run log), the same mesh and composite properties
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:371
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:417
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -117,17 +117,17 @@ rows:
   title: test_blade_modal_frequencies_match_ccx[4]
   tests:
   - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[4]
-  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  validates: CCX mode ``index + 1`` agrees with its AeroElast partner within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 371
+  - label: rtol at line 417
     asserted: true
     reference:
       kind: code
-      label: CalculiX 2.23 S8R, the same mesh and composite properties
+      label: CalculiX S8R (binary version in the run log), the same mesh and composite properties
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:371
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:417
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -140,167 +140,22 @@ rows:
       digest: 417cb33c0e0d4d22
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_static_tip_deflection_matches.single
+- id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.3
   group: '23'
-  title: test_blade_static_tip_deflection_matches_ccx
+  title: test_blade_modal_frequencies_match_beamdyn_p20[3]
   tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_static_tip_deflection_matches_ccx
-  validates: Static flapwise tip deflection agrees with CCX S8R on the same load.
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[3]
+  validates: Parked modes 2E, 3F, 1T, 3E and 4F match OpenFAST BeamDyn p20 within ``BEAMDYN_MODE_TOL``.
   comparisons:
-  - label: rtol at line 480
+  - label: rtol at line 578
     asserted: true
     reference:
       kind: code
-      label: CalculiX 2.23 S8R, the same mesh and composite properties
+      label: OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:480
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: null
-      margin_pct: 0.3674
-      text: 'static tip deflection vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.3674% (bound: 5.0000%)'
-      digest: 8ab338690530a136
-  flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.0
-  group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[0]
-  tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[0]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
-  comparisons:
-  - label: rtol at line 532
-    asserted: true
-    reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: null
-      margin_pct: 1.3791
-      text: 'mode 0 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 1.3791% (bound: 5.0000%)'
-      digest: f67468b1069b45e8
-  flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.1
-  group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[1]
-  tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[1]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
-  comparisons:
-  - label: rtol at line 532
-    asserted: true
-    reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: null
-      margin_pct: 3.3485
-      text: 'mode 1 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 3.3485% (bound: 5.0000%)'
-      digest: 30c1f38a7c45993c
-  flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.2
-  group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[2]
-  tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[2]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
-  comparisons:
-  - label: rtol at line 532
-    asserted: true
-    reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: null
-      margin_pct: 4.0552
-      text: 'mode 2 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 4.0552% (bound: 5.0000%)'
-      digest: 058e85f2d04f7e3f
-  flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.3
-  group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[3]
-  tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[3]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
-  comparisons:
-  - label: rtol at line 532
-    asserted: true
-    reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: null
-      margin_pct: 4.4589
-      text: 'mode 3 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 4.4589% (bound: 5.0000%)'
-      digest: 600309c8db69c771
-  flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.4
-  group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[4]
-  tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[4]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
-  comparisons:
-  - label: rtol at line 532
-    asserted: true
-    reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:578
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -308,23 +163,22 @@ rows:
       margin_pct: null
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.5
+- id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.4
   group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[5]
+  title: test_blade_modal_frequencies_match_beamdyn_p20[4]
   tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[5]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[4]
+  validates: Parked modes 2E, 3F, 1T, 3E and 4F match OpenFAST BeamDyn p20 within ``BEAMDYN_MODE_TOL``.
   comparisons:
-  - label: rtol at line 532
+  - label: rtol at line 578
     asserted: true
     reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:578
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -332,23 +186,22 @@ rows:
       margin_pct: null
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.6
+- id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.5
   group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[6]
+  title: test_blade_modal_frequencies_match_beamdyn_p20[5]
   tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[6]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[5]
+  validates: Parked modes 2E, 3F, 1T, 3E and 4F match OpenFAST BeamDyn p20 within ``BEAMDYN_MODE_TOL``.
   comparisons:
-  - label: rtol at line 532
+  - label: rtol at line 578
     asserted: true
     reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:578
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -356,23 +209,45 @@ rows:
       margin_pct: null
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.7
+- id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.6
   group: '23'
-  title: test_blade_modal_frequencies_match_bernardi[7]
+  title: test_blade_modal_frequencies_match_beamdyn_p20[6]
   tests:
-  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[7]
-  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[6]
+  validates: Parked modes 2E, 3F, 1T, 3E and 4F match OpenFAST BeamDyn p20 within ``BEAMDYN_MODE_TOL``.
   comparisons:
-  - label: rtol at line 532
+  - label: rtol at line 578
     asserted: true
     reference:
-      kind: paper
-      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
-      citation: bernardi2025
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_blade_iea15mw_validation.py:532
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:578
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_beamd.7
+  group: '23'
+  title: test_blade_modal_frequencies_match_beamdyn_p20[7]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_beamdyn_p20[7]
+  validates: Parked modes 2E, 3F, 1T, 3E and 4F match OpenFAST BeamDyn p20 within ``BEAMDYN_MODE_TOL``.
+  comparisons:
+  - label: rtol at line 578
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck, parked MBC3
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:578
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

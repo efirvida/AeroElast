@@ -726,16 +726,28 @@ groups:
           describe a different blade from the official v1.1 yaml the model is
           built from, so they are not an independent reference for it. The
           tests stay as they are; the store carries no row for them.
+      - tests:
+          - test_blade_static_tip_deflection_matches_ccx
+        reason: >-
+          Declared non-validation by the maintainer, 2026-10-27
+          (odd/tasks/l3-closure.md L23 (1)): its load matches no BeamDyn case
+          and the static blade comparison is closed by S-2. The test stays as
+          it is; the store carries no row for it.
 
     provenance_note: >-
-      Four references on purpose: the tight comparison is AeroElast against
-      CalculiX S8R on the same mesh and the same composite properties, and the
-      rest are the published values -- Escalera Mendoza 2023's blade mass and
-      static tip (escalera2023), Bernardi 2026's Table B1 beam-CSD modes
-      (stable key bernardi2025), and the definition report whose mass the model is
-      expected to sit above. The per-mode article bounds are computed from the
-      reference scatter at runtime, so the extractor reports those three
-      comparisons as unreadable rather than storing a bound it cannot read.
+      The tight comparison is AeroElast against CalculiX S8R on the same mesh
+      (ELEMENT_SIZE 0.25, mid-surface skin) and the same composite properties;
+      the binary on this cluster is CalculiX 2.20 (read from `ccx -v`, which
+      the run log now prints; earlier labels said 2.23). Each CCX row is a
+      fixed CCX mode (T13 fixed the helper that returned the n smallest gaps).
+      Since 2026-10-27 (odd/tasks/l3-closure.md L12 (3)) the modes the shell is
+      compared with are OpenFAST v5.0.0 BeamDyn p20 parked, not Bernardi 2026
+      Table B1 (stable key bernardi2025, kept as the citation: their Fig. B1
+      cannot be tied to the v1.1 blade); 1F, 1E and 2F are asserted against the
+      same p20 numbers by S-4 (group 40) and only 2E, 3F, 1T, 3E and 4F are
+      rows here. The article, NREL-report and NuMAD per-mode bounds are computed
+      from the reference scatter at runtime, so the extractor reports those
+      three comparisons as no comparison against an independent reference.
 
   - id: "24"
     title: >-

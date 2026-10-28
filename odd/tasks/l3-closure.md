@@ -16,6 +16,10 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S10 (user, verbatim): "recuerda que puedes usar las dos palas ademas de ejemplos teoricos para comprobar los analisi hechos" — every L3 analysis is checked on IEA-15 and IEA-3.4 plus a closed-form case.
 - S11 (user choice, verbatim): "Arreglar la introducción de carga primero (recomendado)" — "Tracción de borde equivalente en trabajo, ponderada por longitud de arco, y media del anillo también por arco. Primero se valida en el tubo que converja al refinar; después se re-corren las dos palas y recién ahí van los veredictos."
 - S12 (user choice, verbatim, supersedes the metric of L12(4) and the cure of S11): "Estación interior vs nodo BeamDyn (recomendado)" — BeamDyn exports the displacement of a node 2-3 tip chords inboard; it is compared with the shell's arc-weighted ring mean at that same z, on both blades.
+- S13 (user choice, verbatim, after P2 refuted in T10c-station): "LC1+LC4 en estación; LC2/LC3 diagnóstico (Recomendado)" — S-2 asserts LC1 and LC4 at the interior station vs BeamDyn p60 with K3 5 %; LC2 / LC3 are printed as diagnostics with the reason (point-load introduction without MPC, P2 refuted) written in the test and the store.
+- S14 (user choice, verbatim): "Una corrida es 0.0625 de LC1/LC4 (Recomendado)" — same predeclared rule one mesh level finer; outside 5 % -> rejected, crossing again -> stays undecided.
+- S15 (user, verbatim, session 19): "vamos con a y b, y lo demas dejalo bajo tu criterio." — (a) twist read with the box (caps + webs) rigid fit in S-7 and S-1 GJ; (b) EI_edge extractor checked against an extractor-free energy measure; the rest (guards, group 23 verdicts, LC4) at the parent's criterion.
+- S16 (user, verbatim, session 19): "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque"
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -44,6 +48,11 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
 - T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6; step 4 test drafted uncommitted in this worktree (`TestS2InteriorStation`, `tests/support/s2_station.py` + 8 unit tests green), committed only after P1/P2; BeamDyn node `result.json` must be copied into `tests/IEA15MW/bd_static/*-nodes/`) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
+- T15 | S15 S8 S10 | worker | done: box option, P2 refuted on the 15 (section "T15/T16 RESULT") | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
+- T16 | S15 S10 | worker (with T15) | done: edge energy 1.0002 (P4), flap 0.937 (P5), torsion energy tip-dominated | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
+- T17 | S16 | parent | pending | Production-readiness assessment for FSI torque studies, after T15/T16.
+- T18 | S15 | parent | pending | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
+- T19 | S15 | parent/worker | pending | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | pending | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -589,6 +598,36 @@ Predictions: P1 refuted (H1 holds: pairing), P2 refuted as worded (CCX 7 is not 
 edgewise mode is), P3 n/a, P4 held (0.625 -> 0.829). P5 pending (11625835). Consequence (predeclared): the test pairs by
 shape. Caveat: CCX 2.20, not 2.23.
 
+## T10c-station RESULT (2026-10-27, session 18; shell 11625753/54/55/74 at 8bc5ce7, BeamDyn nodes 11625750; `tools/s2_station_compare.py`, `logs/check/l3/t10c-station/{iea15,iea34}-compare.json`)
+
+Signed % shell (arc ring mean, linear in z) vs BeamDyn p60 node; BeamDyn scales 1e-4 / 2e-4 agree (<= 3.9e-4 rel).
+Inner (verdict) station: 15 node 56 (z 114.845, 4.32 chords), 3.4 node 57 (z 62.239, 3.82 chords); outer: 15 node 57,
+3.4 node 58. Gates: conv = |es 0.25 - es 0.125|, stations = |inner - outer| at es 0.125, arc-eq at the inner station.
+
+| blade case | es 0.25 | es 0.125 | conv (< 0.5) | stations (< 0.5) | arc-eq (< 0.3) |
+|---|---|---|---|---|---|
+| 15 LC1 | -4.883 | -4.894 | 0.01 | 0.05 | - |
+| 15 LC2 | -1.416 | -1.932 | **0.52** | 0.43 | 0.13 |
+| 15 LC3 | +6.601 | +6.731 | 0.13 | **0.55** | 0.03 |
+| 15 LC4 | -4.728 | -5.046 | 0.32 | 0.21 | 0.10 |
+| 3.4 LC1 | +1.990 | +2.086 | 0.10 | 0.10 | - |
+| 3.4 LC2 | +5.466 | +4.464 | **1.00** | **4.06** | 0.16 |
+| 3.4 LC3 | +2.443 | +3.123 | **0.68** | **0.66** | 0.01 |
+| 3.4 LC4 | -0.836 | -0.818 | 0.02 | 0.09 | 0.18 |
+
+Profile (es 0.125, primary): 15 LC2 -4.18 (node 53, 10.6 chords) -> -1.93 (56) -> +4.28 (tip); 15 LC3 +4.50 -> +6.73 ->
++9.84; 3.4 LC2 +0.94 / +1.70 / -0.28 (nodes 53-55, 8-14 chords) -> +4.46 (57) -> +20.7 (tip); distributed LC1 / LC4 flat
+within 0.2-0.7 pp from 10 chords to the tip on both blades.
+**Predictions.** P1 held but for one cell (3.4 LC4 outer station es 0.25, 0.43 pp). **P2 refuted** (15 LC2, 3.4 LC2,
+3.4 LC3; the tip-load cases move 0.5-1 pp with refinement at every station, 8-14 chords included). P3: LC1 refuted
+(-4.89, inside the band by 0.11 pp, predicted rejected), LC2 held (in band), LC3 held in kind (rejected) at +6.7 not
++8.5..+9.5, LC4 at the edge (-5.05; es 0.25 -> 0.125 crosses the band: undecided by the rule). **P4 refuted:** the 3.4
+LC2 +15..+21 % lives in the last ~1.5 m (2 chords); at >= 8 chords it is within +-1.7 %, so it is a tip-zone effect, not
+an outboard flap stiffness deficit.
+**Consequence (predeclared):** P2 is refuted, so the metric goes back to the user; no verdict, test or store row is
+written. Distributed loads (LC1, LC4) pass every gate on both blades; the tip point loads (LC2, LC3) do not converge to
+0.5 pp and keep a station dependence 2-4 chords inboard (no MPC / rigid tip coupling, L18).
+
 ## T14 delta-f prediction (written before any delta-f run, 2026-10-27, session 17)
 
 Inputs (no new run): shell S-4 pass 1 (1F/1E parked +2.33 / +0.56 %, rated +1.85 / +0.44 %; parked vs BD p20 MBC3
@@ -605,6 +644,128 @@ Inputs (no new run): shell S-4 pass 1 (1F/1E parked +2.33 / +0.56 %, rated +1.85
   The delta-f / K row is for 1F and 2F, hub 0 both sides (`tools/of_bd_southwell.py`); predicted 1F within 5 %.
 - P3: precone -4 deg is not modelled; K10.4 bounds its effect below 0.06 % on 1F/2F (no row needed).
 Run to confirm: shell parked + rated at es 0.25 / 0.125, Southwell K for 1F/1E/2F vs the driver p20 hub 0 (same rpm 7.56).
+
+## T14 RESULT, es 0.25 (2026-10-27, session 18; no new run: shell `logs/check/l3/store-pass1/pyt-s4.txt`, driver p20 hub 0 / 3.97 `validation-l3-b3-audit.md` "B3-2.2 K10.3-K10.5 RESULT")
+
+Omega = 7.56 rpm; K = (f_r^2 - f_p^2) / Omega^2 (Omega in Hz). Shell / BeamDyn - 1:
+
+| mode | delta-f vs hub 0 | delta-f vs hub 3.97 | K vs hub 0 | parked / rated error |
+|---|---|---|---|---|
+| 1F | **-3.11 %** | -7.55 % | **-0.94 %** | +2.36 / +2.12 % |
+| 1E | -10.56 % | -21.74 % | -10.12 % | +0.54 / +0.44 % |
+| 2F | -4.06 % | -8.13 % | -3.89 % | +0.22 / +0.14 % |
+
+P1 held: like with like the 1F shift is -3.1 % (in band) and the hub radius carries 59 % of the -7.55 % gap (predicted
+~70 %, "not half" held). K removes the parked offset: 1F -0.9 %. P2: 1E is -10.6 %, not ~-50 % (size refuted); by the
+predeclared rule it is still not resolvable as a shift (parked and rated errors 0.54 / 0.44 % > 0.15 %), so its
+centrifugal evidence stays the absolute rated 1E (row 40, trusted). 2F -4.1 % (K -3.9 %), in band with 0.9 pp margin.
+es 0.125 confirmation: SLURM 11626148 (`logs/check/l3/t14/`, worktree rev in `revision`).
+
+## Session 19: reading of the finished jobs (2026-10-28, no new run; job numbers not trusted, outputs found by name and date)
+
+**Full suite** (main checkout, branch check/sources-guard, snapshot bd3e73f+dirty, `logs/check/full-20261028T052002.log`):
+20 failed, 1630 passed, 44 skipped, 5 h 21; all 20 recorded by `--record` into `scripts/known-red-full.txt` (uncommitted).
+Against the a9ca498 registry: out `test_blade_mesh` x2 (re-pinned bd3e73f) and CCX tip axial x2 (now pass); in
+`test_blade_section_frame_tear` x2 and `test_blade_section_torsion_stiffness`. These three are **not regressions**: the
+a9ca498 run had no `.sources/` and skipped them (c778dd4); they were red already on 2026-10-19/22 (`docs/validation_closures.md:1867`,
+guard docstring). Same values in the 3185da6 and bd3e73f runs and standalone (`logs/check/l3-guards/frame-axis.log`): deterministic.
+- tear signature: root tear gone (0 free edges at z 9.55 / 11.94; 34 at 9.55 on 2026-10-22), tip 4 edges at z 112.22 (in the
+  r > 111 m band already excluded by section 22.10). The guard pins a mesh that no longer exists.
+- ring chord axis vs declared twist 12.73 deg at z 11.70 only (neighbours 7.6-8.3 deg; median 0.52): z 9.5-13 m is the
+  circular (r/L 0.02) -> SNL-FFA-W3-500 (r/L 0.15) blend, a near-round ring whose SVD axis is ill-conditioned (the guard
+  accepts any ring with sv ratio > 1.2). Extent and pitch split pass (max 4.1 % / 1.2 % at z 9.79).
+- pure-torque twist: one non-increasing step at z 9.551, same blend zone; magnitude not printed (root steps are ~3e-5).
+None of the three touches a station used by S-1 (mid-span), S-2 or S-7 (tip); they need a guard update, a user decision.
+
+**T14 es 0.125** (SLURM t14-s4-es0125, rev 4e27c8d, 3 passed): parked +2.34 / +0.52 / +0.31 %, rated +2.09 / +0.43 / +0.23 %
+(1F / 1E / 2F vs BD p20). Shift vs driver p20 hub 0 (rpm 0 / 7.56 rows of K10.3): 1F delta-f -3.27 % (es 0.25 -3.11), K -1.13 %
+(-0.94); 2F -4.74 % (-4.06), K -4.49 % (-3.89); 1E -10.56 % (-10.56), K -10.13 %. 1F converged in band; 2F in band at 0.26 pp
+from 5 % and moving out with refinement (finding, same direction as S-2); 1E unchanged and still not resolvable by the
+predeclared rule (parked / rated errors 0.52 / 0.43 % > 0.15 %). All three shell shifts are below BeamDyn: the shell
+centrifugal stiffening is 1-5 % weaker in K (1F, 2F), cause not diagnosed.
+
+**S14 es 0.0625 LC1/LC4**: no result. Two runs OOM-killed (473158 nodes, MaxRSS 29.9 GB with `--ntasks=4`). LC4 stays
+undecided by the S14 rule; extrapolation from es 0.25 / 0.125 (-4.728 / -5.046, monotone outward) gives -5.15..-5.36, i.e.
+rejected under any monotone convergence, but that is not the predeclared measurement. LC1: -4.883 / -4.894 (conv 0.01 pp,
+does not cross): in band by the predeclared rule, margin 0.11 pp.
+
+**T12 group 5** (`wt/l3-g5/logs/check/l3/g5/test-11625835.log`, 0f5215e + T12 diff, 1 failed in 22 min): P5 held. MAC pairing
+gaps at 0.25 m: modes 1-5 <= 0.14 %, mode 6 0.98 %, mode 7 4.61 % (bound 5 %), mode 8 0.25 % but MAC 0.779 < 0.8 ->
+"not identifiable", the only failure. Low-mode worst 0.076 % (bound 1 %), high-mode worst 4.61 % (bound 5 %).
+
+**T13 group 23** (`wt/l3-g23/logs/check/l3/g23/job-11625842.out`, CCX 2.20, 16 passed 7 xfailed): CCX modes 1-5 (true order
+after the pairing fix) 0.05 / 0.05 / 0.01 / 0.05 / 0.12 % (prediction held). BeamDyn p20 rows: 2E -2.11, 3F -2.54,
+**1T +1.59**, 3E -1.32, 4F -3.06 % (all in band by > 1.9 pp; prediction held except sign of 1T, predicted -3 %).
+**1T finding:** the first torsion frequency matches BeamDyn within 1.6 % (shell slightly stiff), while S-1 GJ reads -10.7 %
+and S-7 +7.2 %. A 10 % global GJ deficit would put 1T ~5 % low. The static torsion reds are therefore the twist
+measurement, not the shell's torsional stiffness: consistent with core-torsion C3 (3.4 outboard 1.3x = all-node rigid fit)
+and with S8 (box fit for S-7 / S-1 GJ).
+
+Slice boundary (session 19): l3/pass2-s2-ring stops at 4d1419e (S-2 station tools, T10-T14 docs; its own PR). T15/T16 code goes on
+the stacked branch l3/box-kinematics (worktree `wt/l3-box`), reviewed as its own slice.
+
+## T15/T16 prediction (written before any box or energy number, session 19, at a604bcb)
+
+Basis: C3 (box vs all-node, FE / mesh-Bredt: 15 at 0.6-0.85 0.952 -> 1.018, 0.7-0.85 0.932 -> 1.032, 0.3-0.6 1.002 -> 0.971;
+3.4 0.6-0.85 1.314 -> 0.926), group 23 1T +1.59 % vs BeamDyn p20, S-4 1E +0.52 %, 2E -2.11 %, 3E -1.32 %, S-1 EI_edge signed -1.89
+(mean |rel| 8.01) %, the T9 section integral of EI_edge (-1.6..+11 %, consistent with 1E).
+- P1 (tube / prismatic): box and all-node agree within 0.5 % where the section does not distort (tube: box = all nodes by
+  construction is not available, so the prismatic extrusion is the check: box within 2 % of its Bredt, as C4 0.982).
+- P2 (15, GJ): box GJ signed mid-span moves from -10.7 % toward zero by 3-7 pt outboard of 0.6 and by < 3 pt inboard; mean
+  |rel| 10.7 -> 5-8 %. S-7 ratio 1.0717 -> 0.99-1.04.
+- P3 (15, energy torsion): W_FE / W_beam under pure torque within 0.96-1.04 (1T +1.6 % says the integrated GJ is not 10 % soft).
+- P4 (15, edge): W_FE / W_beam for the tip edge load within 0.97-1.03 (1E +0.5 %); box EI_edge mean |rel| < 5 %, signed -3..+2 %.
+- P5 (15, flap): W_FE / W_beam tip flap 0.93-0.97 (shell ~5 % stiffer: EI_flap +4.9, S-2 LC1/LC4 -5, 1F +2.3 %): a control
+  that the energy measure sees a known real difference.
+- P6 (3.4): box removes the outboard 1.3x torsional softness (C3); its W torsion within 0.95-1.08 of its BeamDyn deck.
+Consequences (predeclared): P2+P3 held -> the torsion reds are the measure, S-1 GJ / S-7 move to the box reading with the
+history in the docstrings, T7 stays parked. P3 refuted (W torsion < 0.95) -> the shell is torsionally soft for real, T7 is
+back. P4 refuted -> EI_edge is a stiffness difference, not the extractor. No bound moves in any case.
+
+## T18 guard step diagnosis (session 19, login 130 s, 4.0 GB; `logs/check/l3/t15/guard_step.py|log`, es 0.25, the guard's pure-torque realisation)
+
+Canonical copy of this document moves to branch l3/box-kinematics (`wt/l3-box`) from here on.
+Per-station twist step read three ways around the root blend (ring nodes / box nodes in brackets):
+z 9.551 (65 -> 80 / 11 -> 27): affine-all -3.3e-4, rigid-all +5.6e-4, rigid-box -4.3e-4; z 11.939 (102 -> 92 / 49 -> 41):
++5.7e-4 / -6.0e-4 / +2.7e-4; smooth rows z 12.2-13.5: +3.0e-4 / +1.2e-4 / +4.2e-4. Every estimator jumps by the order of the
+true increment exactly where the ring node count changes, with inconsistent signs: the guards' non-monotone step at z 9.551
+is a ring-topology artefact of the per-station fit (as C6 at the tip: 0.1-0.34 deg at node-count changes), not a stiffness
+defect. The monotone assertion at single-station resolution tests estimator noise there. The fix is a node-count-independent
+ring fit (arc-length weighting, C6 open item), which also feeds the production BEM twist (`_section_rotation`): T19.
+**Box-fit finding:** rigid-box degenerates outboard of z ~ 109.7 m (41 non-increasing steps 109.7-117, nonsense cumulative
+total): the box (caps + webs) becomes ill-conditioned near the tip; the >= 6-node rule does not catch it. S-1 (0.2-0.85 R)
+and S-7 (0.3-0.9 R) bands end before it; check the T15 band stations, and the box option needs a conditioning guard.
+
+## T15/T16 RESULT (session 19; SLURM t15-iea15 8 min, t15-iea34 3 min, dev; login: polar inertia; `logs/check/l3/t15/*.log|json`)
+
+es 0.25, mid-surface, S-1 mid-span 0.2-0.85 signed % (mean |rel| %), all nodes | box; W_FE / W_beam with the full deck 6x6 at
+eta_max 1.0 (decoupled in brackets); distributed loads (tip-force rows contaminated by load introduction, kept for the record).
+
+| quantity | IEA-15 all | IEA-15 box | IEA-3.4 all | IEA-3.4 box |
+|---|---|---|---|---|
+| EI_edge | -1.89 (8.01) | -3.05 (7.07) | -1.37 (4.70) | -2.40 (8.66) |
+| EI_flap | +3.87 (4.53) | +4.03 (4.74) | +0.76 (3.59) | +1.02 (3.21) |
+| GJ | -10.74 | -9.65 | -28.93 | -21.29 (0.6-0.85: -31.8 -> -11.4; 0.2-0.3 -61 / -51) |
+| S-7 band ratio | 1.0717 | 1.0766 | 1.3869 | 1.5186 |
+| W dist edge | 1.0002 (1.147) | | 1.0954 (1.287) | |
+| W dist flap | 0.9367 (0.975) | | 1.0070 (1.048) | |
+| W tip torque | 0.954 (tip-dominated: deck GJ falls 100x in the last 5 %) | | 2.39 | |
+
+Polar mass inertia about the mass centroid, shell vs deck (`polar_inertia.py`, no solve): IEA-15 mid-span -0.01 %, 0.6-1.0 -3.3 %;
+IEA-3.4 mid-span +4.4 %, 0.6-1.0 -2.1 %. Mass +2.4 / +1.8 %.
+**Predictions.** P1 held (closed forms). **P2 refuted** (15: box moves GJ by 1.1 pt, S-7 unchanged). P3 not evaluable (tip-dominated).
+**P4 held** (edge energy 1.0002: the integral edgewise stiffness equals the deck's; the S-1 8 % is per-station scatter of the curvature
+extractor, signed mean -1.9 %). **P5 held** (flap 0.937: the instrument sees the known ~6 % stiffer flap). P6 partly (3.4 box removes
+the outboard 1.3x; inboard 0.2-0.3 GJ -51..-61 % remains; 3.4 edge energy 1.095 is root-weighted, consistent with its known
+root EI_edge deficit 0.04-0.18).
+**1T re-read.** I_p does not explain GJ -10 % vs 1T +1.6 %. The 1T row pairs by frequency only inside a three-mode cluster at
+4.1-4.4 Hz (group 5 MAC: two shell modes with ~99 % span rotation; the torsion-like one converges slowly, 1-4.6 % vs CCX at
+0.25 m). Without MAC vs the BeamDyn p20 shapes (T8) the 1T row is not an arbiter of GJ.
+**Consequences (predeclared).** Torsion: the measure hypothesis is rejected for the 15 (box = all); with C3 (FE = its own mesh
+section within 3-5 %) the GJ deficit lives in the section representation (TE closure, T7), not in the element or the fit: T7 is
+back after T8 pins 1T. Edge: S-1 EI_edge red is the extractor; declare it with the energy ratio as the extractor-free evidence.
+Flap: real ~+6 % stiffness (T6). No bound moved. The parent's message of session 19 that "torsion is the measurement" is
+retracted for the 15.
 
 ## Log
 
@@ -631,3 +792,6 @@ Run to confirm: shell parked + rated at es 0.25 / 0.125, Southwell K for 1F/1E/2
 - L21 (2026-10-27, session 17) User asked what to run in parallel while SLURM 11625665 (full suite) and 11625754/56 (T10c-station es 0.125) run; parent listed: station test draft (T10 step 4), group 5 residual print + audit, Bernardi -> p20, group 23 audit + second arbiter, delta-f prediction, worktree hygiene. User, verbatim: "ok haz todo eso". Parent: the `sx` question was already answered (S9, T11 in its own session per L20); the station test is drafted against S12 but not committed until P1/P2 hold (L20: test after the comparison).
 - L22 (2026-10-27, session 17) User, verbatim: "mira  aver si puedes mover tareas a otras colas". Parent: multi-partition requests are refused (partition set in the association); `--test-only` estimates a new equivalent job at 31/10-27/11 on the other partitions vs today 17:56-19:56 for the queued bigmem jobs, so nothing moved; a hedge copy of t10cs-iea34-es0125 went to `sequana_cpu_dev` (11625874, 20 min, own output `iea34-es0125dev.json`); if it completes, the bigmem twin 11625756 is cancelled. The v14asm jobs (turbinesFoam, other project) were not touched.
 - L23 (2026-10-27, session 17) User, verbatim: "si a las 3 desiciones que tenia que tomar". Decisions: (1) the group 23 static CCX row (`test_blade_static_tip_deflection_matches_ccx`) is declared non-validation (its load matches no BeamDyn case; S-2 covers static); (2) a p20 row of group 23 above 5 % stays red and `known-red-full.txt` is re-recorded (`check.sh full --record`), no xfail; (3) the S-2 station test keeps the BeamDyn scale 1e-4 vs 2e-4 linearity gate at 0.1 %.
+- L24 (2026-10-27, session 18) User, verbatim: "podemos hacerlo en esta sesion" (pass 2 resumed here after the full-suite review of 11625665 and the check gate fix, branch check/sources-guard). Parent: read T10c-station (section "T10c-station RESULT"): P2 refuted, metric back to the user; user chose S13 and S14.
+- L25 (2026-10-28, session 19) User, verbatim: "vamos a continuar la validacion. ya terminaron todos los jobs que mandamos, vamos a analizarlos, no te ffies en los numeros de jobs poruqe los estuve moviendo de colas para que terminaran. no quiero que lances mas ningun job salvo que sea estrictamente necesario ya hemos medido demasiado y no arreglado nada, estoy seguro que podemos tener conclusiones precisas con todas las mediciones y diagnosticos que se han hecho". Parent: read every output by name and date, no job launched (section "Session 19").
+- L26 (2026-10-28, session 19) User, verbatim: "vamos con a y b, y lo demas dejalo bajo tu criterio." and "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque". Parent: S15, S16, T15-T18; prediction written before any run.
