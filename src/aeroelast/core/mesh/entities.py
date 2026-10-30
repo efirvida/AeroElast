@@ -66,7 +66,8 @@ class Node:
 
     _id_counter = 0
 
-    def __init__(self, coords: Union[Iterable[float], np.ndarray], geometric_node: bool = True):
+    def __init__(self, coords: Union[Iterable[float], np.ndarray], geometric_node: bool = True,
+                 *, coordinate_dtype=float):
         """
         Initialize a Node instance.
 
@@ -77,10 +78,15 @@ class Node:
             the z-coordinate is set to 0.0.
         geometric_node : bool, optional
             Whether this is a geometric (corner) node. Default is True.
+        coordinate_dtype : numpy floating dtype, optional
+            Defaults to float64. The v2 geometry-only adapter explicitly uses
+            longdouble; this does not enable extended structural/FE support.
         """
-        coords_arr = np.array(coords, dtype=float)
+        if np.dtype(coordinate_dtype) not in (np.dtype(float), np.dtype(np.longdouble)):
+            raise ValueError('coordinate_dtype must be float64 or longdouble')
+        coords_arr = np.array(coords, dtype=coordinate_dtype)
         if coords_arr.size < 3:
-            coords_arr = np.concatenate((coords_arr, np.zeros(3 - coords_arr.size)))
+            coords_arr = np.concatenate((coords_arr, np.zeros(3 - coords_arr.size, dtype=coordinate_dtype)))
         self.coords = coords_arr
         self.x = coords_arr[0]
         self.y = coords_arr[1]

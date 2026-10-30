@@ -1,8 +1,11 @@
 import copy
+import hashlib
 import logging
 
 import numpy as np
 import yaml
+from scipy.integrate import quad
+from scipy.interpolate import PchipInterpolator
 
 from aeroelast.models.blade.numad.io.airfoil_to_xml import airfoil_to_xml
 from aeroelast.models.blade.numad.objects.airfoil import Airfoil
@@ -11,6 +14,7 @@ from aeroelast.models.blade.numad.objects.definition import Definition
 from aeroelast.models.blade.numad.objects.material import Material
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 from aeroelast.models.blade.numad.utils.misc_utils import _parse_data, full_keys_from_substrings
+from aeroelast.models.blade.windio import normalize_windio
 
 
 def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
@@ -34,13 +38,22 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     """
 
     # Read in yaml file as a nested dictionary
-    with open(filename) as blade_yaml:
-        # data = yaml.load(blade_yaml,Loader=yaml.FullLoader)
-        data = yaml.load(blade_yaml, Loader=yaml.Loader)
+    with open(filename, "rb") as blade_yaml:
+        source_bytes = blade_yaml.read()
+    source = yaml.load(source_bytes, Loader=yaml.Loader)
+    data = normalize_windio(source)
+    blade.windio2_topology = None
 
     # initialize definition
     definition = Definition()
     blade.definition = definition
+    if str(data.get("windIO_version")) == "2.0":
+        definition.windio2_reference_axis = copy.deepcopy(
+            data["components"]["blade"]["reference_axis"]
+        )
+        definition.windio2_outer_shape = copy.deepcopy(data["components"]["blade"]["outer_shape"])
+        names = {a["name"] for a in definition.windio2_outer_shape["airfoils"]}
+        definition.windio2_airfoils = copy.deepcopy([a for a in data["airfoils"] if a["name"] in names])
     try:
         blade.definition.hub_diameter = data["components"]["hub"]["outer_shape_bem"]["diameter"]
     except Exception:
@@ -121,6 +134,23 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     }
     # Spar caps
     _add_spar_caps(definition, blade_structure_dict)
+    if str(data.get("windIO_version")) == "2.0":
+        # v2 supplies explicit cap edges, not v1 pitch-axis offsets. The zero
+        # offsets only initialize legacy fields; KeyPoints uses the arcs below.
+        definition.sparcapoffset_hp = np.zeros_like(definition.span)
+        definition.sparcapoffset_lp = np.zeros_like(definition.span)
+        definition.cap_nd_arc = {}
+        for name, layer in yaml_layers.items():
+            if "spar" not in name.lower():
+                continue
+            side = "hp" if blade_structure_dict[name.lower()]["side"] == "pressure" else "lp"
+            b, c = (("start_nd_arc", "end_nd_arc") if side == "hp"
+                    else ("end_nd_arc", "start_nd_arc"))
+            grid = np.union1d(layer[b]["grid"], layer[c]["grid"])
+            definition.cap_nd_arc[side] = [grid, *[
+                np.interp(grid, layer[key]["grid"], layer[key]["values"])
+                for key in (b, c)
+            ]]
 
     # TE Bands
     _add_te_bands(definition, blade_structure_dict)
@@ -157,6 +187,12 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
         blade.definition.rotor_diameter = float(blade.definition.span[-1]) * 2
         blade.definition.hub_height = blade.definition.rotor_diameter / 2 * 1.3
 
+    if str(data.get("windIO_version")) == "2.0":
+        from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
+
+        blade.windio2_topology = WindIO2Topology(
+            source, hashlib.sha256(source_bytes).hexdigest(), blade.definition
+        )
     # save(blade_name)
     # BladeDef_to_NuMADfile(obj,numad_name,matdb_name,numad_af_folder)
     return blade
@@ -174,6 +210,14 @@ def _add_stations(
     L = blade_outer_shape_bem["reference_axis"]["z"]["values"][-1]
     R = L + hub_outer_shape_bem["diameter"] / 2
     L = R - hub_outer_shape_bem["diameter"] / 2
+    if definition.windio2_reference_axis is not None:
+        # Schema reference_axis: integrate x/y/z in 3D, not the tip z value.
+        axis = definition.windio2_reference_axis
+        derivatives = [PchipInterpolator(axis[c]["grid"], axis[c]["values"]).derivative()
+                       for c in "xyz"]
+        knots = np.unique(np.concatenate([axis[c]["grid"] for c in "xyz"]))
+        L = sum(quad(lambda eta: np.linalg.norm([d(eta) for d in derivatives]), a, b)[0]
+                for a, b in zip(knots[:-1], knots[1:], strict=True))
     definition.span = np.multiply(
         np.transpose(blade_outer_shape_bem["reference_axis"]["z"]["grid"]), L
     )
@@ -259,6 +303,12 @@ def _add_stations(
         ),
         100,
     )
+    if "rthick" in blade_outer_shape_bem:
+        relative_thickness = blade_outer_shape_bem["rthick"]
+        definition.percentthick = 100 * interpolator_wrap(
+            np.asarray(relative_thickness["grid"]) * L,
+            relative_thickness["values"], definition.span,
+        )
     definition.aerocenter = interpolator_wrap(
         np.multiply(blade_outer_shape_bem["airfoil_position"]["grid"], L),
         aero_cent,
@@ -269,6 +319,18 @@ def _add_stations(
         np.transpose(blade_outer_shape_bem["pitch_axis"]["values"]),
         definition.span,
     )
+    if definition.windio2_outer_shape is not None:
+        # Keep native eta grids authoritative, also at subsequently inserted stations.
+        outer = definition.windio2_outer_shape
+        eta = definition.span / L
+        for field, attribute, scale in (("twist", "degreestwist", 1.),
+                                        ("chord", "chord", 1.),
+                                        ("rthick", "percentthick", 100.)):
+            curve = outer[field]
+            setattr(definition, attribute,
+                    scale * PchipInterpolator(curve["grid"], curve["values"])(eta))
+        offset = outer["section_offset_y"]
+        definition.chordoffset = PchipInterpolator(offset["grid"], offset["values"])(eta) / definition.chord
     definition.natural_offset = 0
     definition.prebend = interpolator_wrap(
         np.multiply(np.transpose(blade_outer_shape_bem["reference_axis"]["x"]["grid"]), L),
@@ -434,7 +496,7 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict, 
         component_dict[uv[0]].lpextents = ["le", "te"]
     elif len(uv) > 1:
         raise ValueError("Incorrect number of uv components")
-    else:
+    elif not definition.windio2_outer_shape:
         raise ValueError("No uv components found")
 
     # Shell skin

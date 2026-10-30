@@ -109,6 +109,19 @@ class KeyPoints:
         """
         mm_to_m = 0.001
 
+        def cap_edges(side, station, b, c):
+            caps = getattr(definition, "cap_nd_arc", {})
+            if side not in caps:
+                return b, c  # Preserve the v1 construction exactly.
+            grid, b_nd, c_nd = caps[side]
+            eta = geometry.ispan[station] / geometry.ispan[-1]
+            # windIO 63dcad6 nd_arc_position includes the open-TE midpoint legs;
+            # reverse its suction-to-pressure direction for NuMAD's arc axis.
+            arc0 = geometry.arclength[0, station]
+            perimeter = geometry.arclength[-1, station] - arc0
+            return tuple(arc0 + (1 - np.interp(eta, grid, nd)) * perimeter
+                         for nd in (b_nd, c_nd))
+
         # number of interpolated span stations
         num_istations = geometry.ispan.size
 
@@ -223,11 +236,12 @@ class KeyPoints:
                 z = geometry.HParcx0[0, k]
             z = z - scoffset_hp
             b = np.amin(((z + 0.5 * scwidth_hp), 0.15 * geometry.arclength[ns, k]))
+            c = np.amax(((z - 0.5 * scwidth_hp), 0.8 * geometry.arclength[ns, k]))
+            b, c = cap_edges("hp", k, b, c)
             # Keep a 5 % of the side arc forward of b (NuMAD capped it at 10 % of the arc, which clipped
             # the yaml LE band where the panel had room: odd/tasks/blade-input-audit.md, T11).
             a = np.amax(((0 - n1), b - 0.05 * geometry.arclength[ns, k]))  # type: float
             a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
-            c = np.amax(((z - 0.5 * scwidth_hp), 0.8 * geometry.arclength[ns, k]))
             # Keep d 5 % of the side arc aft of c (NuMAD capped it at 85 % of the arc, which clipped
             # the yaml TE band where the TE panel had room: odd/tasks/blade-input-audit.md, T6).
             # The band is measured from the TE corner ``arclength[ns]``, not from the flat-back face
@@ -276,10 +290,11 @@ class KeyPoints:
                 z = geometry.LParcx0[0, k]
             z = z + scoffset_lp  # positive scoffset moves z toward t.e.
             b = np.amax(((z - 0.5 * scwidth_lp), 0.15 * geometry.arclength[nf, k]))
+            c = np.amin((z + 0.5 * scwidth_lp, 0.8 * geometry.arclength[nf, k]))
+            b, c = cap_edges("lp", k, b, c)
             # Same as HP: a yields only to stay 5 % of the side arc forward of b (T11).
             a = np.amin(((0 + n1), b - 0.05 * geometry.arclength[nf, k]))
             a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
-            c = np.amin((z + 0.5 * scwidth_lp, 0.8 * geometry.arclength[nf, k]))
             d = np.amax((geometry.arclength[nf, k] - n2, c + 0.05 * geometry.arclength[nf, k]))
             d = np.amin((d, 0.96 * geometry.arclength[nf, k]))
             if str(te_types[k]) == str("flat"):
