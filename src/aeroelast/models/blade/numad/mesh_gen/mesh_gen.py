@@ -4,9 +4,25 @@ import numpy as np
 
 ##from pynumad.mesh_gen.shellClasses import shellRegion, elementSet, NuMesh3D, spatialGridList2D, spatialGridList3D
 from aeroelast.models.blade.numad.mesh_gen.element_utils import correct_orient
+from aeroelast.models.blade.numad.mesh_gen.local_refine import MeshedRegion, refine_surface_patch
 from aeroelast.models.blade.numad.mesh_gen.mesh_tools import get_direction_cosines
+from aeroelast.models.blade.numad.mesh_gen.shell_region import ShellRegion
 from aeroelast.models.blade.numad.mesh_gen.surface import Surface
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
+
+
+def _row_counts(n1, n3, rows, k):
+    """Chordwise counts ``(inboard, outboard)`` of row ``k`` of a region cut into ``rows`` rows.
+
+    The structured region keeps the larger count ``peak`` on every row and puts the transition in
+    the end row next to the coarser edge.
+    """
+    peak = max(n1, n3)
+    if n1 < n3 and k == 0:
+        return n1, peak
+    if n3 < n1 and k == rows - 1:
+        return peak, n3
+    return peak, peak
 
 
 class SpanPlan:
@@ -24,6 +40,9 @@ class SpanPlan:
         self.z = np.asarray(z, dtype=float)
         self.n_span = np.asarray(n_span, dtype=int)
         self.chord_counts = {}
+        self.web_rows = None  # per native bay: the webs meshed there (set by the planning pass)
+        self.cut_webs = None  # per native bay: the webs the spar cap is cut at
+        self.patches = {}  # (piece key, native bay, row) -> gmsh patch topology, see ``patch``
         self._bay = None
 
     @property
@@ -46,6 +65,42 @@ class SpanPlan:
         first = np.concatenate([[0], np.cumsum(rows)[:-1]])
         self._bay = [(int(b), int(k - first[b])) for k, b in enumerate(native)]
 
+    def webs(self, i):
+        """``(meshed webs, cut webs)`` of the native bay that holds new bay ``i``, or None.
+
+        Where a web starts and ends (S6) and where the cap is cut depend on the stations the
+        decision is taken at, so the bound blade, which has more stations, takes the native bay's
+        decision instead of deciding again.
+        """
+        if self._bay is None:
+            raise RuntimeError("SpanPlan.bind() has not run")
+        if self.web_rows is None:
+            return None
+        b = self._bay[i][0]
+        return self.web_rows[b], self.cut_webs[b]
+
+    def patch(self, key, i):
+        """The gmsh patch the native mesh puts on new bay ``i`` for cap piece ``key``, or None.
+
+        ``(keep, eta, elements)`` as ``refine_surface_patch`` records it, with ``eta`` expressed in
+        the one-row region of bay ``i``. The gmsh result depends chaotically on millimetres of
+        boundary geometry, which differs between the native region (Bezier in the bay) and the
+        bound blade (spline through the inserted stations), so the bound blade replays the native
+        topology on its own boundary instead of meshing again.
+        """
+        if self._bay is None:
+            raise RuntimeError("SpanPlan.bind() has not run")
+        b, k = self._bay[i]
+        found = self.patches.get((key, b, k))
+        if found is None:
+            return None
+        keep, eta, elements, count = found
+        rows = int(self.n_span[b])
+        v0, v1 = -1.0 + 2.0 * k / rows, -1.0 + 2.0 * (k + 1) / rows
+        eta = np.array(eta, dtype=float).reshape(-1, 2)
+        eta[:, 1] = 2.0 * (eta[:, 1] - v0) / (v1 - v0) - 1.0
+        return keep, eta, elements, count
+
     def counts(self, key, i):
         """Chordwise (inboard, outboard) counts of the row of new bay ``i``, or None."""
         if self._bay is None:
@@ -54,14 +109,7 @@ class SpanPlan:
         ends = self.chord_counts.get((key, b))
         if ends is None:
             return None
-        n1, n3 = ends
-        peak = max(n1, n3)
-        rows = int(self.n_span[b])
-        if n1 < n3 and k == 0:
-            return n1, peak
-        if n3 < n1 and k == rows - 1:
-            return peak, n3
-        return peak, peak
+        return _row_counts(*ends, int(self.n_span[b]), k)
 
 
 def _chordwise_counts(shellKp, elementSize, key, i, tip_rule, plan, record):
@@ -129,8 +177,249 @@ def _web_control_points(shellKp):
         shellKp[hi, :] = (shellKp[a, :] + 2.0 * shellKp[b, :]) / 3.0
 
 
+_PIECE_MIN_WIDTH = 1.0e-6  # m: narrower than this a cap piece is a line, and a strip is closed
+
+
+def _piece_exists(arcs, lo, hi, row):
+    """Whether the cap piece between columns ``lo`` and ``hi`` has any width in span row ``row``."""
+    return np.max(arcs[hi, row : row + 2] - arcs[lo, row : row + 2]) > _PIECE_MIN_WIDTH
+
+
+def _closing_strips(cap_plans, webs, row, station, step, wide, stop=frozenset()):
+    """The cap strips that close to a point at ``station`` and widen to ``wide`` moving by ``step``.
+
+    ``cap_plans`` holds one ``(arcs, web positions)`` per spar cap (``_plan_cap_columns``); the
+    strips are the pieces of each cap cut at ``webs`` that exist in span row ``row``. A strip closes
+    at ``station`` when its width there is zero; it reaches ``wide`` at the first station, moving by
+    ``step``, where it is at least that wide, or at a station listed in ``stop`` (stations placed
+    where the width crosses ``wide``, see ``web_end_spans``). A strip that stops widening first does
+    not close and is left out. Returns ``(previous station, station reached, widths)`` per strip.
+    """
+    out = []
+    for arcs, pos in cap_plans:
+        cuts = [0, *sorted(1 + pos[g] for g in webs), len(arcs) - 1]
+        for lo, hi in zip(cuts[:-1], cuts[1:], strict=True):
+            width = arcs[hi] - arcs[lo]
+            if not _piece_exists(arcs, lo, hi, row) or width[station] > _PIECE_MIN_WIDTH:
+                continue
+            at = station
+            while (
+                0 <= at + step < len(width)
+                and at not in stop
+                and width[at] < wide
+                and width[at + step] - width[at] > _PIECE_MIN_WIDTH
+            ):
+                at += step
+            if at != station and (at in stop or width[at] >= wide):
+                out.append((at - step, at, width))
+    return out
+
+
+def _cap_plans(blade, n_webs):
+    """``(arcs, web positions)`` of each spar cap split at the yaml web arcs, or ``[]``."""
+    web_attach = getattr(blade.keypoints, "web_attach_arcs", None)
+    if web_attach is None or len(web_attach) != n_webs:
+        return []
+    plans = []
+    for side, lo_row, hi_row in _CAP_SEGMENTS.values():
+        plan = _plan_cap_columns(blade.keypoints.key_arcs, [a[side] for a in web_attach], lo_row, hi_row)
+        if plan is None:
+            return []
+        plans.append(plan)
+    return plans
+
+
+def _web_rows_in_yaml(blade):
+    """The webs the yaml gives a laminate in each span row."""
+    swstacks = blade.stackdb.swstacks
+    n_rows = len(blade.ispan) - 1
+    return [{g for g in range(len(swstacks)) if swstacks[g][i].plygroups} for i in range(n_rows)]
+
+
+def web_end_spans(blade, elementSize, min_strip_ratio=0.3):
+    """Span positions where a web starts or ends (S6 of v1-mesher-web-slivers), stations or not.
+
+    A web starts (ends) where the last cap strip that closes at the end of its yaml domain reaches
+    ``min_strip_ratio * elementSize`` (``get_shell_mesh``). That place is between two stations; it
+    is found by linear interpolation of the strip width between them. Adding these positions as
+    stations makes the web start there whatever the station density, so a mesh planned on the yaml
+    stations and one on a blade with more stations agree. Pass them back to ``get_shell_mesh`` as
+    ``web_end_spans`` so the station is taken even where interpolation leaves it a hair short.
+    """
+    exists = _web_rows_in_yaml(blade)
+    plans = _cap_plans(blade, len(blade.stackdb.swstacks))
+    if not plans:
+        return np.empty(0)
+    z = np.asarray(blade.ispan, dtype=float)
+    wide = min_strip_ratio * elementSize
+    found = []
+    n_rows = len(exists)
+    for row in range(n_rows):
+        ends = []
+        if exists[row] - (exists[row - 1] if row else set()):
+            ends.append((row, 1))
+        if exists[row] - (exists[row + 1] if row + 1 < n_rows else set()):
+            ends.append((row + 1, -1))
+        for station, step in ends:
+            strips = _closing_strips(plans, exists[row], row, station, step, wide)
+            if not strips:
+                continue
+            crossings = []
+            for prev, at, width in strips:
+                t = (wide - width[prev]) / (width[at] - width[prev])
+                crossings.append(z[prev] + t * (z[at] - z[prev]))
+            found.append(max(crossings) if step > 0 else min(crossings))
+    return np.unique(np.asarray(found, dtype=float))
+
+
+def _meshed_web_rows(exists, apex_station):
+    """The webs meshed in each span row: those the yaml gives a laminate, less the rows at each end
+    of a web's domain where a skin strip closes to a point.
+
+    ``exists[row]`` is the set of webs with a laminate in the row. ``apex_station(webs, row,
+    station, step)`` is the station, moving from ``station`` by ``step`` (+1 inward from a start,
+    -1 inward from an end), where the strips that close to a point at ``station`` are wide enough.
+    A web that starts (ends) in ``row`` starts (ends) there instead.
+    """
+    n_rows = len(exists)
+    kept = [set(row) for row in exists]
+    for row in range(n_rows):
+        starting = exists[row] - (exists[row - 1] if row else set())
+        if starting:
+            begin = apex_station(exists[row], row, row, 1)
+            for k in range(row, min(begin, n_rows)):
+                kept[k] -= starting
+        ending = exists[row] - (exists[row + 1] if row + 1 < n_rows else set())
+        if ending:
+            end = apex_station(exists[row], row, row + 1, -1)
+            for k in range(max(end, 0), row + 1):
+                kept[k] -= ending
+    return kept
+
+
+def _cut_web_sets(web_rows):
+    """The webs the spar cap is cut at in each span row: those meshed there.
+
+    Two rows that share a station must agree on it: either one cuts at every line the other does
+    (the coarser row is then remeshed to the finer row's nodes, see ``_cap_rows``) or, if neither
+    contains the other, both cut at the union.
+    """
+    sets = [set(row) for row in web_rows]
+    changed = True
+    while changed:
+        changed = False
+        for r in range(len(sets) - 1):
+            if not (sets[r] <= sets[r + 1] or sets[r + 1] <= sets[r]):
+                sets[r] = sets[r + 1] = sets[r] | sets[r + 1]
+                changed = True
+    return sets
+
+
+def _edge_nodes(region, count, v):
+    """3D nodes of the chordwise edge ``v = -1`` (inboard) or ``+1`` of a region: count + 1, uniform in eta."""
+    u = np.linspace(-1.0, 1.0, count + 1)
+    return region.XYZCoord(np.column_stack((u, np.full_like(u, v))))
+
+
+def _side_nodes_between(region, u, v0, v1):
+    """3D nodes of the spanwise edge ``u = -1`` or ``+1`` of a region between ``v0`` and ``v1``."""
+    v = np.array([v0, v1])
+    return region.XYZCoord(np.column_stack((np.full_like(v, u), v)))
+
+
+def _cap_rows(
+    shellKp,
+    counts,
+    n_span,
+    element_size,
+    min_strip_ratio,
+    below=None,
+    above=None,
+    strips=(),
+    record=None,
+    replay=None,
+):
+    """Mesh one cap piece, remeshing with gmsh only the rows that need it; ``None`` if none does.
+
+    The piece is the structured grid of ``n_span`` rows (``ShellRegion``) except that a row is
+    replaced by a gmsh patch, its boundary nodes exactly those of the structured row, when
+    - it is the first (last) row and ``below`` (``above``) imposes on its inboard (outboard) edge
+      the nodes of a neighbouring bay that cuts the cap at more lines (3D, ordered like the edge), or
+    - its two chordwise counts differ and the finer one spaces its nodes closer than a strip may
+      be wide (``min_strip_ratio * element_size``): the transition would fan out into slivers.
+    The size next to the boundary is a quarter of the narrowest strip: ``strips`` (the widths the
+    neighbouring bays cut on the shared line) or the row's own mean width. Patching rows, not the
+    bay, gives the same discretisation whether the bay is one native bay of ``n_span`` rows or
+    ``n_span`` bays of one row (``SpanPlan``): ``record`` (a dict) receives the gmsh topology of
+    each patched row, and ``replay`` ({row: topology}, e.g. ``SpanPlan.patch``) patches exactly
+    those rows with that topology instead of deciding and meshing.
+    """
+    n1, n3 = counts
+    region = ShellRegion(
+        "quad3", shellKp, [n1, n_span, n3, n_span], elType="quad", meshMethod="structured"
+    )
+    patches = {}
+    for k in range(n_span):
+        c1, c3 = _row_counts(n1, n3, n_span, k)
+        v0, v1 = -1.0 + 2.0 * k / n_span, -1.0 + 2.0 * (k + 1) / n_span
+        low, high = _edge_nodes(region, c1, v0), _edge_nodes(region, c3, v1)
+        width = (np.linalg.norm(low[-1] - low[0]), np.linalg.norm(high[-1] - high[0]))
+        spacing = [w / c for w, c in zip(width, (c1, c3), strict=True) if w > 0.0]
+        fan = c1 != c3 and min(spacing, default=np.inf) < min_strip_ratio * element_size
+        imposed = []
+        if replay is not None and k not in replay:
+            continue
+        if k == 0 and below is not None:
+            low = below
+            imposed.append(strips[0])
+        if k == n_span - 1 and above is not None:
+            high = above
+            imposed.append(strips[1])
+        if replay is None and not (imposed or fan):
+            continue
+        right = _side_nodes_between(region, 1.0, v0, v1)
+        left = _side_nodes_between(region, -1.0, v0, v1)
+        loop = np.vstack((low[:-1], right[:-1], high[::-1][:-1], left[::-1][:-1]))
+        strip = min((w for w in imposed if w is not None), default=0.5 * sum(width))
+        found = [] if record is not None else None
+        patches[k] = refine_surface_patch(
+            loop,
+            region.XYZCoord,
+            element_size,
+            strip / 4.0,
+            record=found,
+            replay=None if replay is None else replay[k],
+        )
+        if found:
+            record[k] = found[0]
+    if not patches:
+        return None
+    nodes, elements = [], []
+    if len(patches) < n_span:
+        base = region.createShellMesh()
+        row = np.arange(len(base["elements"])) // max(n1, n3)
+        kept = base["elements"][~np.isin(row, list(patches))]
+        used = np.unique(kept[kept >= 0])
+        renumber = -np.ones(len(base["nodes"]), dtype=int)
+        renumber[used] = np.arange(len(used))
+        nodes.append(base["nodes"][used])
+        elements.append(np.where(kept >= 0, renumber[np.where(kept >= 0, kept, 0)], -1))
+    for patch_nodes, patch_elements in patches.values():
+        offset = sum(len(n) for n in nodes)
+        nodes.append(patch_nodes)
+        elements.append(np.where(patch_elements >= 0, patch_elements + offset, -1))
+    return MeshedRegion(np.vstack(nodes), np.vstack(elements))
+
+
 def get_shell_mesh(
-    blade, elementSize, spanGrading="chord", include_webs=True, span_plan=None, plan_only=False
+    blade,
+    elementSize,
+    spanGrading="chord",
+    include_webs=True,
+    span_plan=None,
+    plan_only=False,
+    min_strip_ratio=0.3,
+    web_end_spans=(),
 ):
     """
     This method generates a finite element shell mesh for the blade, based on what is
@@ -158,6 +447,18 @@ def get_shell_mesh(
     plan_only: bool
         Build the ``SpanPlan`` of this blade (native row counts per bay) and return it
         without meshing.
+    min_strip_ratio: float
+        A strip of the spar cap (between two webs, or between a web and the cap edge) that closes
+        to a point at an end of the yaml web domain makes a sliver at its apex whatever the mesh:
+        any element there is as sharp as the wedge. Each web therefore starts and ends, moving
+        inward from the ends of its yaml domain, at the first station where those strips are at
+        least ``min_strip_ratio * elementSize`` wide, which makes the corner about a right angle.
+        A strip that does not close (it stays narrow) does not move the web; the arcs themselves
+        are never moved.
+    web_end_spans: sequence of float
+        Stations of the blade placed where a closing strip reaches the minimum width
+        (``web_end_spans()``); the web starts (ends) at such a station even if the interpolated
+        width there falls a rounding error short.
 
     Returns
     -------
@@ -341,6 +642,10 @@ def get_shell_mesh(
 
     # The cap split does not depend on ``include_webs``: the no-webs surface mesh must keep
     # the same skin discretisation as the structural mesh, so it is planned either way.
+    def _web_in_row(group, row):
+        """Whether shear web ``group`` is meshed in span row ``row``."""
+        return group in webRows[row]
+
     capSplit = {}  # segment -> (arcs, columns, intermediate columns, web group positions)
     web_attach = getattr(blade.keypoints, "web_attach_arcs", None)
     if web_attach is not None and len(web_attach) == len(swstacks):
@@ -358,11 +663,40 @@ def get_shell_mesh(
                 break
             arcs, pos = plan
             cols = [_col(3 * seg)] + [_arc_column(a) for a in arcs[1:-1]] + [_col(3 * seg + 3)]
-            mids = [
-                [_arc_column(arcs[k] + (arcs[k + 1] - arcs[k]) * t) for t in (1.0 / 3.0, 2.0 / 3.0)]
-                for k in range(len(cols) - 1)
-            ]
+            mids = {}  # (lo, hi) column pair -> the two intermediate columns, built when needed
             capSplit[seg] = (arcs, cols, mids, pos)
+    def _apex_station(webs, row, station, step):
+        """Where the cap strips that close to a point at ``station`` reach the minimum width.
+
+        A strip (a piece of the cap cut at ``webs``) closes to a point at the end of a web's domain
+        when its width is zero there and keeps widening, station after station, until it is
+        ``min_strip_ratio * elementSize`` wide; the station where it gets there is where the web
+        may start (end). A strip that stops widening before that (one held at a constant width,
+        e.g. by the margin that keeps a web arc off the cap edge) does not close and is ignored.
+        """
+        plans = [(arcs, pos) for arcs, _, _, pos in capSplit.values()]
+        reached = [
+            at
+            for _, at, _ in _closing_strips(
+                plans, webs, row, station, step, min_strip_ratio * elementSize, endStations
+            )
+        ]
+        if not reached:
+            return station
+        return max(reached) if step > 0 else min(reached)
+
+    _ispan = np.asarray(blade.ispan, dtype=float)
+    endStations = frozenset(
+        int(k)
+        for k in np.flatnonzero(
+            np.isclose(_ispan[:, None], np.asarray(web_end_spans, dtype=float)[None, :], rtol=0.0, atol=1.0e-9).any(axis=1)
+        )
+    ) if len(web_end_spans) else frozenset()
+    webRows = _meshed_web_rows(
+        _web_rows_in_yaml(blade),
+        _apex_station if capSplit else lambda webs, row, station, step: station,
+    )
+    cutWebs = _cut_web_sets(webRows)
     if capSplit:
         webHP = [capSplit[3][1][1 + capSplit[3][3][g]] for g in range(len(swstacks))]
         webLP = [capSplit[8][1][1 + capSplit[8][3][g]] for g in range(len(swstacks))]
@@ -438,14 +772,21 @@ def get_shell_mesh(
     record = None
     if plan_only:
         record = SpanPlan(splineZi[0::3, 0], nSpan)
+        record.web_rows, record.cut_webs = webRows, cutWebs
     elif span_plan is not None:
         span_plan.bind(splineZi[0::3, 0])
         nSpan = np.ones(nSections, dtype=int)
+        if span_plan.web_rows is not None:
+            # the web start/end and the cap cuts were decided at the native stations
+            bound = [span_plan.webs(i) for i in range(nSections)]
+            webRows = [set(w) for w, _ in bound]
+            cutWebs = [set(c) for _, c in bound]
 
     bladeSurf = Surface()
     ## Outer shell sections
     outShES = set()
     secList = []
+    rowPieces = {}  # (row, segment) -> [(lo, hi, name, control points, inboard count, outboard count)]
     stPt = 0
     for i in range(rws - 1):
         # if stPt < frstXS:
@@ -542,33 +883,103 @@ def get_shell_mesh(
             )
             # The spar cap is cut where the webs attach; every piece keeps the cap's stack.
             # Piece k keeps its letter (and its span-plan key) when a lower piece is absent.
-            pieces = [(0, stacks[j, i].name, shellKp)]
+            pieces = [(0, 0, stacks[j, i].name, shellKp)]
             if j in capSplit:
-                arcs, cols, mids, _ = capSplit[j]
-                pieces = [
-                    (
-                        k,
-                        f"{stacks[j, i].name}_{chr(ord('A') + k)}",
-                        _quad3_points([cols[k], *mids[k], cols[k + 1]], stPt),
+                arcs, cols, mids, pos = capSplit[j]
+                # The cap is cut only at the webs meshed in this row (same predicate as the web
+                # loop below); where none is, it stays one piece with the unsplit name.
+                cuts = sorted(1 + pos[g] for g in cutWebs[i])
+                edges = [0, *cuts, len(cols) - 1]
+                pieces = []
+                for lo, hi in zip(edges[:-1], edges[1:], strict=True):
+                    if not _piece_exists(arcs, lo, hi, i):
+                        continue
+                    if (lo, hi) not in mids:
+                        mids[lo, hi] = [
+                            _arc_column(arcs[lo] + (arcs[hi] - arcs[lo]) * t)
+                            for t in (1.0 / 3.0, 2.0 / 3.0)
+                        ]
+                    name = stacks[j, i].name + (f"_{chr(ord('A') + lo)}" if len(edges) > 2 else "")
+                    pieces.append(
+                        (lo, hi, name, _quad3_points([cols[lo], *mids[lo, hi], cols[hi]], stPt))
                     )
-                    for k in range(len(cols) - 1)
-                    if np.max(arcs[k + 1, i : i + 2] - arcs[k, i : i + 2]) > 1.0e-6
-                ]
-            for k, pieceName, shellKp in pieces:
-                # Per-edge chordwise + consistent nSpan spanwise
-                nEl1, nEl3 = _chordwise_counts(
-                    shellKp, elementSize, ("shell", j, k), i, i == rws - 2, span_plan, record
-                )
-                nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
-
-                bladeSurf.addShellRegion(
-                    "quad3",
+            # Per-edge chordwise counts (consistent nSpan spanwise)
+            rowPieces[i, j] = [
+                (
+                    lo,
+                    hi,
+                    pieceName,
                     shellKp,
-                    nEl,
-                    name=pieceName,
-                    elType="quad",
-                    meshMethod="structured",
+                    *_chordwise_counts(
+                        shellKp, elementSize, ("shell", j, lo, hi), i, i == rws - 2, span_plan, record
+                    ),
                 )
+                for lo, hi, pieceName, shellKp in pieces
+            ]
+            stSp = stSp + 3
+        stPt = stPt + 3
+
+    ## Emit the outer shell regions, row by row.
+    # A piece is meshed as a structured grid unless it needs the local remesh: it sits next to a
+    # row that cuts the cap at more lines (the station line must carry that row's nodes), or its
+    # two chordwise counts differ and the finer one spaces its nodes closer than a strip may be
+    # wide (``min_strip_ratio * elementSize``): the transition would fan out into slivers.
+    def _finer_line(j, lo, hi, row, top):
+        """The nodes the finer ``row`` puts on the station line between the arcs of columns lo..hi,
+        and the width of the narrowest piece it cuts there."""
+        line, widths = [], []
+        for flo, fhi, _, kp, n1, n3 in rowPieces[row, j]:
+            if flo >= lo and fhi <= hi:
+                region = ShellRegion("quad3", kp, [n1, 1, n3, 1])
+                line.append(_edge_nodes(region, n3 if top else n1, 1.0 if top else -1.0))
+                width = np.linalg.norm(kp[3] - kp[2] if top else kp[1] - kp[0])
+                if width > _PIECE_MIN_WIDTH:
+                    widths.append(width)
+        return np.vstack(line), min(widths, default=None)
+
+    for i in range(rws - 1):
+        for j in range(12):
+            for lo, hi, pieceName, shellKp, nEl1, nEl3 in rowPieces[i, j]:
+                nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
+                patch = None
+                if j in capSplit:
+                    below = above = None
+                    widths = [None, None]
+                    if i > 0 and cutWebs[i] < cutWebs[i - 1]:
+                        below, widths[0] = _finer_line(j, lo, hi, i - 1, True)
+                    if i < rws - 2 and cutWebs[i] < cutWebs[i + 1]:
+                        above, widths[1] = _finer_line(j, lo, hi, i + 1, False)
+                    replay, topology = None, {}
+                    if span_plan is not None:
+                        found = span_plan.patch(("cap", j, lo, hi), i)
+                        replay = {} if found is None else {0: found}
+                    patch = _cap_rows(
+                        shellKp,
+                        (nEl1, nEl3),
+                        nSpan[i],
+                        elementSize,
+                        min_strip_ratio,
+                        below=below,
+                        above=above,
+                        strips=widths,
+                        record=topology,
+                        replay=replay,
+                    )
+                    if record is not None:
+                        for k, found in topology.items():
+                            record.patches[("cap", j, lo, hi), i, k] = found
+                if patch is None:
+                    bladeSurf.addShellRegion(
+                        "quad3",
+                        shellKp,
+                        nEl,
+                        name=pieceName,
+                        elType="quad",
+                        meshMethod="structured",
+                    )
+                else:
+                    bladeSurf.shellRegions.append(patch)
+                    bladeSurf.regionNames.append(pieceName)
                 outShES.add(pieceName)
                 newSec = {}
                 newSec["type"] = "shell"
@@ -582,8 +993,6 @@ def get_shell_mesh(
                 newSec["xDir"] = (shellKp[3, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[1, :])
                 newSec["xyDir"] = (shellKp[1, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[3, :])
                 secList.append(newSec)
-            stSp = stSp + 3
-        stPt = stPt + 3
 
     ## Shear web sections
     # ``include_webs=False`` collapses the loop range so the whole block is
@@ -594,7 +1003,7 @@ def get_shell_mesh(
     np.array([])
     np.array([])
     for i in range(rws - 1 if include_webs else 0):
-        if swstacks[0][i].plygroups:
+        if _web_in_row(0, i):
             shellKp = np.zeros((16, 3))
             shellKp[0, :] = webHP[0][stPt]
             shellKp[1, :] = webLP[0][stPt]
@@ -632,7 +1041,7 @@ def get_shell_mesh(
             newSec["xDir"] = np.array([0.0, 0.0, 1.0])
             newSec["xyDir"] = (shellKp[1, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[3, :])
             secList.append(newSec)
-        if swstacks[1][i].plygroups:
+        if _web_in_row(1, i):
             shellKp = np.zeros((16, 3))
             shellKp[0, :] = webLP[1][stPt]
             shellKp[1, :] = webHP[1][stPt]

@@ -55,7 +55,13 @@ def _outer_levels(data):
         [es["labels"] for es in data["sets"]["element"] if OUTER_SET.match(es["name"])]
     )
     ids = np.unique(elements[labels])
-    return _levels(nodes[ids[ids >= 0], 2])
+    z = np.sort(nodes[ids[ids >= 0], 2])
+    # A row boundary holds the edge nodes of every region; the interior nodes of a gmsh cap patch
+    # (odd/tasks/v1-mesher-web-slivers.md T4b) sit inside a row and are a few per level.
+    groups = np.split(z, np.nonzero(np.diff(z) > 1e-6)[0] + 1)
+    size = np.array([g.size for g in groups])
+    keep = size >= 0.1 * np.median(size)
+    return np.array([g.mean() for g, k in zip(groups, keep, strict=True) if k])
 
 
 def _outer_sets(data):
@@ -187,3 +193,29 @@ def test_span_plan_boundaries_and_native_chordwise_counts():
     assert plan.counts(("web", 0), 0) is None
     with pytest.raises(ValueError):
         plan.bind([0.0, 1.0, 3.0, 4.0])
+
+
+@pytest.mark.parametrize("path", ["native", "decoupled"])
+def test_every_outer_shell_element_lies_in_its_own_bay(path, native, decoupled):
+    """Odd/tasks/v1-mesher-web-slivers.md T4b (S3): an element's set is its bay's laminate.
+
+    A set name ``<region>_<bay>_<piece>`` is the bay (station interval) it was cut for. Every
+    element listed in it must lie inside that interval, so a gmsh-remeshed cap patch cannot shift
+    the element-to-set labels onto the wrong rows, on either the native or the default path.
+    """
+    _, data = native if path == "native" else decoupled
+    nodes = np.asarray(data["nodes"])
+    elements = np.asarray(data["elements"])
+    z_station = np.asarray(data["splineZi"])[0::3, 0]
+    checked = 0
+    for es in data["sets"]["element"]:
+        match = OUTER_SET.match(es["name"])
+        if not match:
+            continue
+        bay = int(match.group(2))
+        ids = elements[es["labels"]]
+        z = np.where(ids >= 0, nodes[np.where(ids >= 0, ids, 0), 2], np.nan)
+        lo, hi = z_station[bay], z_station[bay + 1]
+        assert np.nanmin(z) >= lo - 1e-6 and np.nanmax(z) <= hi + 1e-6, (es["name"], lo, hi)
+        checked += len(es["labels"])
+    assert checked > 0

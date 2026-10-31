@@ -1152,6 +1152,7 @@ class BladeMesh:
             self._limit_bay_length(self.max_bay_length, verbose=verbose)
         if self.refine_tip:
             self._refine_high_gradient_sections(verbose=verbose)
+        self._web_end_spans = self._insert_web_end_stations(verbose=verbose)
         span_plan = self._insert_row_stations(verbose=verbose) if self.laminate_per_row else None
 
         # Expand trailing edge
@@ -1168,6 +1169,7 @@ class BladeMesh:
             spanGrading=self.span_grading,
             include_webs=self.include_webs,
             span_plan=span_plan,
+            web_end_spans=self._web_end_spans,
         )
 
         num_raw_nodes = len(self._numad_mesh["nodes"])
@@ -1199,6 +1201,45 @@ class BladeMesh:
 
         return mesh_model
 
+    def _insert_web_end_stations(self, verbose: bool = True):
+        """Put a NuMAD station where each shear web starts and ends (S6, ``web_end_spans``).
+
+        The web start is where the cap strips that close at the end of the yaml web domain reach
+        the minimum width, a place between two stations. As a station it is the same for the
+        native mesh and the per-row mesh, so neither shortens the web to its own next station.
+        Computed on a copy with the trailing edge expanded as it will be meshed. The strip width
+        is not linear between stations (a cap widening from zero is not), so the copy is sampled
+        densely in the bay of each estimate and the estimate repeated: each pass shrinks the bay
+        ``samples + 1`` times. Only the final positions become stations of the blade.
+        """
+        import copy
+
+        from aeroelast.models.blade.numad.mesh_gen.mesh_gen import web_end_spans
+
+        samples, passes = 8, 3
+        probe = copy.deepcopy(self._numad_blade)
+        probe.expand_blade_geometry_te(0.001 * np.ones(probe.geometry.coordinates.shape[2]))
+        new = web_end_spans(probe, self.element_size)
+        dense = np.empty(0)
+        for _ in range(passes):
+            if not new.size:
+                break
+            z = np.asarray(probe.ispan, dtype=float)
+            for at in new:
+                k = int(np.searchsorted(z, at)) - 1
+                step = (z[k + 1] - z[k]) * np.arange(1, samples + 1) / (samples + 1)
+                dense = np.union1d(dense, z[k] + step)
+            probe = copy.deepcopy(self._numad_blade)
+            probe.add_interpolated_stations(np.setdiff1d(dense, probe.ispan))
+            probe.expand_blade_geometry_te(0.001 * np.ones(probe.geometry.coordinates.shape[2]))
+            new = web_end_spans(probe, self.element_size)
+        absent = new[~np.isclose(new[:, None], self._numad_blade.ispan[None, :], rtol=0.0, atol=1.0e-9).any(axis=1)]
+        if absent.size:
+            self._numad_blade.add_interpolated_stations(absent)
+            if verbose:
+                print(f"      Added {absent.size} stations where the shear webs start and end")
+        return tuple(float(z) for z in new)
+
     def _insert_row_stations(self, verbose: bool = True):
         """Put a NuMAD station at every spanwise row boundary of the native mesh.
 
@@ -1219,6 +1260,7 @@ class BladeMesh:
             spanGrading=self.span_grading,
             include_webs=self.include_webs,
             plan_only=True,
+            web_end_spans=self._web_end_spans,
         )
         new = plan.row_boundaries
         self._numad_blade.add_interpolated_stations(new)
