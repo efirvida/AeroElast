@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/IEAWindSystems/IEA-22-280-RWT",
+  "revision": "7c3cf5df656774bafc6909a92dae8d12f734b122",
+  "path": "windIO/IEA-22-280-RWT.yaml",
+  "git_blob": "2ff91fce19c8ad66c24d720957839f3da39d0220",
+  "sha256": "6b844389cdf34df398a51d201efb849c4317b8e84b977af2a788b2c61f95231a",
+  "bytes": 718505,
+  "windIO_version": "2.0",
+  "schema_repository": "https://github.com/IEAWindSystems/windIO",
+  "schema_revision": "unverified: not pinned for the 22 MW"
+}

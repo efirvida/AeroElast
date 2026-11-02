@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""S-1 sectional metrics of any windIO v1 blade against its BeamDyn 6x6 (odd/tasks/l3-closure.md, T9c).
+"""S-1 sectional metrics of a supported windIO v1/v2.0 blade against its BeamDyn 6x6.
 
 Same extraction as ``tests/test_iea15mw_s1_sectional.py`` (mid-surface skin, native yaml bay centres,
 tangent-frame EI from two static solves, T40 wall-shear-flow GJ, CLT EA, station-membership mass), with
@@ -38,7 +38,7 @@ def _summary(z, ours, ref, lo=0.2, hi=0.85):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--yaml", required=True)
+    ap.add_argument("--yaml", required=True, help="Unmodified windIO v1 or supported v2.0 blade YAML")
     ap.add_argument("--beamdyn", required=True, help="BeamDyn blade file (6x6 per station)")
     ap.add_argument("--blade-length", type=float, required=True,
                     help="length that scales the deck eta (yaml reference_axis z at the tip)")

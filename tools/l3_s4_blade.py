@@ -1,4 +1,4 @@
-"""Parked (or rotating) S-4 blade modes of any windIO v1 yaml, same code path as the S-4 test.
+"""Parked/rotating S-4 modes of a supported windIO v1/v2.0 YAML, using the S-4 test path.
 
 python tools/l3_s4_blade.py --yaml tests/IEA-3.4-130-RWT.yaml --element-size 0.25 --out r.json
 
@@ -46,7 +46,7 @@ def build_assembly(yaml_file, element_size):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--yaml", required=True)
+    ap.add_argument("--yaml", required=True, help="Unmodified windIO v1 or supported v2.0 blade YAML")
     ap.add_argument("--element-size", type=float, required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--rpm", type=float, default=0.0)

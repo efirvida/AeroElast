@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/IEAWindSystems/IEA-15-240-RWT",
+  "revision": "28ae083f6e4d2e2e4ea35ac9100fcab104940484",
+  "path": "WT_Ontology/IEA-15-240-RWT.yaml",
+  "git_blob": "64d7f0e4dbdfceaf23e386a2f077b894dd3994c2",
+  "sha256": "af51499e4d4b35293f9c6bca7701a9af6df0b3884c532891b1cc133efd420978",
+  "bytes": 255484,
+  "windIO_version": "2.0",
+  "schema_repository": "https://github.com/IEAWindSystems/windIO",
+  "schema_revision": "63dcad638a9ac41d24f7a68172e24bde378c23e6"
+}

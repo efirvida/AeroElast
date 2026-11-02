@@ -1,5 +1,6 @@
 import numpy as np
 from numpy import ndarray
+from scipy.interpolate import PchipInterpolator
 
 from aeroelast.models.blade.numad.objects.airfoil import (
     get_airfoil_normals,
@@ -68,6 +69,9 @@ class Geometry:
         self.LEindex: int | None = None
         self.iprebend: ndarray | None = None
         self.isweep: ndarray | None = None
+        self._windio2_frames: ndarray | None = None
+        self._windio2_reference: ndarray | None = None
+        self.surface_fraction: ndarray | None = None
 
         # init properties
         self._natural_offset: int = 1
@@ -112,7 +116,7 @@ class Geometry:
         self.iprebend = np.zeros(isize)
         self.isweep = np.zeros(isize)
 
-    def generate(self, definition):
+    def generate(self, definition, *, windio2_eta=None):
         """Populates geometry attributes based on a given blade definition
 
         Parameters
@@ -123,6 +127,17 @@ class Geometry:
         -------
         self
         """
+        # Only the isolated v2 topology opts in; the v1/ordinary reader path
+        # keeps its original operations and array dtypes.
+        self._windio2_eta = windio2_eta
+        if windio2_eta is not None:
+            if definition.windio2_reference_axis is None:
+                raise ValueError('Extended loft is windIO 2 only')
+            from .windio2_precision import Pchip
+            self._v2_pchip = Pchip
+        else:
+            self._v2_pchip = PchipInterpolator
+        scalar = np.longdouble if windio2_eta is not None else float
         self.ispan = definition.ispan
         num_istations = self.ispan.size
         stations = definition.stations
@@ -262,22 +277,41 @@ class Geometry:
         ## iprebend
         self.iprebend = interpolator_wrap(definition.span, definition.prebend, self.ispan, "pchip")
 
+        # Only v2 uses tangent frames. Keep the native reference curves: resampling
+        # them first would change their PCHIP derivatives at inserted stations.
+        self._windio2_frames = None
+        self._windio2_reference = None
+        if definition.windio2_reference_axis is not None:
+            eta = self.ispan / definition.span[-1] if windio2_eta is None else windio2_eta
+            outer = definition.windio2_outer_shape
+            def native(field):
+                curve = outer[field]
+                return self._v2_pchip(curve["grid"], curve["values"])(eta)
+            self.ichord = native("chord")
+            self.ichordoffset = native("section_offset_y") / self.ichord
+            self.idegreestwist = native("twist")
+            self.ipercentthick = 100 * native("rthick")
+            self._build_windio2_frames(definition)
+
         # Generate the blade surface self.
         n_istations = np.asarray(self.ispan).size
         n_areas = num_points * 2 + 1
-        self.profiles = np.zeros((n_areas, 2, n_istations))
-        self.coordinates = np.zeros((n_areas, 3, n_istations))
+        self.profiles = np.zeros((n_areas, 2, n_istations), dtype=scalar)
+        self.coordinates = np.zeros((n_areas, 3, n_istations), dtype=scalar)
         self.xoffset = np.zeros((1, n_istations))
         self.LEindex = num_points
+        if definition.windio2_reference_axis is not None:
+            self._build_windio2_surface(definition, num_points)
 
         for k in range(n_istations):
-            self.update_airfoil_profile(k)
+            if definition.windio2_reference_axis is None:
+                self.update_airfoil_profile(k)
             mtindex = np.argmax(self.ithickness[:, k])
             self.xoffset[0, k] = self.ic[mtindex, k]
             self.update_oml_geometry(k)
 
         # Calculate the arc length of each curve
-        self.arclength = np.zeros((n_areas, n_istations))
+        self.arclength = np.zeros((n_areas, n_istations), dtype=scalar)
         self.HParcx0 = np.zeros((1, n_istations))
         self.LParcx0 = np.zeros((1, n_istations))
 
@@ -410,6 +444,98 @@ class Geometry:
                 # fprintf('station #i, edgeLength: #f, New edgeLength=#f, percent diff: #f\n',i_station,edgeLength*1000,edgeLength2*1000,(edgeLength2-edgeLength)/edgeLength2*100)
         return self
 
+    def _build_windio2_surface(self, definition, count):
+        """Whole-open-curve PCHIP, then pointwise master-rthick PCHIP.
+
+        Locate the loft's minimum-x landmark only AFTER defining its shape.
+        Sample that same curve around the landmark to retain NuMAD's fixed LE
+        index; do not align master LEs or renormalize their separate sides.
+        """
+        # Use the same accurately located sampling landmark in both v2 query
+        # views. Ordinary Geometry output still rounds to its float64 arrays;
+        # the opt-in view retains extended profiles, coordinates and arclength.
+        from .windio2_precision import Pchip, minimum_location
+        interpolator = Pchip
+        scalar = np.longdouble
+        masters = sorted(definition.windio2_airfoils, key=lambda a: a["rthick"])
+        thickness = np.array([a["rthick"] for a in masters], dtype=scalar)
+        native_eta = getattr(self, '_windio2_eta', None)
+        eta = self.ispan/definition.span[-1] if native_eta is None else native_eta
+        field = definition.windio2_outer_shape['rthick']
+        targets = interpolator(field['grid'], field['values'])(eta)
+        if len(masters) < 2 or np.any(np.diff(thickness) <= 0):
+            raise ValueError("windIO surface requires distinct master airfoil rthick values")
+        if np.any(targets < thickness[0]) or np.any(targets > thickness[-1]):
+            raise ValueError("windIO rthick lies outside the master airfoil range")
+        curves = []
+        for airfoil in masters:
+            xy = np.array([airfoil["coordinates"][c] for c in "xy"], dtype=scalar).T
+            # Source convention may run suction first; NuMAD needs pressure first.
+            if np.sum(xy[:-1, 0]*xy[1:, 1] - xy[1:, 0]*xy[:-1, 1]) > 0:
+                xy = xy[::-1]
+            arc = np.r_[0., np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
+            if np.any(np.diff(arc) <= 0):
+                raise ValueError("windIO airfoils require nonzero consecutive surface segments")
+            curves.append(interpolator(arc / arc[-1], xy))
+        self.surface_fraction = np.empty((2 * count - 1, len(self.ispan)), dtype=scalar)
+        for k, relative_thickness in enumerate(targets):
+            target = relative_thickness * 100
+            def loft(fraction):
+                return interpolator(thickness * 100,
+                                    [curve(fraction) for curve in curves], axis=0)(target)
+            # Official masters have a single leading edge. This changes only
+            # sampling, not F(s,r) = PCHIP_r(PCHIP_s(source coordinates)).
+            def derivative(fraction):
+                values = [curve(fraction) for curve in curves]
+                tangents = [curve.derivative()(fraction) for curve in curves]
+                return interpolator(thickness * 100, values).directional(target, tangents)[..., 0]
+            location = minimum_location(derivative)
+            fraction = np.r_[np.linspace(scalar(0), location, count),
+                             np.linspace(location, scalar(1), count)[1:]]
+            self.surface_fraction[:, k] = fraction
+            self.profiles[1:-1, :, k] = loft(fraction)
+            self.profiles[0, :, k] = (self.profiles[1, :, k] + self.profiles[-2, :, k]) / 2
+            self.profiles[-1, :, k] = self.profiles[0, :, k]
+        # Signed chord positions remain the downstream NuMAD surface parameter.
+        self.cpos = self.profiles[:, 0].copy()
+        self.cpos[:self.LEindex] *= -1
+
+    def _build_windio2_frames(self, definition):
+        """windIO 63dcad6 construction guide steps 1-7, in windIO axes.
+
+        Solve (My @ Mx) ez = t on the forward-axis branch: ax = -asin(ty),
+        ay = atan2(tx, tz). This is not two independent projected slope angles.
+        Native eta is normalized reference-axis length, not a z fraction.
+        """
+        native_eta = getattr(self, '_windio2_eta', None)
+        scalar = np.longdouble if native_eta is not None else float
+        eta = self.ispan / definition.span[-1] if native_eta is None else native_eta
+        interpolator = getattr(self, '_v2_pchip', PchipInterpolator)
+        curves = [interpolator(
+            definition.windio2_reference_axis[c]["grid"],
+            definition.windio2_reference_axis[c]["values"],
+        ) for c in "xyz"]
+        reference = np.column_stack([curve(eta) for curve in curves])
+        tangent = np.column_stack([curve.derivative()(eta) for curve in curves])
+        tangent /= np.linalg.norm(tangent, axis=1)[:, None]
+        # windIO x points to suction, y to TE. NuMAD x points away from TE,
+        # y to suction: a proper +90-degree basis change, not a reflection.
+        to_numad = np.array([[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]])
+        self._windio2_reference = reference @ to_numad.T
+        self._windio2_frames = np.empty((len(eta), 3, 3), dtype=scalar)
+        for k, (tx, ty, tz) in enumerate(tangent):
+            ax = -np.arcsin(np.clip(ty, -1., 1.))
+            ay = np.arctan2(tx, tz)
+            cx, sx, cy, sy = np.cos(ax), np.sin(ax), np.cos(ay), np.sin(ay)
+            mx = np.array([[1., 0., 0.], [0., cx, -sx], [0., sx, cx]])
+            my = np.array([[cy, 0., sy], [0., 1., 0.], [-sy, 0., cy]])
+            mxy = my @ mx
+            correction = np.arctan2(mxy[0, 1], mxy[0, 0])
+            angle = np.deg2rad(self.idegreestwist[k]) + correction
+            c, s = np.cos(angle), np.sin(angle)
+            mz = np.array([[c, -s, 0.], [s, c, 0.], [0., 0., 1.]])
+            self._windio2_frames[k] = to_numad @ mxy @ mz
+
     def update_oml_geometry(self, k):
         """ """
         if (
@@ -424,6 +550,19 @@ class Geometry:
             or self.coordinates is None
         ):
             raise RuntimeError("Geometry.update_oml_geometry() requires initialised arrays")
+        if self._windio2_frames is not None:
+            # Apply chord/offset in the local windIO section before rotating,
+            # then translate by the full native reference (including root z).
+            local = np.column_stack((
+                self.profiles[:, 1, k] * self.ichord[k],
+                (self.profiles[:, 0, k] - self.ichordoffset[k]) * self.ichord[k],
+                np.zeros(self.profiles.shape[0]),
+            ))
+            self.coordinates[:, :, k] = (
+                local @ self._windio2_frames[k].T + self._windio2_reference[k]
+            )
+            return self
+
         x = self.profiles[:, 0, k]
         y = self.profiles[:, 1, k]
 
