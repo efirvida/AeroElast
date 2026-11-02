@@ -8,8 +8,11 @@ coordinate merge then leaves a crack (or the transition collapses into slivers).
 
 ``refine_patch`` meshes such a patch in the plane with gmsh: the boundary nodes are imposed
 exactly (one element per boundary segment, no node is added or moved on the boundary) and the
-interior size grows from ``local_size`` at the boundary to ``element_size`` with a bounded growth
-ratio. ``refine_surface_patch`` does the same for a patch on a curved region: it unfolds the
+interior size grows from the boundary size to ``element_size`` with a bounded growth ratio. The
+boundary size is ``local_size`` when the caller gives one, and otherwise follows each boundary
+segment: the size next to a segment is its own length (a long segment gets elements as long as
+itself, a short one finer elements), so no needle forms against a long imposed edge, but never more
+than half the mean width of the patch, so a narrow strip still gets nodes across it. ``refine_surface_patch`` does the same for a patch on a curved region: it unfolds the
 boundary onto the mean plane, meshes there and maps the interior nodes back with the region's own
 parametrisation. Neither function holds a length of its own: every size comes from the caller.
 """
@@ -70,8 +73,20 @@ def _signed_area(loop):
     return 0.5 * float(np.dot(x, np.roll(y, -1)) - np.dot(np.roll(x, -1), y))
 
 
-def _mesh_once(boundary, element_size, local_size, growth, recombine):
-    """One gmsh run: ``(nodes (n, 2), elements (e, 4))``, boundary nodes first."""
+def _mean_width(boundary):
+    """Mean width of a patch, 2 area / perimeter: the width of a strip, about the radius of a disc."""
+    ahead = np.roll(boundary, -1, axis=0) - boundary
+    return 2.0 * abs(_signed_area(boundary)) / float(np.linalg.norm(ahead, axis=1).sum())
+
+
+def _mesh_once(boundary, element_size, local_size, growth, recombine, scale=1.0):
+    """One gmsh run: ``(nodes (n, 2), elements (e, 4))``, boundary nodes first.
+
+    Next to a boundary segment the interior size is ``local_size`` (one value for all of them), or
+    ``scale`` times the segment's own length, at most half the mean width of the patch, when
+    ``local_size`` is None; either way capped at ``element_size`` and grown away from the boundary
+    at the ratio ``growth``.
+    """
     m = len(boundary)
     with _gmsh_model() as gmsh:
         geo = gmsh.model.geo
@@ -83,16 +98,26 @@ def _mesh_once(boundary, element_size, local_size, growth, recombine):
             gmsh.model.mesh.setTransfiniteCurve(line, 2)  # one element: the boundary is imposed
 
         field = gmsh.model.mesh.field
-        distance = field.add("Distance")
-        field.setNumbers(distance, "CurvesList", lines)
-        field.setNumber(distance, "Sampling", 2 * m)
-        ramp = field.add("Threshold")
-        field.setNumber(ramp, "InField", distance)
-        field.setNumber(ramp, "SizeMin", local_size)
-        field.setNumber(ramp, "SizeMax", element_size)
-        field.setNumber(ramp, "DistMin", 0.0)
-        field.setNumber(ramp, "DistMax", (element_size - local_size) / (growth - 1.0))
-        field.setAsBackgroundMesh(ramp)
+        width = _mean_width(boundary)
+        ramps = []
+        for k, line in enumerate(lines):
+            size = local_size
+            if size is None:
+                size = min(scale * float(np.linalg.norm(boundary[(k + 1) % m] - boundary[k])), 0.5 * width)
+            size = min(size, element_size)
+            distance = field.add("Distance")
+            field.setNumbers(distance, "CurvesList", [line])
+            field.setNumber(distance, "Sampling", 2 * m)
+            ramp = field.add("Threshold")
+            field.setNumber(ramp, "InField", distance)
+            field.setNumber(ramp, "SizeMin", size)
+            field.setNumber(ramp, "SizeMax", element_size)
+            field.setNumber(ramp, "DistMin", 0.0)
+            field.setNumber(ramp, "DistMax", (element_size - size) / (growth - 1.0))
+            ramps.append(ramp)
+        smallest = field.add("Min")
+        field.setNumbers(smallest, "FieldsList", ramps)
+        field.setAsBackgroundMesh(smallest)
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
@@ -134,7 +159,7 @@ def worst_corner(nodes, elements):
     return worst
 
 
-def refine_patch(boundary, element_size, local_size, growth=1.3, recombine=False, trials=(1.0, 0.5, 0.75, 1.5, 2.0)):
+def refine_patch(boundary, element_size, local_size=None, growth=1.3, recombine=False, trials=(1.0, 0.5, 0.75, 1.5, 2.0, 0.25, 3.0, 4.0)):
     """Mesh the interior of a planar patch whose boundary nodes are imposed.
 
     Parameters
@@ -144,8 +169,9 @@ def refine_patch(boundary, element_size, local_size, growth=1.3, recombine=False
         of consecutive nodes is one element edge: no node is added or moved on the boundary.
     element_size : float
         Size of the regular mesh around the patch; the interior never grows beyond it.
-    local_size : float
-        Interior size next to the boundary (for a narrow strip, a fraction of its width).
+    local_size : float, optional
+        Interior size next to the boundary, the same along all of it. None (the default): the size
+        next to each boundary segment is that segment's own length.
     growth : float
         Bounded growth ratio ``dh/dd > 0`` of the interior size with the distance ``d`` from the
         boundary: ``h(d) = local_size + growth_rate * d`` up to ``element_size``, where
@@ -153,7 +179,7 @@ def refine_patch(boundary, element_size, local_size, growth=1.3, recombine=False
     recombine : bool
         Pair triangles into quadrilaterals where gmsh can (mixed meshes are allowed).
     trials : sequence of float
-        Factors on ``local_size`` to try. The Delaunay insertion of gmsh is not monotonic in the
+        Factors on the boundary size (``local_size``, or each segment's length) to try. The Delaunay insertion of gmsh is not monotonic in the
         size (a finer size can leave a worse triangle next to a long boundary edge), so the mesh
         with the best worst corner (``worst_corner``) of the trials is returned.
 
@@ -167,7 +193,7 @@ def refine_patch(boundary, element_size, local_size, growth=1.3, recombine=False
     boundary = np.asarray(boundary, dtype=float)
     if boundary.ndim != 2 or boundary.shape[1] != 2 or len(boundary) < 3:
         raise ValueError("boundary must be an (m >= 3, 2) array")
-    if not (element_size > 0.0 and local_size > 0.0):
+    if not (element_size > 0.0 and (local_size is None or local_size > 0.0)):
         raise ValueError("element_size and local_size must be positive")
     if not growth > 1.0:
         raise ValueError("growth must exceed 1 (it is the growth ratio of the interior size)")
@@ -175,8 +201,8 @@ def refine_patch(boundary, element_size, local_size, growth=1.3, recombine=False
         raise ValueError("boundary must be counter-clockwise")
     best = None
     for factor in trials:
-        size = min(local_size * factor, element_size)
-        nodes, elements = _mesh_once(boundary, element_size, size, growth, recombine)
+        size = None if local_size is None else min(local_size * factor, element_size)
+        nodes, elements = _mesh_once(boundary, element_size, size, growth, recombine, factor)
         quality = worst_corner(nodes, elements)
         if best is None or quality > best[0]:
             best = (quality, nodes, elements)
@@ -234,7 +260,7 @@ def refine_surface_patch(
     boundary_xyz,
     xyz_of_eta,
     element_size,
-    local_size,
+    local_size=None,
     growth=1.3,
     recombine=False,
     coincide=1.0e-6,

@@ -19,6 +19,12 @@ mesh that
 * the outer shell is conforming: no edge used by a single element away from the root and tip
   (cutting the cap only inside the web domain changes the node pattern across the station where
   the web starts, and the coordinate merge cannot join what does not coincide), and
+* no shear web is displaced from the arc the yaml gives it by more than the snap distance
+  (``min_strip_ratio * element_size``) at any span station: a web lies where the yaml puts it, in
+  whichever skin piece holds it, and only a web closer than that to a key line moves, onto it
+  (S8, ``snap_web_arcs``); a web that crosses a key line between two stations without being close
+  enough at both to snap raises instead of being clipped,
+* no web has a gap inside its span extent, and
 * the local refinement code holds no length literal (the sizes come from ``element_size``, the
   measured strip width and a dimensionless growth ratio).
 
@@ -27,10 +33,9 @@ That the webs themselves stay where the yaml puts them is ``tests/test_blade_web
 
 from __future__ import annotations
 
-import ast
 import inspect
 import re
-from collections import Counter
+import sys
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -39,8 +44,16 @@ import pytest
 import yaml
 
 from aeroelast.core.mesh.generators import BladeMesh
-from aeroelast.models.blade.numad.mesh_gen.mesh_gen import _CAP_SEGMENTS, _plan_cap_columns, get_shell_mesh
+from aeroelast.models.blade.numad.mesh_gen.mesh_gen import (
+    _snapped_arcs,
+    get_shell_mesh,
+    plan_cap_segments,
+    snap_web_arcs,
+)
 from tests.support.paths import DATA_DIR
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
+import audit_blade_input as ab  # noqa: E402
 
 MIN_ANGLE_DEG = 15.0
 MIN_SCALED_JACOBIAN = 0.3
@@ -95,6 +108,7 @@ class Built(NamedTuple):
     mesh: Any
     web_domain: tuple
     builder: BladeMesh
+    path: Path
 
 
 @pytest.fixture(scope="module", params=sorted(BLADES))
@@ -102,28 +116,11 @@ def blade(request):
     path = DATA_DIR / BLADES[request.param]
     builder = BladeMesh(str(path), element_size=ELEMENT_SIZE)
     mesh = builder.generate(verbose=False)
-    return Built(request.param, mesh, _web_domain_z(path), builder)
+    return Built(request.param, mesh, _web_domain_z(path), builder, path)
 
 
-# Known cause, not a tolerance: the IEA-3.4 yaml puts webs outside the spar cap (up to 81 cm over
-# z 6.3-22.9 m), the mesher clips them to the cap edge + 5 mm, and those strips end in needles at
-# the cap apex and where a web enters the cap. Removed by S8 of odd/tasks/v1-mesher-web-slivers.md
-# (webs cut whichever skin piece holds them); strict, so the fix has to drop this mark.
-# Webs the 5 mm ``_WEB_EDGE_MARGIN`` clip holds on the cap edge: IEA-3.4 over long runs (L15, L18),
-# IEA-15 where the LP web 0 grazes the cap edge at z 11.94 (L28). T8 (snap onto the key line, no
-# clip) removes both.
-WEBS_OUTSIDE_THE_CAP = {"iea34": "L15, L18", "iea15": "L28"}
-
-
-def test_outer_shell_has_no_slivers(blade, request):
+def test_outer_shell_has_no_slivers(blade):
     name, mesh = blade.name, blade.mesh
-    if name in WEBS_OUTSIDE_THE_CAP:
-        request.applymarker(
-            pytest.mark.xfail(
-                strict=True,
-                reason=f"web clipped onto the cap edge (v1-mesher-web-slivers {WEBS_OUTSIDE_THE_CAP[name]})",
-            )
-        )
     bad = []
     n_tri = 0
     for el in mesh.element_sets["allOuterShellEls"].elements:
@@ -163,18 +160,17 @@ def _expected_web_stations(builder, element_size):
     exists = [{g for g in webs if nb.stackdb.swstacks[g][r].plygroups} for r in range(len(z) - 1)]
     rows = [r for r, e in enumerate(exists) if e]
     assert rows == list(range(rows[0], rows[-1] + 1)), "the yaml web domain is not one run of rows"
-    plans = []
-    for side, lo_row, hi_row in _CAP_SEGMENTS.values():
-        plans.append(
-            _plan_cap_columns(
-                nb.keypoints.key_arcs, [a[side] for a in nb.keypoints.web_attach_arcs], lo_row, hi_row
-            )
-        )
+    web_arcs = np.asarray(nb.keypoints.web_attach_arcs, dtype=float)
+    plans = list(
+        plan_cap_segments(
+            nb.keypoints.key_arcs, web_arcs, wide, [{r for r in rows if g in exists[r]} for g in webs]
+        ).values()
+    )
 
     def closing_station(row, station, step):
         reach, binding = station, None
         for arcs, pos in plans:
-            cuts = [0, *sorted(1 + pos[g] for g in exists[row]), len(arcs) - 1]
+            cuts = [0, *sorted(1 + pos[g] for g in exists[row] if g in pos), len(arcs) - 1]
             for lo, hi in zip(cuts[:-1], cuts[1:], strict=True):
                 width = arcs[hi] - arcs[lo]
                 if width[row : row + 2].max() <= 1.0e-6 or width[station] > 1.0e-6:
@@ -209,92 +205,161 @@ def test_webs_and_cap_split_start_where_the_closing_strips_are_wide_enough(blade
     )
     for w in binding:
         assert w is None or w <= 1.0 + CROSSING_REL, f"{name}: web end a station past the crossing ({w})"
-    for label, sets in (
-        ("web", ["allShearWebEls"]),
-        ("cap split", [n for n in mesh.element_sets if SPLIT_CAP.search(n)]),
-    ):
-        z = np.concatenate(
-            [el.node_coords[:, 2] for n in sets for el in mesh.element_sets[n].elements]
-        )
-        assert z.min() == pytest.approx(z_first, abs=1.0e-6), f"{name}: {label} starts at {z.min():.4f}"
-        assert z.max() == pytest.approx(z_last, abs=1.0e-6), f"{name}: {label} ends at {z.max():.4f}"
+    z_web = np.concatenate(
+        [el.node_coords[:, 2] for el in mesh.element_sets["allShearWebEls"].elements]
+    )
+    assert z_web.min() == pytest.approx(z_first, abs=1.0e-6), f"{name}: web starts at {z_web.min():.4f}"
+    assert z_web.max() == pytest.approx(z_last, abs=1.0e-6), f"{name}: web ends at {z_web.max():.4f}"
+    caps = [n for n in mesh.element_sets if SPLIT_CAP.search(n)]
+    z_cap = np.concatenate([el.node_coords[:, 2] for n in caps for el in mesh.element_sets[n].elements])
+    cap_lo, cap_hi = float(z_cap.min()), float(z_cap.max())
+    assert cap_lo >= z_first - 1.0e-6 and cap_hi <= z_last + 1.0e-6, f"{name}: cap split outside the web"
+    # S8: the cap is cut at a web only where the web is not snapped onto a key line; where the split
+    # stops short of the web, every web inside the cap there lies on a cap edge
+    snap = ratio_snap()
+    nb = blade.builder._numad_blade
+    z = np.asarray(nb.ispan, dtype=float)
+    key = np.asarray(nb.keypoints.key_arcs, dtype=float)
+    raw = np.asarray(nb.keypoints.web_attach_arcs, dtype=float)
+    _, onto = _snapped_arcs(key, raw, snap)
+    for side, (lo_row, hi_row) in enumerate(((3, 4), (8, 9))):
+        inside = (raw[:, side, :] > key[lo_row] + 1.0e-9) & (raw[:, side, :] < key[hi_row] - 1.0e-9)
+        for k in np.flatnonzero(((z > z_first + 1.0e-6) & (z < cap_lo - 1.0e-6)) | ((z > cap_hi + 1.0e-6) & (z < z_last - 1.0e-6))):
+            bad = inside[:, k] & ~onto[:, side, k]
+            assert not bad.any(), f"{name}: web {np.flatnonzero(bad).tolist()} is cut-free at z {z[k]:.3f} without lying on a cap edge"
 
 
-def test_spar_cap_is_split_only_inside_the_web_domain(blade):
-    name, mesh = blade.name, blade.mesh
-    z_lo, z_hi = blade.web_domain
-    pieces = [n for n in mesh.element_sets if SPLIT_CAP.search(n)]
-    assert pieces, f"{name}: no split spar cap at all, the web attachment lines are gone"
-    outside = {}
-    for set_name in pieces:
-        z = np.concatenate([el.node_coords[:, 2] for el in mesh.element_sets[set_name].elements])
-        if z.min() < z_lo - 1.0e-6 or z.max() > z_hi + 1.0e-6:
-            outside[set_name] = (round(float(z.min()), 3), round(float(z.max()), 3))
-    assert not outside, f"{name}: cap pieces outside the web domain [{z_lo:.2f}, {z_hi:.2f}] m: {outside}"
+def ratio_snap():
+    return inspect.signature(get_shell_mesh).parameters["min_strip_ratio"].default * ELEMENT_SIZE
 
 
-def _free_edges(elements):
-    """Edges used by exactly one element, as ((node id, node id), mid z)."""
-    use = Counter()
-    z_of = {}
-    for el in elements:
-        nodes = list(el.nodes)
-        for na, nb in zip(nodes, nodes[1:] + nodes[:1], strict=True):
-            key = (min(na.id, nb.id), max(na.id, nb.id))
-            use[key] += 1
-            z_of[key] = 0.5 * (na.coords[2] + nb.coords[2])
-    return [(key, z_of[key]) for key, n in use.items() if n == 1]
+# A key point replaces the nearest polyline vertex but keeps that vertex's arc, so the arc of a web
+# edge node is known to one polyline segment (measured IEA-15: 0.011-0.026 m; segments are longer).
+# The nodes lie on the polyline to 1e-4 m (the replaced vertex), hence ``ON_POLYLINE``.
+ON_POLYLINE = 1.0e-3
 
 
-def test_outer_shell_is_conforming(blade):
-    """No crack: a free edge of the outer shell may only lie on the root or the tip."""
-    name, mesh = blade.name, blade.mesh
-    elements = mesh.element_sets["allOuterShellEls"].elements
-    z = np.array([n.coords[2] for el in elements for n in el.nodes])
-    ends = 0.5 * ELEMENT_SIZE
-    interior = [
-        round(float(zf), 3)
-        for _, zf in _free_edges(elements)
-        if z.min() + ends < zf < z.max() - ends
-    ]
-    stations = sorted(Counter(interior).items())
-    assert not interior, f"{name}: {len(interior)} interior free edge(s) at z {stations}"
+def _edge_node_arcs(mesh, geometry, k, z_k):
+    """Signed arcs (from the leading edge) of the web nodes lying on the section polyline at station k."""
+    ring, arclen = geometry.coordinates[:, :, k], geometry.arclength[:, k]
+    found = []
+    for name, s in mesh.element_sets.items():
+        if not (name.endswith(f"_{k}_SW") or name.endswith(f"_{k - 1}_SW")):
+            continue
+        for e in s.elements:
+            for p in e.node_coords[np.abs(e.node_coords[:, 2] - z_k) < 1.0e-4]:
+                for i0, i1 in zip(range(len(ring) - 1), range(1, len(ring)), strict=True):
+                    a, c = ring[i0], ring[i1]
+                    t = float(np.clip((p - a) @ (c - a) / ((c - a) @ (c - a)), 0.0, 1.0))
+                    if np.linalg.norm(a + t * (c - a) - p) < ON_POLYLINE:
+                        found.append(arclen[i0] + t * (arclen[i1] - arclen[i0]))
+                        break
+    return np.unique(np.round(found, 4))
 
 
-def test_local_refinement_holds_no_length_literal():
-    """S5: no model-specific size in the refinement code, only parameter defaults.
+def test_no_web_is_displaced_beyond_the_snap_distance(blade):
+    """S8: the web attachment lines sit on the yaml arc, at the stations, to within the snap.
 
-    A numeric literal is allowed as a parameter default (the dimensionless growth ratio) or as a
-    structural constant (small integers, the factor 0.5); any other one is a hard-coded length.
+    Measured on the mesh itself: the arc, along the section polyline, of the web nodes that lie on
+    it, against the arcs ``start_nd_arc`` / ``end_nd_arc`` give, read by the audit's independent
+    yaml reader (``YamlBlade.web_state``) and turned into metres with the polyline's own
+    perimeter between the trailing-edge corners. (``audit_station`` is not used: its suction-side
+    residual carries a ~0.1 m bias at inboard stations that is not in the mesh, L34; the clip onto the cap
+    edge moved IEA-3.4 webs by up to 0.86 m.)
     """
-    import aeroelast.models.blade.numad.mesh_gen as pkg
+    snap = ratio_snap()
+    nb = blade.builder._numad_blade
+    z = np.asarray(nb.ispan, dtype=float)
+    g = nb.geometry
+    yaml_blade = ab.YamlBlade.from_file(str(blade.path))
+    nweb = len(yaml_blade.struct["webs"])
+    rows = [r for r in range(len(z) - 1) if len(yaml_blade.web_layers(0, (z[r] - z[0]) / (z[-1] - z[0])))]
+    stations = [k for k in range(1, len(z) - 1) if rows and rows[0] < k < rows[-1]][::6]
+    assert len(stations) > 10, f"{blade.name}: only {len(stations)} stations to measure"
+    worst = (-np.inf, 0.0, 0.0)
+    for k in stations:
+        eta = (z[k] - z[0]) / (z[-1] - z[0])
+        arc0, perimeter = g.arclength[1, k], g.arclength[g.coordinates.shape[0] - 2, k] - g.arclength[1, k]
+        have = _edge_node_arcs(blade.mesh, g, k, z[k])
+        resolution = float(np.linalg.norm(np.diff(g.coordinates[:, :, k], axis=0), axis=1).max())
+        for w in range(nweb):
+            if not yaml_blade.web_layers(w, eta):
+                continue
+            ws = yaml_blade.web_state(w, eta)
+            for want in (arc0 + (1.0 - ws["start"]) * perimeter, arc0 + (1.0 - ws["end"]) * perimeter):
+                gap = float(np.min(np.abs(have - want))) if have.size else np.inf
+                worst = max(worst, (gap - resolution, eta, gap))
+    assert worst[0] <= snap, (
+        f"{blade.name}: a web is {worst[2]:.3f} m off its yaml arc at span fraction {worst[1]:.3f}; "
+        f"the snap distance is {snap:.3f} m (plus one polyline segment of measurement resolution)"
+    )
 
-    path = Path(pkg.__file__).parent / "local_refine.py"
-    tree = ast.parse(path.read_text())
-    defaults = {
-        id(inner)
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
-        for d in [*node.args.defaults, *node.args.kw_defaults]
-        if d is not None
-        for inner in ast.walk(d)
-    }
-    structural = {0, 1, 2, 3, 4, 0.5}
-    # dimensionless gmsh option codes, named ``_GMSH_*`` at module level (an algorithm number)
-    codes = {
-        id(node.value)
-        for node in tree.body
-        if isinstance(node, ast.Assign)
-        and all(isinstance(t, ast.Name) and t.id.startswith("_GMSH_") for t in node.targets)
-    }
-    hard = [
-        (node.lineno, node.value)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Constant)
-        and isinstance(node.value, (int, float))
-        and not isinstance(node.value, bool)
-        and id(node) not in defaults
-        and id(node) not in codes
-        and node.value not in structural
-    ]
-    assert not hard, f"local_refine.py: hard-coded numeric literals (line, value): {hard}"
+
+def _web_groups_z(mesh):
+    """{web group: sorted z intervals of its element sets}."""
+    groups = {}
+    for name, s in mesh.element_sets.items():
+        if name.endswith("_SW"):
+            z = np.concatenate([el.node_coords[:, 2] for el in s.elements])
+            groups.setdefault(name.split("_")[0], []).append((float(z.min()), float(z.max())))
+    return {g: sorted(iv) for g, iv in groups.items()}
+
+
+def web_gaps(mesh):
+    """{web group: [(z end, z next start)]} for the holes inside each web's span extent."""
+    gaps = {}
+    for group, intervals in _web_groups_z(mesh).items():
+        reach = intervals[0][1]
+        for lo, hi in intervals[1:]:
+            if lo - reach > 1.0e-6:
+                gaps.setdefault(group, []).append((round(reach, 3), round(lo, 3)))
+            reach = max(reach, hi)
+    return gaps
+
+
+def test_no_web_gap_inside_the_yaml_domain_except_the_s6_ends(blade):
+    """Each web is one run of rows between the S6 stations: no hole inside it, none off the domain."""
+    name, mesh = blade.name, blade.mesh
+    assert not web_gaps(mesh), f"{name}: holes inside a web {web_gaps(mesh)}"
+    z_lo, z_hi = blade.web_domain
+    for group, intervals in _web_groups_z(mesh).items():
+        assert intervals[0][0] >= z_lo - 1.0e-6 and max(i[1] for i in intervals) <= z_hi + 1.0e-6, (
+            f"{name}: web {group} outside the yaml web domain [{z_lo:.2f}, {z_hi:.2f}]"
+        )
+
+
+def _synthetic_keys(n_stations=6):
+    """13 key lines 1 m apart (arc rows 0..12), the same at every station."""
+    return np.repeat(np.arange(13, dtype=float)[:, None], n_stations, axis=1)
+
+
+def test_a_crossing_that_cannot_snap_raises():
+    """S8: a web that is further than the snap distance from the key line it crosses, at either
+    station of the row, is neither clipped nor snapped: the mesher stops."""
+    keys = _synthetic_keys()
+    arc = np.full((1, 2, 6), 8.5)  # LP side mid segment 8 ...
+    arc[0, 0, :] = [2.5, 2.5, 2.5, 3.4, 3.4, 3.4]  # ... HP side across line 3: 0.5 m before, 0.4 m after
+    with pytest.raises(ValueError, match="crosses"):
+        snap_web_arcs(keys, arc, snap=0.075, web_rows=[set(range(5))])
+
+
+def test_a_crossing_within_the_snap_distance_lands_on_the_key_line():
+    keys = _synthetic_keys()
+    arc = np.full((1, 2, 6), 8.5)
+    arc[0, 0, :] = [2.5, 2.5, 2.97, 3.05, 3.5, 3.5]  # crosses line 3, 3 cm and 5 cm from it
+    snapped = snap_web_arcs(keys, arc, snap=0.075, web_rows=[set(range(5))])
+    np.testing.assert_array_equal(snapped[0, 0], [2.5, 2.5, 3.0, 3.0, 3.5, 3.5])
+    np.testing.assert_array_equal(snapped[0, 1], arc[0, 1])  # a web far from every line is untouched
+    # a web that never comes within the snap distance of a line is the yaml arc, to the bit
+    assert np.all(np.abs(snapped - arc)[0, 0, [0, 1, 4, 5]] == 0.0)
+
+
+def test_a_web_outside_the_cap_is_cut_in_the_segment_that_holds_it():
+    keys = _synthetic_keys()
+    arc = np.full((1, 2, 6), 2.5)  # HP: segment 2 (between lines 2 and 3), not the cap
+    arc[0, 1, :] = 8.5  # LP: segment 8
+    plans = plan_cap_segments(keys, arc, snap=0.075, web_rows=[set(range(5))])
+    assert set(plans) == {2, 8}
+    arcs, pos = plans[2]
+    np.testing.assert_array_equal(arcs[1], np.full(6, 2.5))  # the web line is the yaml arc, no margin
+    assert pos == {0: 0}

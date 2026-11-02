@@ -8,6 +8,7 @@ rows, puts a station at every row boundary and meshes one row per bay: the discr
 native one and every row has its own laminate.
 """
 
+import copy
 import re
 from pathlib import Path
 
@@ -219,3 +220,29 @@ def test_every_outer_shell_element_lies_in_its_own_bay(path, native, decoupled):
         assert np.nanmin(z) >= lo - 1e-6 and np.nanmax(z) <= hi + 1e-6, (es["name"], lo, hi)
         checked += len(es["labels"])
     assert checked > 0
+
+
+def test_snap_stations_leave_no_transition_bay_longer_than_designed(monkeypatch):
+    """Stations the web snap pass leaves are checked on the blade itself, not only on its probe.
+
+    The snap decision of a station moves by ~1e-5 m with the stations around it, so a bay can look
+    bracketed on the dense probe and be longer than a transition wants on the real blade; the
+    native and the span-plan paths then disagree on where the strip opens.
+    """
+    from aeroelast.models.blade.numad.mesh_gen.mesh_gen import web_snap_bays
+
+    class Stop(Exception):
+        pass
+
+    seen = {}
+
+    def stop(self, *args, **kwargs):
+        blade = copy.deepcopy(self._numad_blade)
+        blade.expand_blade_geometry_te(0.001 * np.ones(blade.geometry.coordinates.shape[2]))
+        seen["bays"] = web_snap_bays(blade, ES)
+        raise Stop
+
+    monkeypatch.setattr(BladeMesh, "_insert_web_end_stations", stop)
+    with pytest.raises(Stop):
+        BladeMesh(str(YAML), element_size=ES, laminate_per_row=False).generate(verbose=False)
+    assert seen["bays"].size == 0, seen["bays"].tolist()

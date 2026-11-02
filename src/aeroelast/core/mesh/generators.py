@@ -1152,6 +1152,7 @@ class BladeMesh:
             self._limit_bay_length(self.max_bay_length, verbose=verbose)
         if self.refine_tip:
             self._refine_high_gradient_sections(verbose=verbose)
+        self._insert_web_snap_stations(verbose=verbose)
         self._web_end_spans = self._insert_web_end_stations(verbose=verbose)
         span_plan = self._insert_row_stations(verbose=verbose) if self.laminate_per_row else None
 
@@ -1200,6 +1201,64 @@ class BladeMesh:
             )
 
         return mesh_model
+
+    def _insert_web_snap_stations(self, verbose: bool = True, samples: int = 8, passes: int = 6, rounds: int = 4):
+        """Put NuMAD stations where a web enters or leaves the snap distance of a key line (S8).
+
+        A web closer than ``min_strip_ratio * element_size`` to a key line snaps onto it
+        (``snap_web_arcs``). Between a snapped and an unsnapped station the skin strip between the
+        web and the line opens from zero width over one bay, and a web on opposite sides of a line
+        at the two stations of a bay cannot be snapped at all (``web_snap_bays`` lists those
+        bays). Each such bay is sampled densely on a copy of the blade, repeatedly, until every
+        transition is bracketed by a bay no longer than the one it wants; the snapped station of
+        each transition then stays and an unsnapped one is placed beyond it (``web_snap_spans``).
+        Only those stations become stations of the blade.
+        """
+        import copy
+
+        from aeroelast.models.blade.numad.mesh_gen.mesh_gen import web_crossings, web_snap_bays, web_snap_spans
+
+        def prepared(extra):
+            blade = copy.deepcopy(self._numad_blade)
+            blade.add_interpolated_stations(np.setdiff1d(extra, blade.ispan))
+            blade.expand_blade_geometry_te(0.001 * np.ones(blade.geometry.coordinates.shape[2]))
+            return blade
+
+        # The snap decision of a station reads arcs that the interpolation of the section
+        # geometry makes depend (by ~1e-5 m) on the stations around it, so a station that is
+        # snapped on the dense probe can be unsnapped on the blade that keeps only the bay
+        # stations, or the reverse: a transition then lands on a bay longer than the one it wants.
+        # The check is therefore made on the blade itself, and the pass repeats on what is left.
+        added = 0
+        for _round in range(rounds):
+            probe = prepared(np.empty(0))
+            rows = web_snap_bays(probe, self.element_size)
+            if not rows.size:
+                break
+            dense = np.empty(0)
+            for _ in range(passes):
+                z = np.asarray(probe.ispan, dtype=float)
+                for row in rows:
+                    step = (z[row + 1] - z[row]) * np.arange(1, samples + 1) / (samples + 1)
+                    dense = np.union1d(dense, z[row] + step)
+                probe = prepared(dense)
+                rows = web_snap_bays(probe, self.element_size)
+                if not rows.size:
+                    break
+            else:
+                raise RuntimeError("shear web snap stations: a transition was not bracketed")
+            spans = web_snap_spans(probe, self.element_size, known=self._numad_blade.ispan)
+            known = np.isclose(spans[:, None], self._numad_blade.ispan[None, :], rtol=0.0, atol=1.0e-9).any(axis=1)
+            self._numad_blade.add_interpolated_stations(spans[~known])
+            added += int((~known).sum())
+            left = web_crossings(prepared(np.empty(0)), self.element_size)
+            if left.size:
+                raise RuntimeError(f"shear web snap stations: webs still cross a key line in rows {left.tolist()}")
+        else:
+            if web_snap_bays(prepared(np.empty(0)), self.element_size).size:
+                raise RuntimeError("shear web snap stations: the transition bays did not settle")
+        if verbose:
+            print(f"      Added {added} stations where the shear webs meet the key lines")
 
     def _insert_web_end_stations(self, verbose: bool = True):
         """Put a NuMAD station where each shear web starts and ends (S6, ``web_end_spans``).
