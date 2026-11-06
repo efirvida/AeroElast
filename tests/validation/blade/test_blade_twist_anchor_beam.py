@@ -43,7 +43,12 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
+import tests.validation.blade.test_blade_section_torsion_stiffness as torsion  # noqa: E402
 from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E402
+from aeroelast.solvers.bem.section_contour import (  # noqa: E402
+    ring_section_rotation,
+    ring_tributary_lengths,
+)
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
@@ -92,13 +97,15 @@ def _numeric_rows(path: Path, marker: str) -> list[list[float]]:
     return rows
 
 
-def _ring_section_rotation(coords: np.ndarray, disp: np.ndarray, ring: np.ndarray) -> float:
-    """Antisymmetric part of the ring's least-squares in-plane affine fit [rad]."""
-    pts = coords[ring]
-    design = np.column_stack([pts[:, 0], pts[:, 1], np.ones(len(ring))])
-    a12 = np.linalg.lstsq(design, disp[ring, 0], rcond=None)[0][1]
-    a21 = np.linalg.lstsq(design, disp[ring, 1], rcond=None)[0][0]
-    return 0.5 * (a21 - a12)
+def _ring_section_rotation(coords: np.ndarray, disp: np.ndarray, ring: np.ndarray, edges: np.ndarray) -> float:
+    """Skin arc-weighted antisymmetric part of the ring's in-plane affine fit [rad] (l3-closure T19).
+
+    The production BEM twist keeps equal nodal weights until L5 decides its definition (S8); this
+    fit reads -4.97 deg at the tip against the beam's -1.78 deg (2026-10-28).
+    """
+    weights = ring_tributary_lengths(ring, edges, coords)
+    return float(ring_section_rotation(coords[ring], disp[ring], np.asarray(blade_validation.SPAN_DIRECTION),
+                                       weights))
 
 
 @pytest.fixture(scope="module")
@@ -185,6 +192,7 @@ def production():
         "bem_rigid": bem_rigid,
         "phys_stations": phys_stations,
         "phys_rings": phys_rings,
+        "edges": torsion._skin_wall_edges(mesh),
     }
 
 
@@ -330,7 +338,7 @@ def test_anchor_beam_arbitrates_the_shell_section_rotation(anchor, production):
                 zz,
                 len(ring),
                 beam["twist_deg"][i],
-                np.rad2deg(_ring_section_rotation(coords, disp, ring)),
+                np.rad2deg(_ring_section_rotation(coords, disp, ring, production["edges"])),
                 np.rad2deg(float(np.mean(u[6 * ring + 5]))),
             )
         )

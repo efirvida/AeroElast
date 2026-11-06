@@ -12,7 +12,15 @@
 # Usage:
 #   scripts/check.sh quick [--record]   # Ruff on changed files + fast physical subset
 #   scripts/check.sh full  [--record]   # the documented suite, quiet, log kept
+#   scripts/check.sh full --only <file|node id> [--only ...] [--record]
+#                                       # re-measure a few tests against the mode's registry
 #   scripts/check.sh --list             # show the selections and the known-red registry
+#
+# --only runs just its selectors. Its scope is the test ids that run reports, and only those
+# are classified (now-passes / now-runs) or, with --record, rewritten in the registries; every
+# entry outside the scope is kept as recorded and a "# Partially re-derived" line says what
+# was re-measured, when and at which revision. A test renamed or deleted keeps its old entry:
+# that needs a full --record.
 #
 # Exit codes: 0 no new failures, 1 a failure outside the mode's registry, 2 the environment
 # or pytest could not start. A known-red failure alone is exit 0 — that is the point of the
@@ -57,20 +65,30 @@ PYTEST_OPTS=(-o addopts="" -q --tb=line --disable-warnings -p no:cacheprovider -
 
 mode=""
 record=0
-for arg in "$@"; do
-    case "$arg" in
-        quick | full) mode="$arg" ;;
+only=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        quick | full) mode="$1" ;;
         --record) record=1 ;;
         --list) mode="list" ;;
+        --only)
+            if [ "$#" -lt 2 ] || [ -z "$2" ] || [ "${2#--}" != "$2" ]; then
+                echo "check.sh: --only needs a test file or node id" >&2
+                exit 2
+            fi
+            only+=("$2")
+            shift
+            ;;
         -h | --help)
-            sed -n '3,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '3,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
-            echo "check.sh: unknown argument '$arg' (quick|full|--record|--list)" >&2
+            echo "check.sh: unknown argument '$1' (quick|full|--record|--only <test>|--list)" >&2
             exit 2
             ;;
     esac
+    shift
 done
 mode="${mode:-quick}"
 # CHECK_REGISTRY_DIR and CHECK_SELECTION let tests/software/test_check_sources_guard.py run the
@@ -107,7 +125,7 @@ if [ ! -d "$SOURCES_DIR" ] && { [ "$mode" = "full" ] || [ "$record" = "1" ]; }; 
     exit 2
 fi
 
-log="$LOG_DIR/$mode-$(date +%Y%m%dT%H%M%S).log"
+log="$LOG_DIR/$mode${only[0]+-only}-$(date +%Y%m%dT%H%M%S).log"
 
 # ---- git facts ------------------------------------------------------------------------
 # A SLURM compute node has no git (job 11617933): scripts/check_sbatch.sh snapshots the
@@ -171,7 +189,10 @@ mkdir -p "$CHECK_TMP"
 export TMPDIR="$CHECK_TMP"
 
 # ---- pytest ---------------------------------------------------------------------------
-if [ -n "${CHECK_SELECTION:-}" ]; then
+if [ "${#only[@]}" -gt 0 ]; then
+    selection=("${only[@]}")
+    PYTEST_OPTS+=(-rA)  # every outcome in the summary: the scope is what this run reports
+elif [ -n "${CHECK_SELECTION:-}" ]; then
     read -ra selection <<<"$CHECK_SELECTION"
 elif [ "$mode" = "quick" ]; then
     selection=("${QUICK_TESTS[@]}")
@@ -203,9 +224,38 @@ while IFS= read -r line; do
     [ -n "$line" ] && skipped_ids+=("$line")
 done < <(grep -E '^SKIPPED ' "$log" | sed -e 's/^SKIPPED //' -e 's/ - .*$//' | sort -u || true)
 
+# The ids this run reported, any outcome; with --only, the registries are read and written
+# inside this scope alone.
+scope_ids="$(grep -E '^(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS) ' "$log" \
+    | sed -E -e 's/^[A-Z]+ //' -e 's/ - .*$//' | sort -u || true)"
+in_scope() { [ "${#only[@]}" -eq 0 ] || printf '%s\n' "$scope_ids" | grep -qxF -- "$1"; }
+outside_scope() { while IFS= read -r id; do [ -n "$id" ] && ! in_scope "$id" && echo "$id"; done; true; }
+scope_count="$(printf '%s\n' "$scope_ids" | grep -c . || true)"
+
+# Rewrite one registry inside the --only scope: the old header and every entry outside the
+# scope are kept, the scope's entries become this run's.
+record_scope() {
+    local file="$1" kind="$2"
+    shift 2
+    local kept
+    kept="$(read_registry "$file" | outside_scope)"
+    {
+        if [ -f "$file" ]; then grep -E '^#' "$file"; fi
+        echo "# Partially re-derived by: scripts/check.sh $mode $(printf -- '--only %s ' "${only[@]}")--record"
+        echo "#   at $(date -Iseconds), revision $revision: $scope_count test(s) re-measured"
+        if [ -n "$kept" ]; then printf '%s\n' "$kept"; fi
+        if [ "$#" -gt 0 ]; then printf '%s\n' "$@"; fi
+    } >"$file.tmp" || return 1
+    mv "$file.tmp" "$file"
+    echo "check[$mode]: recorded $# $kind entry(ies) in scope ($scope_count test(s)), kept $(printf '%s\n' "$kept" | grep -c . || true) outside in ${file#"$REPO_ROOT"/}"
+}
+
 # ---- record ---------------------------------------------------------------------------
 # Record before classifying: a recorded run must not also report its own entries as new.
-if [ "$record" = "1" ]; then
+if [ "$record" = "1" ] && [ "${#only[@]}" -gt 0 ]; then
+    record_scope "$KNOWN_RED" known-red ${failed_ids[@]+"${failed_ids[@]}"}
+    record_scope "$KNOWN_SKIP" known-skip ${skipped_ids[@]+"${skipped_ids[@]}"}
+elif [ "$record" = "1" ]; then
     {
         echo "# Known-red registry for scripts/check.sh (mode: $mode)."
         echo "# Re-derived automatically by: scripts/check.sh $mode --record"
@@ -238,10 +288,11 @@ for id in ${failed_ids[@]+"${failed_ids[@]}"}; do
 done
 
 # A registry entry that now passes is stale knowledge, and stale knowledge is the thing
-# this gate is supposed to remove.
+# this gate is supposed to remove. With --only, an entry the run did not reach says nothing.
 healed=()
 while IFS= read -r id; do
     [ -n "$id" ] || continue
+    in_scope "$id" || continue
     printf '%s\n' ${failed_ids[@]+"${failed_ids[@]}"} | grep -qxF -- "$id" || healed+=("$id")
 done <<<"$known"
 
@@ -255,11 +306,14 @@ if [ -f "$KNOWN_SKIP" ]; then
     done
     while IFS= read -r id; do
         [ -n "$id" ] || continue
+        in_scope "$id" || continue
         printf '%s\n' ${skipped_ids[@]+"${skipped_ids[@]}"} | grep -qxF -- "$id" || unskipped+=("$id")
     done <<<"$known_skip"
 fi
 
 # ---- report ---------------------------------------------------------------------------
+rerecord="scripts/check.sh $mode --record"
+[ "${#only[@]}" -gt 0 ] && rerecord="scripts/check.sh $mode $(printf -- '--only %s ' "${only[@]}")--record"
 echo "check[$mode]: ruff: $ruff_status"
 echo "check[$mode]: $(printf '%s\n' "$mesh_out" | tail -1)"
 echo "check[$mode]: pytest: ${summary:-no summary}"
@@ -274,13 +328,13 @@ for id in ${new_failures[@]+"${new_failures[@]}"}; do
     echo "  NEW-FAIL   $id"
 done
 for id in ${healed[@]+"${healed[@]}"}; do
-    echo "  now-passes $id   (re-record: scripts/check.sh $mode --record)"
+    echo "  now-passes $id   (re-record: $rerecord)"
 done
 for id in ${new_skips[@]+"${new_skips[@]}"}; do
     echo "  NEW-SKIP   $id"
 done
 for id in ${unskipped[@]+"${unskipped[@]}"}; do
-    echo "  now-runs   $id   (re-record: scripts/check.sh $mode --record)"
+    echo "  now-runs   $id   (re-record: $rerecord)"
 done
 
 if [ "$mesh_rc" -eq 2 ]; then

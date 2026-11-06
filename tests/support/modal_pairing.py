@@ -93,6 +93,33 @@ def pair_modes_by_mac(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndar
     return pair, mac
 
 
+@dataclass(frozen=True)
+class ShapeMatch:
+    """The candidate mode assigned to one reference mode by :func:`match_reference_by_shape`."""
+
+    index: int  # row of the candidate set
+    mac_comb: float  # MAC of the combined vector, the one the assignment maximises
+    mac_family: float  # MAC of the reference mode's dominant family vector
+    family: str  # "F" / "E": bending vector, "T": twist vector
+
+
+def match_reference_by_shape(cand, ref, ref_family) -> list[ShapeMatch]:
+    """Hungarian pairing on the combined MAC, judged by the MAC of each reference mode's dominant family.
+
+    ``cand`` and ``ref`` are ``(bending, twist, combined)`` station vectors, each (n_modes, m), as
+    ``tools/l3_mode_shapes.vectors`` builds them; ``ref_family[j]`` is ``"F"``, ``"E"`` or ``"T"``.  The
+    combined vector decides who pairs with whom; the family vector says whether the pair is the same
+    mode: a torsion mode whose small translation part differs keeps a low combined MAC with a twist
+    MAC near 1 (BeamDyn 1T in l3-closure T8).  Entry ``j`` belongs to reference mode ``j``.
+    """
+    pair, mac_comb = pair_modes_by_mac(np.asarray(cand[2]), np.asarray(ref[2]))
+    by_family = {"F": mac_matrix(cand[0], ref[0]), "E": mac_matrix(cand[0], ref[0]), "T": mac_matrix(cand[1], ref[1])}
+    return [
+        ShapeMatch(int(i), float(mac_comb[i, j]), float(by_family[fam][i, j]), fam)
+        for j, (i, fam) in enumerate(zip(pair, ref_family, strict=True))
+    ]
+
+
 def mode_signature(shapes: np.ndarray, z: np.ndarray, n_bins: int = N_STATIONS) -> np.ndarray:
     """Mesh-independent signature of each mode: binned mean x / y translation.
 

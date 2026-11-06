@@ -7,8 +7,10 @@ import pytest
 
 from tests.support.modal_pairing import (
     ModalSet,
+    ShapeMatch,
     followed_gaps,
     mac_matrix,
+    match_reference_by_shape,
     mode_signature,
     pair_modes_by_mac,
     parse_frd_mode_translations,
@@ -54,6 +56,49 @@ def test_pair_by_mac_ignores_frequency_order() -> None:
     pair, mac = pair_modes_by_mac(ae.reshape(3, -1), ccx.reshape(3, -1))
     assert pair.tolist() == [0, 2, 1]
     assert mac[pair[1], 1] == pytest.approx(1.0)
+
+
+def _station_vectors(ux, uy, th, half_chord=1.0):
+    """(bending, twist, combined) rows, as ``tools/l3_mode_shapes.vectors``."""
+    ux, uy, th = (np.atleast_2d(a) for a in (ux, uy, th))
+    return np.c_[ux, uy], th, np.c_[ux, uy, th * half_chord]
+
+
+def test_match_by_shape_judges_each_pair_by_its_family_vector() -> None:
+    # Reference F, T, E; the candidates list E, T', F, a distractor: T' has the reference twist but the
+    # opposite translation part, so its combined MAC is low while the twist MAC is 1 (BeamDyn 1T, T8).
+    s = np.linspace(0.0, 1.0, 20)
+    zero = np.zeros_like(s)
+    flap = (zero, np.sin(0.5 * np.pi * s), 0.05 * s)
+    tors = (0.6 * s, zero, np.sin(0.5 * np.pi * s))
+    tors_other = (-0.6 * s, zero, np.sin(0.5 * np.pi * s))
+    edge = (np.sin(1.5 * np.pi * s), zero, zero)
+    other = (zero, np.sin(2.5 * np.pi * s), zero)
+    stack = lambda modes: tuple(np.vstack(v) for v in zip(*(_station_vectors(*m) for m in modes), strict=True))  # noqa: E731
+    ref = stack([flap, tors, edge])
+    cand = stack([edge, tors_other, flap, other])
+    got = match_reference_by_shape(cand, ref, ["F", "T", "E"])
+    assert [m.index for m in got] == [2, 1, 0]
+    assert all(isinstance(m, ShapeMatch) for m in got)
+    assert [m.family for m in got] == ["F", "T", "E"]
+    assert got[1].mac_comb < 0.95  # the combined vector alone would call the torsion pair unidentified
+    assert got[1].mac_family == pytest.approx(1.0)
+    assert got[0].mac_family == pytest.approx(1.0) and got[2].mac_family == pytest.approx(1.0)
+    assert got[0].mac_comb == pytest.approx(1.0) and got[2].mac_comb == pytest.approx(1.0)
+
+
+def test_match_by_shape_reports_a_split_mode_below_one() -> None:
+    # The reference mode is split over two candidates (BeamDyn 4F over three shell modes, T8): the
+    # assignment still picks one, and its family MAC says it is not the same mode.
+    s = np.linspace(0.0, 1.0, 20)
+    zero = np.zeros_like(s)
+    a, b = np.sin(3.5 * np.pi * s), np.sin(4.5 * np.pi * s)
+    ref = _station_vectors(zero, a, zero)
+    cand = _station_vectors(np.vstack([zero, zero]), np.vstack([a + 0.8 * b, a - 0.9 * b]), np.vstack([zero, zero]))
+    (got,) = match_reference_by_shape(cand, ref, ["F"])
+    assert got.index == 0
+    assert got.mac_family == pytest.approx(mac_matrix(cand[0][:1], ref[0])[0, 0])
+    assert got.mac_family < 0.95
 
 
 def test_signature_is_mesh_independent() -> None:

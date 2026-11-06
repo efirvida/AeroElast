@@ -14,6 +14,8 @@ from typing import Any, List, Optional
 import numpy as np
 import yaml
 
+from aeroelast.models.blade.windio import normalize_windio
+
 
 @dataclass
 class PolarData:
@@ -597,7 +599,8 @@ def load_blade_aero(
 ) -> BladeAero:
     """Load blade aerodynamic data from a WindIO YAML or NuMAD Excel file.
 
-    For YAML files, parses the ``outer_shape_bem`` section for chord, twist,
+    For YAML files, reads windIO v1 or the supported v2.0 blade fields in memory
+    without rewriting the source. Parses the ``outer_shape_bem`` view for chord, twist,
     pitch axis, and reference axis, and the ``airfoils`` section for polar
     data.  When an airfoil entry has no ``polars`` key, NeuralFoil is used
     as a fallback to generate Cl/Cd/Cm from the airfoil coordinates.
@@ -654,6 +657,7 @@ def load_blade_aero(
     # --- YAML path ---
     with open(blade_path) as f:
         data = yaml.load(f, Loader=yaml.Loader)
+    data = normalize_windio(data)
 
     # --- Assembly info ---
     assembly = data.get("assembly", {})

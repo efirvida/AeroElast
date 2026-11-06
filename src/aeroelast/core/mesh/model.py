@@ -68,6 +68,9 @@ class MeshModel:
         self.element_map: Dict[int, MeshElement] = {}
         self.node_sets: Dict[str, NodeSet] = {}
         self.element_sets: Dict[str, ElementSet] = {}
+        # Optional geometry-only v2 provenance; object-keyed, not tied to IDs.
+        # This is not a structural property map or an FE offset implementation.
+        self.windio2_metadata = None
 
         # Validate and build node_map
         seen_node_ids = set()

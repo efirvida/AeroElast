@@ -36,13 +36,19 @@ yaml_file_ids = [os.path.basename(f) for f in yaml_files]
 # Measured at 3185da6 (logs/check/blade-mesh-pins-20261027.log). The single 9277-node pin
 # went stale with the blade-input-audit mesh fixes (2026-10-23..25, deliberate: TE band to
 # the yaml width, cap arcs) and then matched no yaml; IEA-3.4 arrived with 188c997.
+# Re-pinned for odd/tasks/v1-mesher-web-slivers.md T4c (S3, S6b: a station where each web starts and
+# ends, the same for the native and the default span-plan path; logs/check/t4c-pins.log). Old -> new
+# (nodes, elements, allOuterShellNods, allShearWebNods): IEA-15 and IEA-15_rigid 10637, 11248, 9446,
+# 2413 -> 10612, 11245, 9429, 2403; IEA-3.4 4453, 4795, 4081, 1002 -> 3898, 4019, 3653, 428. The
+# IEA-3.4 web loss is not a baseline: at element_size 0.5 the S6 walk drops web rows over z 20-59
+# where its webs are clipped onto the cap edge (L25); T8 reworks that and re-pins.
 PINNED_COUNTS = {
     "IEA-15-240-RWT.yaml": (
-        10637, 11248, {"RootNodes": 37, "allOuterShellNods": 9446, "allShearWebNods": 2413}),
+        10612, 11245, {"RootNodes": 37, "allOuterShellNods": 9429, "allShearWebNods": 2403}),
     "IEA-15-240-RWT_rigid.yaml": (
-        10637, 11248, {"RootNodes": 37, "allOuterShellNods": 9446, "allShearWebNods": 2413}),
+        10612, 11245, {"RootNodes": 37, "allOuterShellNods": 9429, "allShearWebNods": 2403}),
     "IEA-3.4-130-RWT.yaml": (
-        4453, 4795, {"RootNodes": 20, "allOuterShellNods": 4081, "allShearWebNods": 1002}),
+        3898, 4019, {"RootNodes": 20, "allOuterShellNods": 3653, "allShearWebNods": 428}),
 }
 
 

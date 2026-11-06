@@ -756,6 +756,10 @@ def build_rust_properties(numad_data: dict) -> dict:
     plies stacked inward from the OML, which reopens ADR-6) and their measured cost
     are recorded in ``odd/tasks/shell-reference-surface.md``.
     """
+    if numad_data.get("structural_ready") is False:
+        raise ValueError(
+            "windIO 2.0 geometry-only mesh cannot build centered properties; physical FE offsets are not supported"
+        )
     from _aeroelast import Laminate as RustLaminate, Ply as RustPly, OrthotropicMaterial as RustMat  # noqa: PLC0415
 
     # ── material lookup: name → raw data dict ─────────────────────────────

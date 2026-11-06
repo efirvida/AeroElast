@@ -55,6 +55,9 @@ LOGS = ROOT / 'logs/check/bd_freevib'
 GEOMETRY34 = ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn.dat'
 PROPERTIES34 = ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat'
 INPUTS34 = ROOT / 'tests/IEA34/bd_freevib'
+GEOMETRY22 = ROOT / 'tests/IEA22MW/reference/openfast/IEA-22-280-RWT_BeamDyn.dat'
+PROPERTIES22 = ROOT / 'tests/IEA22MW/reference/openfast/IEA-22-280-RWT_BeamDyn_Blade.dat'
+INPUTS22 = ROOT / 'tests/IEA22MW/bd_freevib'
 CHANNELS = ('TipTDxr', 'TipTDyr')
 # beam: default order, tip load (N), t_final (s), dt (s), fit band (Hz)
 DEFAULTS = {'uniform': (10, 1.0, 300.0, 0.005, (0.1, 3.0)),
@@ -66,7 +69,10 @@ DEFAULTS = {'uniform': (10, 1.0, 300.0, 0.005, (0.1, 3.0)),
             # periods (0.0025 s, the same dt/T as 0.005 s on the 15); t_final 200 s still gives
             # 200 1F cycles. Load 250 N: static tip deflection/L under the load is 1.7e-4 (edge) to
             # 7.2e-4 (flap), the 15's 2.6e-4 to 6.7e-4 under its 1 kN, i.e. the same linear regime.
-            'iea34': (20, 250.0, 200.0, 0.0025, (0.2, 6.0))}
+            'iea34': (20, 250.0, 200.0, 0.0025, (0.2, 6.0)),
+            # iea22: 137.8 m deck, shell 1F 0.375 Hz, 1E 0.51, 2F 1.03, 2E 1.49, 3F 2.15 (slower than the 15, same dt/T as iea);
+            # the 15's settings are kept. Static tip deflection/L under 1 kN is 6.8e-4 (flap, 94 m per MN), the 15's 6.7e-4.
+            'iea22': (20, 1e3, 300.0, 0.005, (0.1, 3.0))}
 
 
 # ----------------------------------------------------------------------------- fit
@@ -175,16 +181,20 @@ def _decks(beam):
     """(geometry deck, property deck, inputs directory) of an iea-type beam."""
     if beam == 'iea34':
         return GEOMETRY34, PROPERTIES34, INPUTS34
+    if beam == 'iea22':
+        return GEOMETRY22, PROPERTIES22, INPUTS22
     return GEOMETRY, PROPERTIES, INPUTS
 
 
 def _blade_properties(stations=None, properties=PROPERTIES):
     """Official property file, undamped; `stations` replaces its distributed table."""
     prop = replace(properties.read_text(), 'damp_type', 0)
-    prop = prop.replace(' ---------------------- DISTRIBUTED PROPERTIES',
-                        ' ---------------------- MODAL DAMPING ---------------------\n'
-                        '1 n_modes - unused\n0 zeta - unused\n'
-                        ' ---------------------- DISTRIBUTED PROPERTIES')
+    # the IEA-22 deck writes this header without the leading blank: match any indentation
+    prop, count = re.subn(r'^([ \t]*-+ DISTRIBUTED PROPERTIES)',
+                          lambda m: ' ---------------------- MODAL DAMPING ---------------------\n'
+                                    '1 n_modes - unused\n0 zeta - unused\n' + m[1], prop, count=1, flags=re.M)
+    if count != 1:
+        raise ValueError('DISTRIBUTED PROPERTIES header not found in the blade file')
     if stations is None:
         return prop
     prop = replace(prop, 'station_total', len(stations))
@@ -238,7 +248,10 @@ def build(beam, rpm, order, hub, dt, load, t_final, profile=None):
     primary = geometry.read_text()
     primary = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
                      r'(?=---------------------- OUTPUTS)', '', primary, flags=re.S)
-    if beam in ('iea', 'iea34'):
+    if beam == 'iea22':
+        # the deck asks for output node 48 (written for order 60); with order 15-20 BeamDyn rejects it. Only tip channels are read.
+        primary = replace(primary, 'OutNd', 1)
+    if beam in ('iea', 'iea34', 'iea22'):
         if profile and beam != 'iea':
             raise ValueError('--ei-edge-profile is defined for the iea deck only')
         (target / 'blade.dat').write_text(

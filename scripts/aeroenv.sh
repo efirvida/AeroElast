@@ -19,6 +19,8 @@
 # Environment overrides:
 #   VENV_DIR            virtualenv root (default: <repo>/.venv)
 #   AEROENV_GCC_MODULE  environment module to load (default: gcc/14.2.0_sequana)
+#   AEROENV_GLU_LIB     directory holding libGLU.so.1, needed by gmsh (the blade mesher's local
+#                       remesh); default: the cluster build, used only when the loader lacks it
 #   AEROENV_VERBOSE=1   print where the runtime was found (stderr)
 #
 # Exit codes: 0 ok, 2 the environment could not be assembled, otherwise the wrapped
@@ -112,6 +114,17 @@ _aeroenv_setup() {
     # 2. LD_LIBRARY_PATH, rebuilt from a saved base so repeated sourcing is idempotent.
     local lib_path="$gcc_lib:$venv/lib:$venv/lib64"
     [ -d /usr/lib64/psm2-compat ] && lib_path="$lib_path:/usr/lib64/psm2-compat"
+    # gmsh loads libGLU.so.1, which the system loader may not provide (`module load glu`). Optional:
+    # without it the package imports, only meshing a blade with webs fails.
+    local loader_libs
+    loader_libs="$(/sbin/ldconfig -p 2>/dev/null || true)"  # no pipe: see _aeroenv_has_symbol
+    case "$loader_libs" in
+        *"libGLU.so.1 "*) ;;
+        *)
+            local glu_lib="${AEROENV_GLU_LIB:-/scratch/app/glu/9.0.2_gnu/lib}"
+            [ -e "$glu_lib/libGLU.so.1" ] && lib_path="$lib_path:$glu_lib"
+            ;;
+    esac
     if [ -n "${AEROENV_BASE_LD_LIBRARY_PATH:-}" ]; then
         lib_path="$lib_path:$AEROENV_BASE_LD_LIBRARY_PATH"
     elif [ -n "${LD_LIBRARY_PATH:-}" ]; then

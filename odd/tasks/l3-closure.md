@@ -20,6 +20,7 @@ Step 2 of `odd/tasks/thesis-validation-plan.md` (L3, IEA 15 MW official blade). 
 - S14 (user choice, verbatim): "Una corrida es 0.0625 de LC1/LC4 (Recomendado)" — same predeclared rule one mesh level finer; outside 5 % -> rejected, crossing again -> stays undecided.
 - S15 (user, verbatim, session 19): "vamos con a y b, y lo demas dejalo bajo tu criterio." — (a) twist read with the box (caps + webs) rigid fit in S-7 and S-1 GJ; (b) EI_edge extractor checked against an extractor-free energy measure; the rest (guards, group 23 verdicts, LC4) at the parent's criterion.
 - S16 (user, verbatim, session 19): "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque"
+- S17 (user choices, verbatim, session 21): "0.95 (el de la predicción T8) (Recomendado)" and "Falla: 'no identificable' (Recomendado)" — group 23 BeamDyn p20 rows pair by the combined MAC (Hungarian); a pair is identified when the MAC of the BeamDyn mode's dominant family vector (bending for F/E, twist for T) is >= 0.95; below it the row fails as not identifiable (store undecided), otherwise the 5 % frequency bound is asserted.
 - S5 Done means: `contract --level L3` closed, or every open entry listed with its cause and, for reds on a torque path, its measured torque/power sensitivity.
 
 ## Starting state (2026-10-26, HEAD 332c69f, `contract --level L3 --rows`, `logs/check/l1l2/contract-L3-start.txt`)
@@ -45,14 +46,15 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; mesh Bredt 863ff38 (mesh = yaml), H7 refuted, FE torsionally soft 0.65-0.85 (twist integral); element vs distortion open (Handoff 4) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
-- T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
+- T8 | S6 | worker + parent | done (section "T8 RESULT"); prediction written (section "T8 prediction"); extraction from the existing .lin, shell modes es 0.25 on login | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
 - T10 | S10 S4 S11 S12 | parent, SLURM | in progress (branch l3/pass2-s2-ring; a 9814a37, b e8a922b, c-tube 958df43; c-station pending, Handoff 6; step 4 test drafted uncommitted in this worktree (`TestS2InteriorStation`, `tests/support/s2_station.py` + 8 unit tests green), committed only after P1/P2; BeamDyn node `result.json` must be copied into `tests/IEA15MW/bd_static/*-nodes/`) | S-2 tip-ring-mean metric (S12: interior station, predeclared in "T10c-station predeclaration"): (a) closed-form tube, ring mean vs Timoshenko and node-vs-ring spread under the S-2 load introduction; (b) node / ring mean on both blades at es 0.25 / 0.125, IEA-3.4 BeamDyn static LC1-LC4 as its reference; (c) test asserts the ring mean LC1-LC4 vs BeamDyn p60, LC2/LC3 verdicts, store rows.
 - T11 | S9 | parent | pending (own session, after the full suite 11625665) | Import `sx_mesh_convergence` (artifact regenerated at HEAD) and `sx_campbell` re-pointed to BeamDyn p20 per rpm into the L3 store.
 - T15 | S15 S8 S10 | worker | done: box option, P2 refuted on the 15 (section "T15/T16 RESULT") | (a) Box kinematics: `rigid_rotation_fit` on the box nodes (element sets containing SPAR or ending in _SW, as `tools/l3_twist_integral.py box_region`) for the S-1 GJ twist rate (`tools/run_s1_sectional.py ea_gj_from_static_response`), the S-1 tangent-frame EI (`sectional.py _ei_tangent_frame`) and S-7 (`section_twists_deg`); all-node kept as an option and printed beside. Closed forms first (Bredt tube, prismatic), then both blades at es 0.25. Prediction in "T15/T16 prediction".
 - T16 | S15 S10 | worker (with T15) | done: edge energy 1.0002 (P4), flap 0.937 (P5), torsion energy tip-dominated | (b) Extractor-free energy check from the same solves: W_FE = 1/2 F.u (tip edge, tip flap, pure torque) vs W_beam = integral M^2/(2 EI_ref) ds (T^2/(2 GJ_ref)) with the BeamDyn 6x6, both blades; plus the closed-form tube. Reported per load case, not asserted until the predictions are checked.
 - T17 | S16 | parent | answered in chat (session 19) | Production-readiness assessment for FSI torque studies, after T15/T16.
 - T18 | S15 | parent | done: group 23 verdicts, LC3/LC2, stale rows restamped, g5 audited; guards re-pin waits on T19; merge integration in this session | Parent's criterion: frame-tear guard to the current mesh signature (root tear healed), axis check limited to identifiable rings with the reason written; group 23 verdicts (`regression --group 23 --write`) and merge of l3/g5-mode7 + l3/g23-bernardi-p20; S-2 LC4 left undecided with its trend (no es 0.0625 rerun).
-- T19 | S15 | parent/worker | pending | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
+- T21 | S6 S17 | parent, SLURM | done (session 21, branch l3/t21-mac-pairing; test dd400ed, tooling 01d3106 + 73b2b19, store/registry in the closing commit; section "T21 RESULT") | Group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors (fixture from `logs/check/l3/t8/bd-parked.npz`), not by frequency; then re-verdict .5-.7.
+- T19 | S15 | parent/worker | done (session 20, branch l3/t19-ring-fit; section "T19 RESULT"; production twist unchanged by user decision L31, left to L5/C5) | Node-count-independent ring fit (arc-length weighted) for the section rotation: guards' monotone step (T18), C6 tip strips, production BEM twist. Prediction first; after T15/T16.
 - T5 | S3 S5 | parent | done: declaration section "L3 DECLARATION" | Declare the remaining reds with cause and sensitivity; `contract --level L3`; decide model work (T37) only if a sensitivity is large.
 
 ## Session 10 notes
@@ -805,6 +807,134 @@ Open code work, not L3 acceptance: T19 (node-count-independent ring fit), T6, T7
   group 11 against AeroDyn (rotor performance at 8 / 9 / 12 m/s within 0.45 %, yaw/shear 0.35 %, repo polars 1.2-2.2 %), a different operating set from the V-01 rated/curve rows.
 - Deferred by the user (L28): re-measuring closed L3 rows after the TE closure (T7) changes the mesh; correction proceeds from here.
 
+## T8 prediction (written before any mode-shape number, session 19, main 246382f)
+
+Scope (S6: the rotating-frequency analysis of the torque signal needs the shapes, not only the frequencies). Reference: BeamDyn p20 single member,
+official v1.1 deck, eigenvectors of the state-space blade block already on disk (`logs/check/of_bd/bp20_0/case.1.lin`, parked; `bp20_7.56`, 12 .lin, MBC3 collective,
+rated) - no OpenFAST run. Shell: es 0.25 mid-surface, parked and rated 7.56 rpm, eigenvectors saved. Compare on the BeamDyn GLL nodes: section-mean
+translations u_x, u_y and the section twist (rigid fit, all-node and box), BeamDyn axes -> shell by (x, y, z) -> (-y, x, z) (`tools/bd_static_reference.py` header).
+Metric: MAC on the (u_x, u_y) vector (bending) and on the twist vector separately, plus the combined vector with rotation scaled by the local chord/2; modes paired by
+the Hungarian algorithm on MAC (`tests/support/modal_pairing.py`), frequency gap reported beside. Bound: MAC >= 0.95 (the 5 % rule translated; not a thesis tolerance, flagged).
+- P1: 1F 1E 2F 2E 3F, parked: MAC >= 0.98 each (frequencies within 2.4 %, same families, EI_edge energy 1.0002).
+- P2: rated: MAC within 0.02 of parked for the same modes (centrifugal loading changes shapes weakly at 7.56 rpm).
+- P3: 1T: the combined-vector MAC is the weakest of the set, 0.80-0.95; the shell's 1T carries more flap/edge translation than BeamDyn's (the shell cluster at 4.1-4.4 Hz has
+  two modes with ~99 % span rotation, group 5 MAC), so the 1T +1.6 % frequency match is not a shape match. If MAC(1T) < 0.80 the 1T row is declared not an arbiter of GJ.
+- P4: 3E and 4F, parked: MAC 0.90-0.98.
+Consequences (predeclared): P1 refuted (bending MAC < 0.95) -> shapes differ in the EI distribution, which matters directly for the rotating torque analysis (S6) and goes to
+the user before anything else. P3 held -> 1T and the torsion-coupled modes are the ones the TE closure option (user decision, TE closed by default) can move: they get
+re-measured after it. No bound is moved; rows are added to the store only after the user fixes the MAC tolerance.
+
+## T8 RESULT (session 19, closed here by the user; `logs/check/l3/t8/RESULT.md`, tool `tools/l3_mode_shapes.py`, 6 unit tests)
+
+BeamDyn p20 eigenvectors read from the existing `.lin` (no OpenFAST run, frequency gate 6e-12); shell es 0.25 parked (2.5 min) and rated (12 min), login.
+Predictions: P1 HELD (bending MAC >= 0.992 for 1F 1E 2F 2E 3F, rated >= 0.989), P2 HELD for those, P3 HELD (1T combined 0.848 / 0.810), P4: 3E held, 4F refuted.
+**Findings.**
+1. Flexural shapes match BeamDyn: the rotating torque analysis (S6) can rely on 1F 1E 2F 2E 3F shapes.
+2. **1T by shape is 3.8044 Hz vs 4.0937 Hz = -7.07 % parked** (twist MAC 0.990): about -14 % effective GJ, extractor-free. This confirms the torsional softness measured statically
+   (S-1 GJ -10.7 %, S-7 +7.2 %) and settles the T15 question: not the fit, not the element: the section representation. T7 (TE closure) is justified.
+3. **Group 23 rows .5 (1T), .6 (3E), .7 (4F) were mispaired by frequency** (the +1.59 % "1T" compared BeamDyn 1T with the shell's 3E): verdicts trusted -> rejected / undecided /
+   undecided in contract.yaml, with a CORRECTED note. Group 23 now: 7 trusted, 1 rejected, 2 undecided. The test must pair by MAC (follow-up T21).
+4. BeamDyn has one 4F mode (4.84 Hz); the shell splits it over 4.32/4.63/4.70 Hz (bending MAC 0.766/0.924/0.901; 4.52 in the first note was the stale build).
+5. **Stale binary trap:** `PYTHONPATH=<repo>/src` in the main checkout selected `src/_aeroelast/*.so` of 2026-09-25 over the venv build (2026-10-26); the first rated numbers were wrong
+   (1F +4.50 % instead of +1.85 %). The stale file was moved to `*.stale-20260925` and replaced by a symlink to the venv build (git-ignored). Worktrees were not affected.
+Not done: the IEA-3.4 (no p20 `.lin`; S10 incomplete for modes), store rows for MAC (tolerance not fixed by the user), rated driver-hub comparison.
+
+## T19 prediction (written before any arc-weighted number, session 20, at c6af735)
+
+Estimator: a physical ring's section rotation stays the antisymmetric part of its in-plane affine fit, now weighted by each
+node's tributary wall length `w_a = 1/2 sum l_ab` over the ring's wall-graph edges (skin + webs, the edges `ring_section`
+already enumerates). Its continuum limit is the wall-length integral, which does not depend on where the mesher puts nodes.
+One function, shared by production (`_section_rotation`), the guards (torsion stiffness, frame tear) and the anchor-beam
+report. The S-1 / S-7 slice rigid fits are not touched (closed L3 rows, L28).
+- P1 (closed form): circle of radius R, tangential field `u_t = R theta0 (1 + a cos s)`, a = 0.5, nodes graded 1:4 around
+  the ring. Weighted: theta0 within 1e-3 relative at n >= 48, and two node counts / gradings agree within 1e-3. Unweighted:
+  off by > 5 %. A rigid rotation is exact (1e-12) for both.
+- P2 (pure-torque guard, IEA-15 es 0.25, the guard's own solve): the unweighted fit reproduces T18 (-3.3e-4 at z 9.551).
+  The weighted fit has no non-increasing step over z < 111 m; at the node-count changes z 9.551 / 11.939 its step lies
+  within +-50 % of the neighbouring smooth increments (~3e-4 rad).
+- P3 (GJ per station, 20-100 m): median GJ_static / GJ_ref moves by < 2 % (0.987), and the range 0.569-1.263 narrows
+  (single-station rates amplify the sampling noise).
+- P4 (production BEM twist, the C6 rated field `logs/check/core-torsion/tip/disp.npy`): the per-ring rotation between
+  z 112 and 117 has no reversal at node-count changes (deviation from the local trend < 0.03 deg, against 0.1-0.34 deg in
+  C6). Rated deformed torque and thrust change by <= 0.15 % against the unweighted twist (C6: smoothing the last 3 strips
+  moved Q -0.05..-0.13 %). Mid-span strips move by < 0.05 deg.
+- P5 (P7 production test): its independent reference becomes an arc-weighted fit written in the test. The nose-down
+  assertion holds, and the tip twist moves from -1.5112 deg by < 0.2 deg.
+Consequences (predeclared): P2 held -> the guards assert monotonicity with the production estimator, and the T18 re-pin
+(tear signature, axis check on identifiable rings) follows as its own commit. P2 refuted -> the step is a real difference in
+in-plane distortion between rings, not sampling: reported, guard left red with that cause. |dQ| > 0.3 % -> a finding against
+the T4 twist sensitivity (+0.34 %), and the L3 declaration's twist line is restated. No bound moves in any case.
+
+## T19 RESULT (session 20, 2026-10-28; login only; logs `logs/check/l3/t19/{guards,production,skin}/`)
+
+Shared estimator `section_contour.ring_section_rotation` + `ring_tributary_lengths`, edges `force_projection.mesh_corner_edges`
+(deduplicated: a ring edge has an element on each side except on the end rings). Same pure-torque solve for P2/P3, the C6 rated
+field `disp.npy` for P4/P5; the equal-weight path reproduces the old guard fit and the old production twist to round-off.
+- **P1 held** (closed form, graded circle): arc 1.0003 / 1.00004 theta0 (n 48 / 96); equal weights 1.065 / 1.036.
+- **P2 refuted at z 9.551, held at 11.939.** Skin+web arc fit keeps the one non-increasing step at 9.551 (-4.05e-4, equal
+  -3.32e-4; ring 65 -> 80 nodes) and smooths 11.939 (+5.71e-4 -> +2.39e-4). **H-web held** (written after P2, tested on the same
+  solve): a shear web enters at z 9.551 (18 web nodes, 36 at 9.790); wall length 14.80 -> 18.95 -> 22.98 m. The skin-only arc fit
+  has no step there (1.82e-4 -> 2.03e-4 -> 2.35e-4). The step is a change of the wall graph, not node sampling.
+- **P3:** GJ_static / GJ_ref over 20-100 m, 446 intervals: equal weights median 1.0386 (range 0.397-1.534); skin+web arc 1.0203
+  (0.575-1.099); skin arc 0.914 (0.546-0.986). Narrowing held; the "0.987" base of the prediction was the 2026-10-22 mesh, not
+  this tree. The skin reading (-8.6 % median) sits next to the S-1 GJ red (-10.7 %); the guard asserts no bound against the deck.
+- **P4 refuted on the effect, held on the sampling.** Production with skin+web arc weights on the C6 field: rated torque
+  -0.564 %, thrust -1.10 % (band <= 0.15 %, finding threshold 0.3 %), mid-span strips up to 0.10 deg, tip strips up to 1.10 deg;
+  ring deviation from the local trend at node-count changes 0.178 -> 0.036 deg (band 0.03). The equal-weight estimator is also
+  offset (~0.3 deg at z ~ 113) wherever the nodes are unevenly spread around the section, not only stepped.
+- **P5 refuted:** tip elastic twist -3.7576 (equal) -> -4.5721 deg (arc), 0.81 deg. The -1.5112 deg quoted in the P7 test
+  docstring belongs to an earlier field (stale text; the test's assertions are exact invariances and pass).
+- **Anchor-beam arbiter** (`test_blade_twist_anchor_beam`, BeamDyn K66 beam under the same aero load): tip beam -1.7765 deg,
+  shell ring -4.9746 (skin and skin+web: the 16-node tip ring has no web; ratio 2.80); 105 m -3.70 vs -1.74. No estimator of the
+  ring brings the shell to the beam; the arc weighting does not move the shell toward it.
+- **Decision (user, L31): production BEM twist unchanged** (equal nodal weights), because the definition of the twist fed back to
+  the BEM is S8's L5 decision (C5) and the arbiter does not support the change; the -0.56 % torque / -1.10 % thrust and the
+  0.81 deg tip move are the data for that decision. The guards read the skin arc fit (`_skin_wall_edges`).
+- **Guards** (login, es 0.25): `test_blade_section_torsion_stiffness` green (monotone over the whole span). `test_blade_section_frame_tear`
+  re-pinned (T18): tear signature = one interior tear, 4 free edges at z 112.2245 (root tear healed); axis bound asserted outboard of
+  the yaml circular blend (z >= 0.15 L = 17.55 m, read from `airfoil_position`): max 2.87 deg over 595 stations, blend reported (12.73
+  deg at 11.70). Two tests green. **New red, finding:** the tear bracket now runs and fails on the shoelace area at z 112.224
+  (0.42357 outside [0.42618, 0.44395]) while extent, xmin, xmax and hull area stay inside: the tip tear moves the ordered-ring area
+  (a torn ring's angular order, or real geometry; not separated). r > 111 m is already outside the trusted band (22.10).
+  `test_blade_twist_anchor_beam` 2 passed.
+- No bound moved. Known-red registry re-derived for the T19 files only with the new `check.sh full --only ... --record`
+  (16fce45; 12 tests, 7 min, `logs/check/full-only-20261028T174811.log`): torsion guard and frame invariants out, the tear test
+  stays with its new cause, 17 entries outside the scope kept. Store group 20 restamped (4 residuals same, aabebf2).
+
+## T21 prediction (written before the test change and any run, session 21, at 8ce950f)
+
+From the T8 eigenvectors already on disk (`logs/check/l3/t8/compare.json`, parked, fit A, no new run): the combined-MAC Hungarian pairing is the same
+over 8, 10 (the test's `N_SEARCH`) and 12 shell modes for BeamDyn modes 4-7 and the same for 8 from 10 modes up; fit B (box) gives the same pairs.
+Predicted rows of `test_blade_modal_frequencies_match_beamdyn_p20` (S17 rule):
+- .3 2E -> shell 4, -2.11 %, bend MAC 0.993: pass. .4 3F -> shell 5, -2.54 %, bend 0.995: pass (both unchanged from the frequency pairing).
+- .5 1T -> shell 6 (3.8044 Hz), -7.07 %, twist MAC 0.990: identified, FAIL on the 5 % bound (rejected, as the T8 CORRECTED note).
+- .6 3E -> shell 7 (4.1588 Hz), -5.05 %, bend 0.973: identified, FAIL by 0.05 pp (undecided band, no es 0.125 run).
+- .7 4F -> shell 9 (4.6340 Hz), -4.35 %, bend 0.924 < 0.95: FAIL as not identifiable (undecided).
+Refuted if the test fixture (`build_blade_mesh`, not the S-4 `_build_assembly`) gives other pairs or frequencies off T8 by more than 0.1 %.
+Then: `known-red-full.txt` gains .5-.7 via `check.sh full --only ... --record`; store group 23 rows .5-.7 re-measured with `regression --group 23`.
+
+## T21 RESULT (session 21, 2026-10-28; SLURM 11627035 regression, 11627065 `check_sbatch.sh full --only ... --record` at 67d82b1, 11627068 `regression --group 23 --write` at 73b2b19; `logs/check/l3/t21/`)
+
+Prediction held on every row; the login dry run of the fixture path (`fixture_dry.log`, 164 s, 4.4 GB, mesh 33,827 nodes) gave the T8 frequencies and pairs exactly.
+- .3 2E -2.11 %, .4 3F -2.54 %: same as before (pairs unchanged), restamped with the five CCX rows (test file changed, residuals `same`).
+- .5 1T: shell mode 6, twist MAC 0.990, **7.0664 %** (was 1.5907 % by frequency): rejected, red.
+- .6 3E: shell mode 7, bending MAC 0.973, **5.046 %** (was 1.3173 %): 0.05 pp over, undecided, red.
+- .7 4F: shell mode 9, bending MAC 0.924 < 0.95: **not identifiable** (S17), red; the row's measurement is `not_printed` (no residual is printed, regression `unmapped`), the old 3.0599 % withdrawn.
+- `known-red-full.txt` gains .5-.7 (partial re-derivation, 39 tests: 3 failed, 29 passed, 7 xfailed). `validation_matrix check` 0 errors; `contract --level L3`: trusted 12, undecided 4, rejected 8, stale 1 (anchor beam, by T19 6a6ad35), unarbitrated 1, absent 2.
+- Tooling defects found on the way (no git on compute nodes): `check_sbatch.sh` did not forward `--only` (01d3106); `head_revision` crashed without git, now reads the submission snapshot (73b2b19, RED->GREEN, 2 tests).
+- Pre-existing, not T21 (fail identically at 67d82b1): 6 reds in `tools/tests/test_validation_matrix.py` (real-store coherence: groups 4/5/6 rows differ from extraction, group 7 comparison moved :345 -> :340, `depends_on` misses `src/aeroelast/core/mesh.py` for dtube); `tools/tests/` is in no `check.sh` selection. Refresh with `validation_matrix coherence`, own session.
+- Slice: T21 adds about 300 authored lines on top of the unpushed T19 branch; push/merge are the user's.
+
+## Handoff 7 (2026-10-28, session 20 close)
+
+Branch `l3/t19-ring-fit` (11 commits on top of main c6af735 + the 3 unpushed session-19 commits; push/merge are the user's).
+T19 closed (section "T19 RESULT"); `check.sh --only` added (16fce45, b8e7796) and documented in AGENTS.md.
+Next session: **T21** (group 23 BeamDyn p20 rows paired by MAC against the T8 eigenvectors, fixture from
+`logs/check/l3/t8/bd-parked.npz`, then re-verdict rows .5-.7; section "T8 RESULT" item 3). Re-measure only the touched tests
+with `scripts/check.sh full --only <file> --record` and the store with `regression --group 23`.
+Open, not T21: tear bracket red on the shoelace area at z 112.224 (T19 RESULT); stale -1.5112 deg in the P7 test docstring
+(current equal-weight tip -3.7576 on the C6 field); production twist definition waits for L5/C5.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -835,3 +965,9 @@ Open code work, not L3 acceptance: T19 (node-count-independent ring fit), T6, T7
 - L26 (2026-10-28, session 19) User, verbatim: "vamos con a y b, y lo demas dejalo bajo tu criterio." and "luego dime como estamos en vistas a poner esto en produccion para hacer analisis fsi de turbinas eolicas para ver la influencia de la deformacion en el torque". Parent: S15, S16, T15-T18; prediction written before any run.
 - L27 (2026-10-28, session 19) User, verbatim: "vamos por partes, Cierra L3, y vamos a limpiar el codigo mezclando y eliminando los worktrees. luego de eso volvemos a lo que hay que hacer para decidir". Parent: L3 declared (section above); branches merged into l3/integration, 41 worktrees removed with logs archived in logs/check/worktree-archive/, 4 unmerged experiment branches kept (cap-arcs, input-T30, s1-gj-metric, te-closure-T37).
 - L28 (2026-10-28, session 19) User: closed measurements are deferred until after T7 (5 h of simulation), correct forward from here unless a more significant change appears; TE closed by default with the flat-back cut as an option for the external CFD; "te doy el OK para seguir el plan". Parent: L4 diagnosed and restamped, spanwise rows fixed (section above).
+- L29 (2026-10-28, session 19) User: "vamos a cerrar T8 aqui y luego en otra vamos a T19". Parent: T8 closed with the corrected rerun; group 23 rows .5-.7 withdrawn; T19 next session.
+- L30 (2026-10-28, session 20) User: "ahora vamos a cerrar t19". Parent: branch l3/t19-ring-fit from main c6af735; prediction "T19 prediction" written before any number; measured on login from existing instruments (no SLURM, L25).
+- L31 (2026-10-28, session 20) User chose "Producción sin cambios; arco-piel en guards (Recomendado)" over production with skin-only or skin+web arc weights, after P2 (web entry, H-web) and P4 (dQ -0.56 %, anchor beam -1.78 vs shell -4.97 deg at the tip). Parent: participant reverted, guards on skin arc, T18 re-pin, section "T19 RESULT".
+- L32 (2026-10-28, session 20) User asked for `check.sh` scoped re-recording ("no quiero tener que esperar 5h para ver si 4 tests pasan"); parent: `--only` (16fce45, fix b8e7796), registry re-derived for the T19 files. User: "ok entonces cerramos aqui. actualiza el @AGENTS.md y voy para otra sesion con el T21". Parent: AGENTS.md updated, Handoff 7.
+- L33 (2026-10-28, session 21) User, verbatim: "vamos a validar T21 e intentar cerrarlo". Parent: offline 10x8 MAC pairing from the T8 eigenvectors (table in "T21 prediction"); asked the MAC threshold and the below-threshold action. User chose "0.95 (el de la predicción T8) (Recomendado)" and "Falla: 'no identificable' (Recomendado)" (S17).
+- L34 (2026-10-28, session 21) Parent: T21 closed (section "T21 RESULT"); the prediction held on all rows.

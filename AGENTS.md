@@ -15,6 +15,7 @@ SLURM scripts. Grep and import `aeroelast`, never `fem_shell`.
   scripts/aeroenv.sh python -c "import aeroelast"     # or: source scripts/aeroenv.sh
   scripts/check.sh quick      # ~13 s smoke gate; exit 1 only for failures outside known-red
   scripts/check.sh full       # the real suite (~25+ min); log kept under logs/check/
+  scripts/check.sh full --only <file|node id> [--only ...] [--record]   # a few tests vs the registry
   ```
 
 - `check.sh quick` is a **smoke gate**: it never says anything about physics. Escalate by what
@@ -94,6 +95,7 @@ The product of this repository is numbers that survive scrutiny, not code that r
 | frames and signs | rotating frame with explicit Coriolis; `CoordinateTransforms` (Rodrigues), `InertialForcesCalculator` and the Omega providers live in `fsi/corotational.py`. Sign conventions are recorded in `odd/tasks/rated-twist-sign-convention.md`. |
 | centrifugal `K_G` | solved **statically** (`K u = f_cf` on free DOFs), then membrane stresses recovered from `u`; `assemble_geometric_stiffness` **requires `free_dofs`** (clamped-root elimination). The old local `σ = ρω²r·l_char` was 2–3 orders of magnitude too small, so rotating modes looked ≈ parked. |
 | solver naming | `LinearDynamicFSIRotorSolver` is an alias of `LinearDynamicFSIRotorCorotationalSolver` (`rotor.py`); the ~66 case YAMLs that still use the alias are correct, not stale. |
+| section rotation (twist) | one estimator, `section_contour.ring_section_rotation` (antisymmetric part of the ring's in-plane affine fit). The production BEM twist (`BEMFSIParticipant._section_rotation`) keeps **equal nodal weights** until L5 decides its definition (S8, user L31); the blade guards weight it by **skin** wall length (`ring_tributary_lengths` over `_skin_wall_edges`), because equal weights step where the ring node count changes and a skin+web fit steps where a web enters (z 9.551). Do not switch production without that decision: skin+web arc weights move rated torque −0.56 %, thrust −1.10 % (`odd/tasks/l3-closure.md` "T19 RESULT"). |
 | hot-loop boundary | inside a converged preCICE window the loop never re-enters Python: the KSP is factorized once and reused (`solve_with_cached_ksp`, `dynamic_newmark.rs`) because `K_eff` is constant for fixed Δt. Refactorization happens only when `K_G`/`K_SP` change. |
 
 ## Where things live
@@ -194,7 +196,14 @@ full-suite measurement before a merge.
   around 17 % on 2026-10-09), so submit it as a SLURM job when the result matters.
 - `scripts/known-red-quick.txt` / `known-red-full.txt` hold the documented-red tests per mode,
   stamped with the revision they were derived at. Re-derive with
-  `scripts/check.sh <mode> --record`; never hand-edit to make a run green.
+  `scripts/check.sh <mode> --record`; never hand-edit to make a run green. To re-measure only the
+  tests a change touched, add `--only <file|node id>` (repeatable): it classifies and, with
+  `--record`, rewrites only the ids that run reports, keeps every other entry and stamps a
+  "# Partially re-derived" line (T19: 12 tests in 7 min instead of a 5 h suite). A renamed or
+  deleted test still needs a full `--record`.
+- Store rows are re-measured per group, never by the whole suite:
+  `tools/validation_matrix.py regression --group G [--scope <node>]`; `--write` only when the
+  residuals are `same` (a source-digest restamp), never over a moved one.
 - The four documented-red tests: `test_corotational_is_frame_objective_tl_is_not` (deliberate —
   the MITC4 path of `assemble_kt_corotational` now uses upstream's total-Lagrangian tangent, so
   the asserted property no longer differs), the D-Tube and UL-elastica accuracy cases, and

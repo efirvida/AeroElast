@@ -56,6 +56,7 @@ class Blade:
         self.stackdb: StackDatabase = StackDatabase()
         self.materialdb: MaterialDatabase = MaterialDatabase()
         self.settings: BladeSettings = BladeSettings()
+        self.windio2_topology = None
 
         # read input file
         if filename:

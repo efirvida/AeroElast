@@ -71,6 +71,10 @@ class Definition:
         self.chord: ndarray | None = None
         # chord on the yaml's own grid, (span in m, values); None when the input has only `span`
         self.chord_curve: tuple[ndarray, ndarray] | None = None
+        # Native windIO 2.0 reference curves; None selects the unchanged v1 frame path.
+        self.windio2_reference_axis: dict | None = None
+        self.windio2_outer_shape: dict | None = None
+        self.windio2_airfoils: list | None = None
         self.chordoffset: ndarray | None = None
         self.degreestwist: ndarray | None = None
         self.percentthick: ndarray | None = None

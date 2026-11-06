@@ -58,6 +58,10 @@ BLADES = {
     'iea34': (ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn.dat',
               ROOT / 'tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat',
               ROOT / 'tests/IEA34/bd_static', ROOT / 'logs/check/bd_static/iea34'),
+    # Third official blade (gmsh validation 15/22/3.4): the unmodified upstream OpenFAST decks, pinned in tests/IEA22MW/reference/openfast.
+    'iea22': (ROOT / 'tests/IEA22MW/reference/openfast/IEA-22-280-RWT_BeamDyn.dat',
+              ROOT / 'tests/IEA22MW/reference/openfast/IEA-22-280-RWT_BeamDyn_Blade.dat',
+              ROOT / 'tests/IEA22MW/bd_static', ROOT / 'logs/check/bd_static/iea22'),
 }
 CHANNELS = ('TipTDxr', 'TipTDyr', 'TipTDzr')
 
@@ -142,10 +146,12 @@ def build(case, order, scale, nodes=()):
     target = INPUTS / name
     target.mkdir(parents=True, exist_ok=False)
     prop = replace(PROPERTIES.read_text(), 'damp_type', 0)
-    prop = prop.replace(' ---------------------- DISTRIBUTED PROPERTIES',
-                        ' ---------------------- MODAL DAMPING ---------------------\n'
-                        '1 n_modes - unused\n0 zeta - unused\n'
-                        ' ---------------------- DISTRIBUTED PROPERTIES')
+    # the IEA-22 deck writes the section header without the leading blank, so match any indentation
+    prop, count = re.subn(r'^([ \t]*-+ DISTRIBUTED PROPERTIES)',
+                          lambda m: ' ---------------------- MODAL DAMPING ---------------------\n'
+                                    '1 n_modes - unused\n0 zeta - unused\n' + m[1], prop, count=1, flags=re.M)
+    if count != 1:
+        raise ValueError('DISTRIBUTED PROPERTIES header not found in the blade file')
     (target / 'blade.dat').write_text(prop)
     beam = GEOMETRY.read_text()
     beam = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
