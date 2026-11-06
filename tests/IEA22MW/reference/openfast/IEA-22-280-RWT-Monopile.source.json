@@ -1,0 +1,17 @@
+{
+ "repository": "https://github.com/IEAWindSystems/IEA-22-280-RWT",
+ "commit": "7c3cf5df656774bafc6909a92dae8d12f734b122",
+ "paths": {
+  "IEA-22-280-RWT-Monopile.fst": "OpenFAST/IEA-22-280-RWT-Monopile/",
+  "IEA-22-280-RWT_ElastoDyn.dat": "OpenFAST/IEA-22-280-RWT-Monopile/",
+  "IEA-22-280-RWT_ElastoDyn_tower.dat": "OpenFAST/IEA-22-280-RWT-Monopile/",
+  "IEA-22-280-RWT_ElastoDyn_blade.dat": "OpenFAST/IEA-22-280-RWT/"
+ },
+ "sha256": {
+  "IEA-22-280-RWT-Monopile.fst": "93f3370913630c770758c77315a43ddd456b6e7452a0ba29da420815e16b3a88",
+  "IEA-22-280-RWT_ElastoDyn.dat": "da941432b0ec6708e5f39b159ac9ce4b6f536ed206f4ca11717126106a5c9c35",
+  "IEA-22-280-RWT_ElastoDyn_tower.dat": "bc9898b9cb0bbf8d2e6fba1ab5065ff9936044ebe78d844651e0a8169c2042bd",
+  "IEA-22-280-RWT_ElastoDyn_blade.dat": "0b7fb7f5e4d19bab0ede1f8a2ef80afbf7b42d663ff513777263653fa42f4459"
+ },
+ "note": "unmodified upstream copies, cloned 2026-11-06 into a fresh directory (shallow clone)"
+}
