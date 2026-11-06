@@ -430,7 +430,7 @@ references:
       authors, title, journal, volume, pages and year read off the held copy;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.08.003
     cited_by_declared:
-      - "src/aeroelast/core/mesh/generators.py:66"
+      - "src/aeroelast/core/mesh/generators.py:78"
     cited_by_stale:
       - "tests/validation/benchmarks/test_ko2017_performance.py:4-7"
     code_mentions:
@@ -1112,16 +1112,16 @@ references:
     doi_status: not_applicable
     held: false
     verification: unverified
-    cited_by_declared: []
-    cited_by_stale:
+    cited_by_declared:
       - "src/aeroelast/models/blade/aerodynamics.py:316"
     notes: >-
       Apache-2.0 — neural-network airfoil aerodynamics. Upstream:
       <https://github.com/peterdsharples/NeuralFoil>. The source states no
       publication year; the repository pins version 0.3.3
       (`docs/validation-environment.md`). The code names it at
-      `src/aeroelast/models/blade/aerodynamics.py:319`; the prose site was off
-      by three lines and is recorded as stale.
+      `src/aeroelast/models/blade/aerodynamics.py:316` (`_generate_polars_neuralfoil`);
+      the line was :319 when the prose site was recorded as stale, and moved with
+      the edit of that file, so the site is now the declared one.
 
   - key: nafems
     section: >-
