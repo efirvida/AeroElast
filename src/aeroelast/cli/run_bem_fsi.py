@@ -269,7 +269,18 @@ def _build_mesh(cfg: dict, config_path: Path):
 
         logging.info("[BEM-FSI] Generating mesh with %s", gen_type)
 
-        if gen_type == MeshGeneratorType.BLADE.value:
+        if gen_type == MeshGeneratorType.GMSH_BLADE.value:
+            from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh  # noqa: PLC0415
+
+            # same surface as the BladeMesh branch below: the coupling mesh is the aerodynamic (outer mould line) surface
+            generator = GmshBladeMesh(
+                yaml_file=_resolve(params["yaml_file"]),
+                element_size=params.get("element_size", 0.25),
+                skin_reference=params.get("skin_reference", "oml"),
+            )
+            mesh = generator.generate(renumber=None)
+
+        elif gen_type == MeshGeneratorType.BLADE.value:
             yaml_file = params.get("yaml_file")
             excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
