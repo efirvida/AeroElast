@@ -67,8 +67,12 @@ BEM_CONFIG = {
 }
 
 
-def solve_rated(element_size: float):
-    """Mesh, participant and the rated displacement field (n_nodes, 3)."""
+def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False):
+    """Mesh, participant and the rated displacement field (n_nodes, 3).
+
+    ``mesher="gmsh"`` builds the blade with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO v2 YAML of the
+    IEA-15, mid-surface) instead of the NuMAD ``Blade`` model; the load, the clamp, the BEM participant and the solve are the same code.
+    """
     from _aeroelast import PyMeshAssembler  # type: ignore[import-not-found]
     from scipy.sparse import coo_matrix
     from scipy.sparse.linalg import spsolve
@@ -81,11 +85,26 @@ def solve_rated(element_size: float):
     from tests.support.paths import DATA_DIR
 
     ad = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
-    Node._id_counter = 0
-    MeshElement._id_counter = 0
-    model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=element_size)
-    model.generate_mesh()
-    mesh, props = model.mesh, model.get_element_properties()
+    if mesher == "numad-mid":
+        # the NuMAD generator on the mid-surface, built as tests/validation/blade/test_blade_iea15mw_validation.py::build_blade_mesh does
+        from aeroelast.core.mesh.generators import BladeMesh
+        from aeroelast.models.blade.model import build_rust_properties
+
+        Node._id_counter = 0
+        MeshElement._id_counter = 0
+        generator = BladeMesh(yaml_file=str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=element_size, skin_reference="mid")
+        mesh = generator.generate()
+        props = build_rust_properties(generator.numad_mesh_data)
+    elif mesher == "gmsh":
+        from tests.support.v2_blade import build_v2_blade
+
+        mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="gmsh", es_range=(0.05, 0.25))
+    else:
+        Node._id_counter = 0
+        MeshElement._id_counter = 0
+        model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=element_size)
+        model.generate_mesh()
+        mesh, props = model.mesh, model.get_element_properties()
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props),
         props,
@@ -99,7 +118,11 @@ def solve_rated(element_size: float):
     fixed = {6 * r + d for r in root for d in range(6)}
     free = np.array([i for i in range(n) if i not in fixed], dtype=np.int64)
 
-    participant = BEMFSIParticipant(mesh, build_blade_aero_from_aerodyn(ad), BEM_CONFIG)
+    # wall_flow=True hands the deck property map to the projector, as the production factory does (rings realised through the
+    # multi-cell wall flow where the ring defines a section); False keeps the historical minimum-norm sensitivity run.
+    participant = BEMFSIParticipant(
+        mesh, build_blade_aero_from_aerodyn(ad), BEM_CONFIG, element_properties=props if wall_flow else None
+    )
     forces, _ = participant._compute_forces(np.zeros((n // 6, 3)))
     load = np.zeros(n)
     for dof in range(3):
@@ -107,6 +130,38 @@ def solve_rated(element_size: float):
     u = np.zeros(n)
     u[free] = np.asarray(spsolve(K[np.ix_(free, free)], load[free]))
     return participant, np.column_stack([u[0::6], u[1::6], u[2::6]])
+
+
+def _ring_rotation_with_slope(participant, disp, ring_idx):
+    """Section rotation of a ring like ``BEMFSIParticipant._section_rotation`` plus a per-ring bending-slope term.
+
+    A ring whose nodes do not share one z (rows of a prebent blade are normal to the curved axis, so z varies across the chord) sees
+    the beam slope du/dz times its own z offset as an in-plane displacement that grows with the chord position and reads as rotation.
+    The fit u = A x + t + g (z - z_mean) takes that term out; with a planar ring the column vanishes and the plain fit is returned.
+    Diagnostic only (not production code).
+    """
+    if len(ring_idx) < 4:
+        return None
+    span = participant._span_dir
+    seed = np.array([1.0, 0.0, 0.0])
+    if abs(seed @ span) > 0.9:
+        seed = np.array([0.0, 1.0, 0.0])
+    e1 = seed - (seed @ span) * span
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(span, e1)
+    pts = participant._ref_coords[ring_idx]
+    x, y = pts @ e1, pts @ e2
+    dz = pts @ span - np.mean(pts @ span)
+    ux, uy = disp[ring_idx] @ e1, disp[ring_idx] @ e2
+    cols = [x, y, np.ones_like(x)]
+    if np.ptp(dz) > 1e-6:
+        cols.append(dz)
+    design = np.column_stack(cols)
+    if np.linalg.matrix_rank(design) < design.shape[1]:
+        return None
+    a12 = float(np.linalg.lstsq(design, ux, rcond=None)[0][1])
+    a21 = float(np.linalg.lstsq(design, uy, rcond=None)[0][0])
+    return 0.5 * (a21 - a12)
 
 
 def evaluate(participant, r, twist) -> dict[str, float]:
@@ -211,18 +266,38 @@ def twist_definitions(participant, disp, r_def, tw_def):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--element-size", type=float, default=0.25)
+    parser.add_argument("--mesher", choices=("numad", "numad-mid", "gmsh"), default="numad",
+                        help="blade mesh source: numad = the Blade model (BladeMesh default skin_reference=oml, unchanged default), numad-mid = BladeMesh on the mid-surface, gmsh")
     parser.add_argument("--twist-ratio", type=float, required=True, help="S-7 twist, ours / beam")
     parser.add_argument("--flap-error", type=float, required=True, help="S-2 flap tip, ours/ref - 1")
     parser.add_argument("--edge-error", type=float, required=True, help="edgewise, ours/ref - 1")
+    parser.add_argument("--slab-twist", action="store_true",
+                        help="print the section rotation of every strip by the participant ring estimator beside a z-slab rigid fit of the same field")
     parser.add_argument("--twist-definitions", action="store_true",
                         help="C5: also compare the production, chord-line and box twist definitions")
     parser.add_argument("--save-displacements", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
-    participant, disp = solve_rated(args.element_size)
+    participant, disp = solve_rated(args.element_size, args.mesher)
     if args.save_displacements:
         np.save(args.save_displacements, disp)
+    if args.slab_twist:
+        coords = participant._ref_coords
+        z_all = coords[:, 2]
+        print("strip   z[m]  ring-rot[deg]  slab-rot[deg]  ring/slab  ring+slope[deg]")
+        for k, ring in enumerate(participant._strip_ring_indices):
+            rot = participant._section_rotation(disp, ring)
+            zc = float(np.mean(z_all[ring]))
+            sel = np.nonzero(np.abs(z_all - zc) < 0.5)[0]
+            ctr = coords[sel, :2].mean(0)
+            rx, ry = coords[sel, 0] - ctr[0], coords[sel, 1] - ctr[1]
+            slab = float(np.sum(rx * disp[sel, 1] - ry * disp[sel, 0]) / np.sum(rx**2 + ry**2))
+            rot_s = _ring_rotation_with_slope(participant, disp, ring)
+            if k % 4 == 0 or k == len(participant._strip_ring_indices) - 1:
+                print(f"{k:5d} {zc:7.1f} {np.rad2deg(rot) if rot is not None else float('nan'):13.4f} {np.rad2deg(slab):13.4f} "
+                      f"{(rot / slab) if (rot is not None and abs(slab) > 1e-12) else float('nan'):10.3f} "
+                      f"{np.rad2deg(rot_s) if rot_s is not None else float('nan'):13.4f}  ztilt {np.ptp(z_all[ring]):.3f} m")
     r_ref, tw_ref = participant._ref_r, participant._ref_twist
     r_def, tw_def = participant._compute_deformed_geometry(disp)
     d_twist = tw_def - tw_ref
