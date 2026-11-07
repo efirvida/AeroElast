@@ -153,17 +153,27 @@ def extract_ad_loads(out_path: Path, ad_blade_path: Path, t_lo=80.0, t_hi=100.0)
     return blspn, fn, ft, twist
 
 
-def build_assembly(element_size=0.25, skin_reference="oml"):
+def build_assembly(element_size=0.25, skin_reference="oml", mesher="numad"):
     from aeroelast.core.assembler import MeshAssembler
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(
-        element_size=element_size,
-        yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"),
-        skin_reference=skin_reference,
-    )
+    if mesher == "gmsh":
+        # the gmsh skin mesher on the windIO 2.0 definition of the same turbine
+        from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh
+
+        gen = GmshBladeMesh(
+            yaml_file=str(REPO / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"),
+            element_size=element_size,
+            skin_reference=skin_reference,
+        )
+    else:
+        gen = BladeMesh(
+            element_size=element_size,
+            yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"),
+            skin_reference=skin_reference,
+        )
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {
