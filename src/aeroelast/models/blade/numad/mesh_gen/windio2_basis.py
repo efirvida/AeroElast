@@ -20,7 +20,18 @@ def shell_bases(nodes, elements):
     positive adapter angle rotates x toward y about n.
     """
     result = []
-    for xyz in np.asarray(nodes)[elements]:
+    for row in np.asarray(elements):
+        if row[3] < 0:  # triangle: constant Jacobian, first edge and third vertex
+            xyz = np.asarray(nodes)[row[:3]]
+            x, y = xyz[1]-xyz[0], xyz[2]-xyz[0]
+            if len(np.unique(xyz, axis=0)) != 3 or not np.linalg.norm(np.cross(x, y)) > 0:
+                raise ValueError('Nonpositive shell triangle on source geometry')
+            first = x/np.linalg.norm(x)
+            normal = np.cross(x, y)
+            normal /= np.linalg.norm(normal)
+            result.append(np.array([first, np.cross(normal, first), normal]))
+            continue
+        xyz = np.asarray(nodes)[row]
         x = xyz[1]-xyz[0]+xyz[2]-xyz[3]
         y = xyz[3]-xyz[0]+xyz[2]-xyz[1]
         if len(np.unique(xyz, axis=0)) != 4 or not np.linalg.norm(np.cross(x, y)) > 0:

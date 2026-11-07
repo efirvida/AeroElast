@@ -17,6 +17,19 @@ from functools import lru_cache
 import numpy as np
 
 
+MIN_RING_DIVISIONS = 16  # about 45 degrees of turning per element on average
+
+
+def _centroid(parameters, elements):
+    """Mean chart coordinate over each element's true corners (triangles repeat one)."""
+    live = (elements >= 0)[:, :, None]
+    return (parameters*live).sum(axis=1)/live.sum(axis=1)
+
+
+def _has_material(cells):
+    return any(cell.thickness_m > 0 for cell in cells)
+
+
 @dataclass(frozen=True)
 class SkinMesh:
     nodes: np.ndarray  # metres, NuMAD axes
@@ -78,68 +91,128 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
     # The definition's span is the authoritative curvilinear reference length.
     length = topology._definition.span[-1]
     stations = sorted({lo, hi, *(e for e in topology.event_stations if lo < e < hi)})
-    refined = [stations[0]]
-    for a, b in zip(stations[:-1], stations[1:], strict=True):
-        n = max(1, int(np.ceil((b-a)*length/element_size)))
-        refined.extend(linspace(a, b, n+1)[1:])
-    rings = {e: {p.nd_arc for p in section(e).points} for e in refined}
-    strips = []
 
     def precision_error(detail):
         raise ValueError('Unsupported extended chart subdivision precision: ' + detail
                          + '; distinct source intervals were not merged; '
                          'this is a representation limit, not invalid source geometry')
 
-    for a, b in zip(refined[:-1], refined[1:], strict=True):
-        midpoint = a+(b-a)/2
-        if not a < midpoint < b:
-            precision_error(f'no interior span sample in [{a!r}, {b!r}]')
+    LE = ('le', 'landmark', 'arc0')
+
+    @lru_cache(None)
+    def idmap(eta):
+        result = {identity: p.nd_arc for p in section(eta).points for identity in p.identities}
+        if surface == 'skin':
+            # The loft's leading-edge landmark (arc 0) is a mandatory ring cut:
+            # without it one element wraps the highest-curvature region.
+            points = section(eta).points
+            for p1, p2 in zip(points[:-1], points[1:], strict=True):
+                if p1.arc*p2.arc < 0:
+                    result[LE] = p1.nd_arc+(p2.nd_arc-p1.nd_arc)*rational((0-p1.arc)/(p2.arc-p1.arc))
+        return result
+
+    def perimeter(*etas):
+        return max(abs(section(e).points[-1].arc-section(e).points[0].arc) for e in etas)
+
+    def count(width, reference):
+        return max(1, int(np.ceil(extended(width)*reference/element_size)))
+
+    # Rows: the ordered nd positions of every station. Inside one event strip no
+    # identity changes order, so every interval keeps ONE subdivision count for
+    # the whole strip and neighbouring rows conform without any transport. An
+    # event station is a row of its own (its section carries the identities of
+    # both sides); the strips next to it join it with transition elements.
+    if surface == 'skin':
+        # A moving boundary that sweeps over the leading-edge landmark is an
+        # event of its own: add a station where it crosses (secant on the loft).
+        for _ in range(4):
+            added = []
+            for e0, e1 in zip(stations[:-1], stations[1:], strict=True):
+                m0, m1 = idmap(e0), idmap(e1)
+                if LE not in m0 or LE not in m1:
+                    continue
+                for k in m0.keys() & m1.keys() - {LE}:
+                    d0, d1 = m0[k]-m0[LE], m1[k]-m1[LE]
+                    if d0*d1 < 0:
+                        t = rational(extended(d0)/extended(d0-d1))
+                        guess = e0+(e1-e0)*t
+                        for _ in range(3):
+                            m = idmap(guess)
+                            if LE not in m:
+                                break
+                            d = m[k]-m[LE]
+                            slope = extended((d1-d0)/(e1-e0))
+                            guess = guess-rational(extended(d)/slope)
+                            guess = min(max(guess, e0), e1)
+                        # The landmark is computed, not a source event: a root
+                        # within a millionth of the strip joins its end station.
+                        if e0+(e1-e0)/10**6 < guess < e1-(e1-e0)/10**6:
+                            added.append(guess)
+            if not added:
+                break
+            stations = sorted({*stations, *added})
+    rows, strips, event_strips, finest = {}, [], [], {}
+    for e in stations:
+        points = section(e).points
+        rows[e] = {p.nd_arc for p in points}
+    for e0, e1 in zip(stations[:-1], stations[1:], strict=True):
+        midpoint = e0+(e1-e0)/2
+        if not e0 < midpoint < e1:
+            precision_error(f'no interior span sample in [{e0!r}, {e1!r}]')
         mid = section(midpoint)
         if not mid.points:
             continue
-        ends = [{identity: p.nd_arc for p in section(e).points for identity in p.identities}
-                for e in (a, b)]
-        perimeter = max(abs(section(e).points[-1].arc-section(e).points[0].arc)
-                        for e in (a, (a+b)/2, b))
+        if surface != 'skin' and not _has_material(mid.skin_cells):
+            continue  # a web whose laminate is zero thick here does not exist
+        reference = perimeter(e0, midpoint, e1)
+        intervals = []
         for left, right in mid.intervals:
-            # Inside one event strip identities cannot change order. Their
-            # endpoint values include analytically unified crossing identities.
-            bounds = [[mapping[p.identities[0]] for p in (left, right)] for mapping in ends]
-            n = max(1, int(np.ceil(extended(max(y-x for x, y in bounds))*perimeter/element_size)))
-            qa, qb = [linspace(x, y, n+1) for x, y in bounds]
-            rings[a].update(qa)
-            rings[b].update(qb)
-            strips.extend((a, b, qa[j], qa[j+1], qb[j], qb[j+1]) for j in range(n))
+            keys = (left.identities[0], right.identities[0])
+            width = max(idmap(e)[keys[1]]-idmap(e)[keys[0]] for e in (e0, e1))
+            n = count(width, reference)
+            if (LE in idmap(midpoint) and idmap(midpoint)[keys[0]] < idmap(midpoint)[LE] < idmap(midpoint)[keys[1]]
+                    and all(LE in idmap(e) and idmap(e)[keys[0]] <= idmap(e)[LE] <= idmap(e)[keys[1]]
+                            for e in (e0, e1))):
+                # Same interval over the whole strip: split it at the landmark.
+                n = max(n, 2)
+                w1 = max(idmap(e)[LE]-idmap(e)[keys[0]] for e in (e0, e1))
+                n1 = min(n-1, max(1, int(round(n*extended(w1)/extended(width)))))
+                intervals.append(((keys[0], LE), n1))
+                intervals.append(((LE, keys[1]), n-n1))
+            else:
+                intervals.append((keys, n))
+        if surface == 'skin':
+            # A closed profile needs a minimum angular resolution: below
+            # MIN_RING_DIVISIONS a coarse size on a small chord wraps one
+            # element around the leading edge or collapses the ring.
+            widths = [max(idmap(e)[k[1]]-idmap(e)[k[0]] for e in (e0, e1)) for k, _ in intervals]
+            counts = [n for _, n in intervals]
+            while sum(counts) < MIN_RING_DIVISIONS:
+                counts[max(range(len(counts)), key=lambda i: widths[i]/counts[i])] += 1
+            intervals = [(k, n) for (k, _), n in zip(intervals, counts, strict=True)]
+        # A boundary that slides along the contour must not shear a row of
+        # elements beyond ~45 degrees: the span step also bounds the slide.
+        slide = max(abs(idmap(e1)[k]-idmap(e0)[k]) for pair, _ in intervals for k in pair)
+        n_span = max(1, int(np.ceil((e1-e0)*length/element_size)),
+                     int(np.ceil(extended(slide)*reference/element_size)))
+        sub = linspace(e0, e1, n_span+1)
+        for s in sub[1:-1]:
+            row = {idmap(s)[intervals[0][0][0]]}
+            for (first, last), n in intervals:
+                row.update(linspace(idmap(s)[first], idmap(s)[last], n+1))
+            rows[s] = row
+        for e in (e0, e1):
+            for (first, last), n in intervals:
+                finest[(e, first, last)] = max(n, finest.get((e, first, last), 0))
+        event_strips.append((midpoint, sub))
+        for a, b in zip(sub[:-1], sub[1:], strict=True):
+            for first, last in (k for k, _ in intervals):
+                strips.append((a, b, idmap(a)[first], idmap(a)[last], idmap(b)[first], idmap(b)[last]))
 
-    # Reconcile hanging cuts by transport across each noncollapsed strip.
-    # Exact normalized positions keep both horizontal edges compatible, even
-    # when neighboring stations requested different contour subdivisions.
-    # Transport reaches a fixed point before adding any element: repairing one
-    # side after quadrangulation would leave a crack in its neighbor.
-    incident = defaultdict(list)
-    for index, (a, b, *_) in enumerate(strips):
-        incident[a].append(index)
-        incident[b].append(index)
-    pending = deque(range(len(strips)))
-    queued = set(pending)
-    while pending:
-        index = pending.popleft()
-        queued.remove(index)
-        a, b, al, ar, bl, br = strips[index]
-        if al == ar or bl == br:
-            # An exact crossing has a genuinely collapsed edge. Its polygon
-            # keeps the existing triangle-to-quad construction below.
-            continue
-        fractions = {(q-al)/(ar-al) for q in rings[a] if al <= q <= ar}
-        fractions.update((q-bl)/(br-bl) for q in rings[b] if bl <= q <= br)
-        for eta, left, right in ((a, al, ar), (b, bl, br)):
-            extra = {left+t*(right-left) for t in fractions}-rings[eta]
-            if extra:
-                rings[eta].update(extra)
-                for neighbor in incident[eta]:
-                    if neighbor not in queued:
-                        pending.append(neighbor)
-                        queued.add(neighbor)
+    # An event station takes the finer count of its two sides per interval, so
+    # a neighbouring strip with the same count meets it without hanging nodes.
+    for (e, first, last), n in finest.items():
+        rows[e].update(linspace(idmap(e)[first], idmap(e)[last], n+1))
 
     uv, elements, ids = [], [], {}
 
@@ -153,44 +226,39 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
     def average(*points):
         return tuple(np.mean(points, axis=0))
 
-    def append_quad(quad):
-        if len(set(quad)) != 4:
-            precision_error(f'subdivision collapsed distinct corners in strip '
-                            f'{(a, b, al, ar, bl, br)!r}')
-        elements.append([node(v) for v in quad])
+    def span_row(eta, lo_q, hi_q):
+        return [(eta, q) for q in sorted(rows[eta]) if lo_q <= q <= hi_q]
+
+    def fractions(row, lo_q, hi_q):
+        width = extended(hi_q-lo_q)
+        return [0. if width == 0 else float(extended(q-lo_q)/width) for _, q in row]
+
+    def append(corners):
+        if len(set(corners)) != len(corners):
+            precision_error(f'subdivision collapsed distinct corners {corners!r}')
+        elements.append([node(v) for v in corners])
 
     for a, b, al, ar, bl, br in strips:
-        if al < ar and bl < br:
-            fractions = sorted((q-al)/(ar-al) for q in rings[a] if al <= q <= ar)
-            for left, right in zip(fractions[:-1], fractions[1:], strict=True):
-                # Pair equal strip coordinates, not diagonal contour samples.
-                # Subdivide the tensor quad to retain the same midpoint nodes
-                # used by collapsed-edge neighbors and web attachments.
-                polygon = [(a, al+left*(ar-al)), (b, bl+left*(br-bl)),
-                           (b, bl+right*(br-bl)), (a, al+right*(ar-al))]
-                center = average(*polygon)
-                for j, corner in enumerate(polygon):
-                    prev, nex = polygon[(j-1) % 4], polygon[(j+1) % 4]
-                    append_quad([corner, average(corner, nex), center, average(prev, corner)])
+        if al == ar and bl == br:
             continue
-        # CCW parameter polygon. Include ALL cuts on shared horizontal edges;
-        # adjacent strips may have different subdivision counts or identities.
-        polygon = [(a, q) for q in sorted(rings[a]) if al <= q <= ar]
-        polygon += [(b, q) for q in sorted(rings[b], reverse=True) if bl <= q <= br]
-        # Our desired order is eta then nd (reverse the above boundary order).
-        polygon.reverse()
-        center = average(*polygon)
-        for p, q in zip(polygon, polygon[1:]+polygon[:1], strict=True):
-            # A collapsed source interval contributes no horizontal edge, but
-            # the fan's side triangles remain valid at the crossing event.
-            if p == q:
-                continue
-            triangle = (center, p, q)
-            centroid = average(*triangle)
-            for j, corner in enumerate(triangle):
-                prev, nex = triangle[(j-1) % 3], triangle[(j+1) % 3]
-                quad = [corner, average(corner, nex), centroid, average(prev, corner)]
-                append_quad(quad)
+        lower, upper = span_row(a, al, ar), span_row(b, bl, br)
+        tl, tu = fractions(lower, al, ar), fractions(upper, bl, br)
+        i = j = 0
+        # Merge the two rows: a quad where the next cuts agree to within a
+        # fraction of the local spacing, otherwise one transition triangle.
+        while i < len(lower)-1 or j < len(upper)-1:
+            if i == len(lower)-1:
+                append([lower[i], upper[j], upper[j+1]]); j += 1
+            elif j == len(upper)-1:
+                append([lower[i], upper[j], lower[i+1]]); i += 1
+            else:
+                step = min(tl[i+1]-tl[i], tu[j+1]-tu[j])
+                if abs(tl[i+1]-tu[j+1]) <= .3*step:
+                    append([lower[i], upper[j], upper[j+1], lower[i+1]]); i += 1; j += 1
+                elif tl[i+1] < tu[j+1]:
+                    append([lower[i], upper[j], lower[i+1]]); i += 1
+                else:
+                    append([lower[i], upper[j], upper[j+1]]); j += 1
 
     # Evaluate on the true loft, not on linear chords between mesh vertices.
     parameters = extended_array(uv)
@@ -214,34 +282,48 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
     for (eta, q), i in ids.items():
         if surface == 'skin' and q == 1.:
             remap[i] = ids[(eta, 0.)]
-    connectivity = remap[np.asarray(elements, dtype=int)]
+    padded = np.array([list(e)+[-1]*(4-len(e)) for e in elements], dtype=int)
+    live = padded >= 0
+    connectivity = np.where(live, remap[np.where(live, padded, 0)], -1)
     cells = []
     for quad in elements:
         eta, q = average(*(uv[i] for i in quad))
         cell = next(c for c in section(eta).skin_cells if c.nd_bounds[0] <= q <= c.nd_bounds[1])
         cells.append(cell)
-    used = np.unique(connectivity)
-    compact = np.empty(len(nodes), dtype=int)
+    used = np.unique(connectivity[live])
+    compact = np.full(len(nodes), -1, dtype=int)
     compact[used] = np.arange(len(used))
-    connectivity = compact[connectivity]
+    connectivity = np.where(live, compact[np.where(live, connectivity, 0)], -1)
     nodes, parameters = nodes[used], parameters[used]
-    xyz = nodes[connectivity]
-    cross1 = np.cross(xyz[:, 1]-xyz[:, 0], xyz[:, 3]-xyz[:, 0])
-    cross2 = np.cross(xyz[:, 2]-xyz[:, 1], xyz[:, 0]-xyz[:, 1])
-    if (not np.isfinite(nodes).all() or np.any(np.einsum('ij,ij->i', cross1, cross2) <= 0)
-            or any(len(set(q)) != 4 for q in connectivity)):
+    if not np.isfinite(nodes).all():
         raise ValueError('Nonpositive skin quadrilateral on source geometry')
+    for row in connectivity:
+        ids4 = row[row >= 0]
+        xyz = nodes[ids4]
+        if len(set(ids4)) != len(ids4):
+            raise ValueError('Nonpositive skin quadrilateral on source geometry')
+        if len(ids4) == 4:
+            bad = np.einsum('i,i', np.cross(xyz[1]-xyz[0], xyz[3]-xyz[0]),
+                            np.cross(xyz[2]-xyz[1], xyz[0]-xyz[1])) <= 0
+        else:
+            bad = not np.linalg.norm(np.cross(xyz[1]-xyz[0], xyz[2]-xyz[0])) > 0
+        if bad:
+            raise ValueError('Nonpositive skin quadrilateral on source geometry')
     attachments = defaultdict(dict)
     if surface == 'skin':
-        for a, b in zip(refined[:-1], refined[1:], strict=True):
-            for name, _ in section((a+b)/2).webs:
-                ends = [dict(section(e).webs)[name] for e in (a, b)]
-                for side, handle in enumerate(('start_nd_arc', 'end_nd_arc')):
-                    p, q = (a, ends[0][side].nd_arc), (b, ends[1][side].nd_arc)
-                    for eta, nd in (p, average(p, q), q):
+        for midpoint, sub in event_strips:
+            for name, _ in section(midpoint).webs:
+                if not _has_material(c for c in topology.section(midpoint).web_cells
+                                     if c.surface == name):
+                    continue
+                for handle in ('start_nd_arc', 'end_nd_arc'):
+                    for eta in sub:
+                        nd = idmap(eta)[('web', name, handle)]
                         attachments[(name, handle)][eta] = int(compact[remap[ids[(eta, nd)]]])
     chains = {key: tuple(mapping[e] for e in sorted(mapping)) for key, mapping in attachments.items()}
-    return SkinMesh(nodes, connectivity, parameters, extended_array(uv)[elements],
+    corner_uv = extended_array(uv)
+    corner_uv = np.stack([corner_uv[np.where(r >= 0, r, r[0])] for r in padded])
+    return SkinMesh(nodes, connectivity, parameters, corner_uv,
                     tuple(cells), (extended(lo), extended(hi)), chains)
 
 
@@ -294,7 +376,8 @@ def generate_mesh(topology, element_size=.25, eta_bounds=(0., 1.), *, with_mater
             else:
                 mapping.append(len(nodes))
                 nodes.append(xyz)
-        elements.extend(np.asarray(mapping)[web.elements])
+        mapped = np.asarray(mapping)[np.where(web.elements >= 0, web.elements, 0)]
+        elements.extend(np.where(web.elements >= 0, mapped, -1))
         parameters.extend(web.element_parameters)
         cells.extend(web.cells)
         surfaces.extend([name]*len(web.cells))
@@ -315,7 +398,7 @@ def map_mesh_materials(topology, mesh):
     from aeroelast.models.blade.numad.objects.geometry import Geometry
     from .windio2_basis import map_stack, shell_bases
 
-    eta = mesh.element_parameters[:, :, 0].mean(axis=1)
+    eta = _centroid(mesh.element_parameters, mesh.elements)[:, 0]
     definition = topology._definition
     frames = Geometry()
     frames.ispan = eta * definition.span[-1]
@@ -327,8 +410,9 @@ def map_mesh_materials(topology, mesh):
     canonical = shell_bases(mesh.nodes, mesh.elements)[:, 2]
     # Signed chart Jacobian, centred to avoid cancellation in tiny event strips.
     uv = mesh.element_parameters
-    du = uv[:, 1]-uv[:, 0]+uv[:, 2]-uv[:, 3]
-    dv = uv[:, 3]-uv[:, 0]+uv[:, 2]-uv[:, 1]
+    tri = mesh.elements[:, 3] < 0
+    du = np.where(tri[:, None], uv[:, 1]-uv[:, 0], uv[:, 1]-uv[:, 0]+uv[:, 2]-uv[:, 3])
+    dv = np.where(tri[:, None], uv[:, 2]-uv[:, 0], uv[:, 3]-uv[:, 0]+uv[:, 2]-uv[:, 1])
     determinant = du[:, 0]*dv[:, 1]-du[:, 1]*dv[:, 0]
     if np.any(determinant == 0):
         raise ValueError('Degenerate material mapping chart')

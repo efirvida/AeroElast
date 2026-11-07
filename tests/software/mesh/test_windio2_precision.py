@@ -108,13 +108,20 @@ def test_extended_public_mesh_keeps_finite_bands(tmp_path, official, case):
     from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
     from tests.software.mesh.test_windio2_mesh import synthetic_chart
 
-    seed, source, path = synthetic_chart(tmp_path, official, case)
+    length = 5. if case == 'same_float_roots' else .5
+    seed, source, path = synthetic_chart(tmp_path, official, case, length=length)
     definition = copy.deepcopy(seed._definition)
     # Constant section, straight axis: an extruded source contour, not a
     # chart-only oracle. Keep all material/source records and explicit cuts.
     definition.windio2_outer_shape['rthick']['values'] = [
         .5]*len(definition.windio2_outer_shape['rthick']['grid'])
     if case == 'same_float_roots':
+        # chord 1 m, span 5 m: at element_size 0.25 a 0.2 m chord on a 0.5 m span
+        # shears every row of the diagonal anchor by ~77 degrees and warps any
+        # single quad (the former x4 split hid it). The case exercises event
+        # collision, not that scale.
+        definition.windio2_outer_shape['chord']['values'] = [1.]*len(
+            definition.windio2_outer_shape['chord']['grid'])
         source['components']['blade']['structure']['anchors'] = [
             {'name': name, 'start_nd_arc': {'grid': [0., 1.], 'values': values}}
             for name, values in [('diagonal', [0., 1.]), ('level', [.3, .3]),
@@ -135,14 +142,14 @@ def test_extended_public_mesh_keeps_finite_bands(tmp_path, official, case):
             dr = np.array([-(1-s), 1-s, 1+s, -(1+s)], dtype=np.longdouble)/4
             ds = np.array([-(1-r), -(1+r), 1+r, 1-r], dtype=np.longdouble)/4
             jac = np.sum(np.cross(dr@local, ds@local)*normals, axis=1)
-            assert np.all(jac > 0)
-    edges = Counter(tuple(sorted((a, b))) for quad in raw.elements
+            assert np.all(jac[raw.elements[:, 3] >= 0] > 0)  # triangles: area test below
+    edges = Counter(tuple(sorted((a, b))) for quad in (q[q >= 0] for q in raw.elements)
                     for a, b in zip(quad, np.roll(quad, -1), strict=True))
     assert set(edges.values()) <= {1, 2}
     for (a, b), count in edges.items():
         if count == 1:
             assert raw.nodes[a, 2] == raw.nodes[b, 2]
-            assert raw.nodes[a, 2] in (0, .5)
+            assert raw.nodes[a, 2] in (0, length)
     uv = raw.element_parameters-raw.element_parameters[:, :1]
     area = np.sum(uv[:, :, 0]*np.roll(uv[:, :, 1], -1, axis=1)
                   -uv[:, :, 1]*np.roll(uv[:, :, 0], -1, axis=1), axis=1)/2

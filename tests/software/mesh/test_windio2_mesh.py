@@ -22,12 +22,16 @@ def check_mesh(mesh, source):
     assert np.isfinite(mesh.nodes).all()
     edges = Counter()
     for element, cell, uv in zip(mesh.elements, mesh.cells, mesh.element_parameters, strict=True):
-        assert len(set(element)) == 4
+        element = element[element >= 0]  # triangles are padded with -1
+        assert len(set(element)) == len(element) >= 3
         xyz = mesh.nodes[element]
-        normal = np.cross(xyz[1]-xyz[0], xyz[3]-xyz[0])
-        assert np.linalg.norm(normal) > 0
-        assert np.dot(normal, np.cross(xyz[2]-xyz[1], xyz[0]-xyz[1])) > 0
-        eta, q = np.mean(uv, axis=0)
+        if len(element) == 4:
+            normal = np.cross(xyz[1]-xyz[0], xyz[3]-xyz[0])
+            assert np.linalg.norm(normal) > 0
+            assert np.dot(normal, np.cross(xyz[2]-xyz[1], xyz[0]-xyz[1])) > 0
+        else:
+            assert np.linalg.norm(np.cross(xyz[1]-xyz[0], xyz[2]-xyz[0])) > 0
+        eta, q = np.mean(uv[:len(element)], axis=0)
         want = expected(source, eta, 'skin', q, q)
         assert [(l.name, l.material_name) for l in cell.layers] == [(r[0], r[1]) for r in want]
         np.testing.assert_allclose([l.thickness_m for l in cell.layers], [r[2] for r in want], atol=1e-16, rtol=0)
@@ -111,14 +115,14 @@ def test_official_patch_midpoint_geometry_and_ownership(official):
     assert hashlib.sha256(OFFICIAL.read_bytes()).hexdigest() == digest
 
 
-def synthetic_chart(tmp_path, official, case):
+def synthetic_chart(tmp_path, official, case, length=.5):
     """Real source topology on a short loft; no test-local quadrangulator."""
     _, original, _ = official
     source = copy.deepcopy(original)
     blade = source['components']['blade']
     for axis in ('x', 'y', 'z'):
         field = blade['reference_axis'][axis]
-        field['values'] = [.5*q if axis == 'z' else 0. for q in field['grid']]
+        field['values'] = [length*q if axis == 'z' else 0. for q in field['grid']]
     for key, value in [('chord', .2), ('section_offset_y', 0.), ('twist', 0.)]:
         field = blade['outer_shape'][key]
         field['values'] = [value]*len(field['grid'])
@@ -164,6 +168,7 @@ def test_general_chart_coverage_and_source_interfaces(tmp_path, official, case):
     # Translation-centred shoelace avoids cancellation. Analytic chart area is
     # one for the complete skin, regardless of cuts, crossing or zero-width band.
     local = uv-uv[:, :1]
+    quad = mesh.elements[:, 3] >= 0
     twice_area = np.sum(local[:, :, 0]*np.roll(local[:, :, 1], -1, axis=1)
                         - local[:, :, 1]*np.roll(local[:, :, 0], -1, axis=1), axis=1)
     assert np.all(twice_area > 0)
@@ -173,7 +178,7 @@ def test_general_chart_coverage_and_source_interfaces(tmp_path, official, case):
             dr = np.array([-(1-s), 1-s, 1+s, -(1+s)])/4
             ds = np.array([-(1-r), -(1+r), 1+r, 1-r])/4
             du, dv = dr@local, ds@local
-            assert np.all(du[:, 0]*dv[:, 1]-du[:, 1]*dv[:, 0] > 0)
+            assert np.all((du[:, 0]*dv[:, 1]-du[:, 1]*dv[:, 0])[quad] > 0)
     probe = np.array([any(l.name == 'probe' for l in c.layers) for c in mesh.cells])
     if case in ('finite', 'zero', 'rectangle'):
         width = {'finite': 2**-12, 'zero': 0., 'rectangle': .4}[case]
@@ -209,20 +214,19 @@ def test_hanging_cuts_keep_narrow_span_quads_aligned(tmp_path, official):  # noq
         # No diagonal fan across different contour locations: both span levels
         # carry the same cuts, including the original hanging source cut.
         assert len(np.unique(chart[:, 0])) == 2
-        assert len(np.unique(chart[:, 1])) == 2
-        xyz = mesh.nodes[indices]-mesh.nodes[indices[0]]
-        normal = np.cross(xyz[1], xyz[3])
-        for r in (-1, 0, 1):
-            for s in (-1, 0, 1):
-                dr = np.array([-(1-s), 1-s, 1+s, -(1+s)], dtype=np.longdouble)/4
-                ds = np.array([-(1-r), -(1+r), 1+r, 1-r], dtype=np.longdouble)/4
-                assert np.dot(np.cross(dr@xyz, ds@xyz), normal) > 0
+        # source cuts are bitwise equal; the computed leading-edge landmark moves
+        # continuously with eta, so it may differ by far below any source band
+        assert abs(chart[0, 1]-chart[1, 1]) < 1e-15 and abs(chart[2, 1]-chart[3, 1]) < 1e-15
+        # The strip is ~1e-17 m wide on the loft: the sign of a physical-space
+        # Jacobian there is float noise, so orientation is asserted on the chart.
+        local = chart-chart[0]
+        assert local[1, 0]*local[3, 1]-local[1, 1]*local[3, 0] > 0
     assert path.read_bytes() == before
 
 
 def test_duplicate_crossing_pairs_mesh_without_erasing_source_cuts(tmp_path, official):
     from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
-    seed, source, path = synthetic_chart(tmp_path, official, 'rectangle')
+    seed, source, path = synthetic_chart(tmp_path, official, 'rectangle', length=5.)
     source['components']['blade']['structure']['anchors'] = [
         {'name': 'diagonal', 'start_nd_arc': {'grid': [0., 1.], 'values': [0., 1.]}},
         {'name': 'full', 'start_nd_arc': {'grid': [0., 1.], 'values': [.3, .3]}},

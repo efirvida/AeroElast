@@ -33,6 +33,9 @@ class Blade:
         Number of samples for airfoil discretization (default: 300)
     include_webs : bool, optional
         Set *False* to mesh only the outer shell (default: True)
+    skin_reference : {"mid", "oml"}, optional
+        Surface the shell is built on.  ``"mid"`` (default) is the mid-surface every structural validation anchor
+        (S-1, S-2, S-4, S-7) is measured on; ``"oml"`` keeps the nodes on the outer mould line (CFD wall surfaces).
     """
 
     def __init__(
@@ -41,7 +44,11 @@ class Blade:
         element_size: float = 0.1,
         n_samples: int = 300,
         include_webs: bool = True,
+        skin_reference: str = "mid",
     ) -> None:
+        if skin_reference not in ("oml", "mid"):
+            raise ValueError(f"skin_reference must be 'oml' or 'mid', got {skin_reference!r}")
+        self.skin_reference = skin_reference
         self.yaml_file = blade_yaml
         self.element_size = element_size
         self.n_samples = n_samples
@@ -69,6 +76,7 @@ class Blade:
             element_size=self.element_size,
             n_samples=self.n_samples,
             include_webs=self.include_webs,
+            skin_reference=self.skin_reference,
         )
         self.mesh = self._mesh_generator.generate(renumber=renumber, verbose=True)
         self._numad_mesh = self._mesh_generator.numad_mesh_data

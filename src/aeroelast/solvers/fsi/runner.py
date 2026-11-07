@@ -42,9 +42,22 @@ from ...core.mesh import (
     RotorMesh,
     SquareShapeMesh,
 )
+from ...core.mesh.gmsh_blade import GmshBladeMesh
 from ...elements import ElementFamily as ElemFamily
 
 logger = logging.getLogger(__name__)
+
+
+def _blade_skin_reference(params: Dict[str, Any]) -> str:
+    """Surface of the blade shell: the generator key ``skin_reference``, ``"mid"`` when absent.
+
+    ``"mid"`` is the configuration every L3 structural anchor is measured on (``BladeMesh`` itself defaults to ``"oml"``, which at
+    rated load makes the IEA-15 tip 15 % stiffer in flap).  windIO 2.0 geometry-only meshes need ``skin_reference: oml``.
+    """
+    value = params.get("skin_reference", "mid")
+    if value not in ("oml", "mid"):
+        raise ValueError(f"skin_reference must be 'oml' or 'mid', got {value!r}")
+    return value
 
 
 class FSIRunner:
@@ -134,7 +147,8 @@ class FSIRunner:
             self.config.material is None
             and self.config.mesh.source == MeshSource.GENERATOR.value
             and gen_config is not None
-            and gen_config.type in (MeshGeneratorType.BLADE.value, MeshGeneratorType.ROTOR.value)
+            and gen_config.type
+            in (MeshGeneratorType.BLADE.value, MeshGeneratorType.GMSH_BLADE.value, MeshGeneratorType.ROTOR.value)
         )
 
     def run(self) -> Any:
@@ -684,7 +698,9 @@ class FSIRunner:
 
         params = gen_config.params
 
-        if gen_config.type == MeshGeneratorType.ROTOR.value:
+        if gen_config.type == MeshGeneratorType.GMSH_BLADE.value:
+            generator = self._gmsh_blade_generator(params)
+        elif gen_config.type == MeshGeneratorType.ROTOR.value:
             yaml_file = params.get("yaml_file")
             excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
@@ -732,11 +748,22 @@ class FSIRunner:
                 n_samples=params.get("n_samples", 300),
                 span_grading=params.get("span_grading", "chord"),
                 airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                skin_reference=_blade_skin_reference(params),
             )
 
         self._console.print("      Rehydrating composite metadata from generator...")
         generator.generate(renumber=None, verbose=False)
         self._mesh_generator = generator
+
+    def _gmsh_blade_generator(self, params: Dict[str, Any]) -> GmshBladeMesh:
+        yaml_file = params.get("yaml_file")
+        if yaml_file and self.config_path and not Path(yaml_file).is_absolute():
+            yaml_file = str(self.config_path.parent / yaml_file)
+        return GmshBladeMesh(
+            yaml_file=yaml_file,
+            element_size=params.get("element_size", 0.25),
+            skin_reference=_blade_skin_reference(params),
+        )
 
     def _generate_mesh(self) -> MeshModel:
         """Generate mesh using the configured generator."""
@@ -813,6 +840,11 @@ class FSIRunner:
             mesh = generator.generate(renumber="rcm")
             self._mesh_generator = generator
 
+        elif gen_type == MeshGeneratorType.GMSH_BLADE.value:
+            generator = self._gmsh_blade_generator(params)
+            mesh = generator.generate(renumber=None)
+            self._mesh_generator = generator
+
         elif gen_type == MeshGeneratorType.BLADE.value:
             # Single blade mesh from YAML or NuMAD Excel definition
             yaml_file = params.get("yaml_file")
@@ -834,6 +866,7 @@ class FSIRunner:
                 n_samples=params.get("n_samples", 300),
                 span_grading=params.get("span_grading", "chord"),
                 airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                skin_reference=_blade_skin_reference(params),
             )
             mesh = generator.generate(renumber=None)
             self._mesh_generator = generator

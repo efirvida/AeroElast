@@ -246,6 +246,7 @@ class MeshGeneratorType(str, Enum):
     BOX = "BoxSurfaceMesh"
     MULTIFLAP = "MultiFlapMesh"
     BLADE = "BladeMesh"
+    GMSH_BLADE = "GmshBladeMesh"
     ROTOR = "RotorMesh"
 
 
@@ -315,6 +316,15 @@ class BladeMeshParams:
     element_size: float = 0.15
     n_samples: int = 300
     airfoil_spacing: str = "cosine"  # "constant" | "cosine" | "half-cosine" | "auto"
+
+
+@dataclass
+class GmshBladeMeshParams:
+    """Parameters for the GmshBladeMesh generator (gmsh skin mesher, single blade)."""
+
+    yaml_file: str  # Path to blade YAML definition (WindIO format)
+    element_size: float = 0.25
+    skin_reference: str = "mid"  # "mid" | "oml"
 
 
 @dataclass
@@ -536,6 +546,7 @@ class MeshGeneratorConfig:
             MeshGeneratorType.BOX.value: BoxMeshParams,
             MeshGeneratorType.MULTIFLAP.value: MultiFlapMeshParams,
             MeshGeneratorType.BLADE.value: BladeMeshParams,
+            MeshGeneratorType.GMSH_BLADE.value: GmshBladeMeshParams,
             MeshGeneratorType.ROTOR.value: RotorMeshParams,
         }
         return mapping.get(self.type)
@@ -1109,6 +1120,7 @@ class FSISimulationConfig:
         generator_type = mesh_generator.type if mesh_generator is not None else None
         if span_direction is None and not data.get("material") and generator_type in (
             MeshGeneratorType.BLADE.value,
+            MeshGeneratorType.GMSH_BLADE.value,
             MeshGeneratorType.ROTOR.value,
         ):
             # Composite blade: without it the fibre follows edge 0->1, which is chordwise.

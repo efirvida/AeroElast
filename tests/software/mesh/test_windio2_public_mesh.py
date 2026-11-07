@@ -60,13 +60,16 @@ def test_public_geometry_retains_source_offsets_and_connectivity(official, monke
         np.testing.assert_allclose([l.thickness_m for l in cell.layers], [r[2] for r in want], rtol=0, atol=1e-16)
         assert {l.source.name for l in stack.layers} == {r[0] for r in want}
         xyz = np.array([node.coords for node in element.nodes])
-        assert len(set(element.nodes)) == 4
+        assert len(set(element.nodes)) == len(element.nodes) in (3, 4)
         np.testing.assert_allclose(basis @ basis.T, np.eye(3), atol=1e-13)
-        for r in (-1., 0., 1.):
-            for s in (-1., 0., 1.):
-                dr = np.array([-(1-s), 1-s, 1+s, -(1+s)])/4
-                ds = np.array([-(1-r), -(1+r), 1+r, 1-r])/4
-                assert np.cross(dr @ xyz, ds @ xyz) @ basis[2] > 0
+        if len(xyz) == 3:  # triangle: constant Jacobian
+            assert np.cross(xyz[1]-xyz[0], xyz[2]-xyz[0]) @ basis[2] > 0
+        else:
+            for r in (-1., 0., 1.):
+                for s in (-1., 0., 1.):
+                    dr = np.array([-(1-s), 1-s, 1+s, -(1+s)])/4
+                    ds = np.array([-(1-r), -(1+r), 1+r, 1-r])/4
+                    assert np.cross(dr @ xyz, ds @ xyz) @ basis[2] > 0
         for layer in stack.layers:
             lo, hi = layer.z_bounds_m
             assert hi-lo == pytest.approx(layer.source.thickness_m, abs=1e-16)

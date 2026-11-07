@@ -72,7 +72,8 @@ def test_web_shared_edges_source_ownership_and_normals(short):
         assert selected.any()
         for handle in ('start_nd_arc', 'end_nd_arc'):
             chain = mesh.attachments[(name, handle)]
-            assert len(chain) >= 5
+            # span 0.5 m at es 0.25: one attachment node per row, edge ~ es
+            assert len(chain) >= 3
             for a, b in zip(chain[:-1], chain[1:], strict=True):
                 edge = tuple(sorted((a, b)))
                 assert skin[edge] == 2 and web[edge] == 1
@@ -114,3 +115,18 @@ def test_official_patch_full_mesh(official):
     assert {'skin', *names} == set(mesh.surfaces)
     from tests.software.mesh.test_windio2_official import OFFICIAL
     assert hashlib.sha256(OFFICIAL.read_bytes()).hexdigest() == digest
+
+
+def test_web_is_meshed_only_where_its_laminate_has_thickness(short):
+    """A web whose layers are zero thick on a span range does not exist there (no phantom web)."""
+    topology, source, _, _ = short
+    source = copy.deepcopy(source)
+    for layer in source['components']['blade']['structure']['layers']:
+        if layer.get('web') == 'second':
+            layer['thickness'] = {'grid': [0., .4, 1.], 'values': [0., 0., layer['thickness']['values'][0]]}
+    topology = WindIO2Topology(source, '0' * 64, topology._definition)
+    mesh = generate(topology, element_size=.25)
+    eta = mesh.element_parameters[:, :, 0].mean(axis=1)
+    surfaces = np.array(mesh.surfaces)
+    assert (eta[surfaces == 'second'] > .4 - 1e-12).all() and (surfaces == 'second').any()
+    assert eta[surfaces == 'web'].min() < .25  # the untouched web still spans the root

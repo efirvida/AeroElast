@@ -44,9 +44,11 @@ def geometry_mesh(topology, element_size, eta_bounds, renumber=None):
         mesh.add_node(Node(xyz, coordinate_dtype=np.longdouble))
     records, surfaces = {}, {}
     for i, connectivity in enumerate(raw.elements):
-        element = MeshElement([mesh.nodes[int(j)] for j in connectivity], ElementType.quad)
+        live = [int(j) for j in connectivity if j >= 0]
+        element = MeshElement([mesh.nodes[j] for j in live],
+                              ElementType.quad if len(live) == 4 else ElementType.triangle)
         mesh.add_element(element)
-        records[element] = ElementMetadata(i, raw.element_parameters[i], raw.bases[i],
+        records[element] = ElementMetadata(i, raw.element_parameters[i][:len(live)], raw.bases[i],
                                           raw.cells[i], raw.material_stacks[i])
         surfaces.setdefault(raw.surfaces[i], set()).add(element)
     for name, elements in surfaces.items():
