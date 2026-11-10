@@ -58,8 +58,14 @@ def test_projector_rings_are_realisable_on_the_gmsh_mesh(coupling):
         span_direction=[0.0, 0.0, 1.0],
         element_properties=coupling["props"],
     )
-    sections = [s for per_strip in proj._strip_ring_sections for s in per_strip]
+    # the sections project() realises the wall flow on: one- and two-node stubs of the
+    # unstructured ring labelling are not rings and take only the minimum-norm residual
+    sections = [s for per_strip in proj._strip_wall_flow_sections for s in per_strip]
+    stubs = sum(len(g) < 3 for per_strip in proj._strip_ring_groups for g in per_strip)
     usable = sum(1 for s in sections if s is not None)
-    print(f"[gmsh-coupling] {len(coupling['mesh'].nodes)} nodes, {usable} of {len(sections)} ring sections usable")
+    print(
+        f"[gmsh-coupling] {len(coupling['mesh'].nodes)} nodes, {usable} of {len(sections)} ring sections usable, "
+        f"{stubs} stub groups excluded"
+    )
     assert sections, "the projector precomputed no ring section"
     assert usable == len(sections), f"{len(sections) - usable} of {len(sections)} ring sections are unrealisable"

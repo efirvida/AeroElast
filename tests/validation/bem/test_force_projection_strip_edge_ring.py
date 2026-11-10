@@ -69,3 +69,40 @@ def test_non_edge_nodes_and_exact_tip_keep_their_strip():
     np.testing.assert_array_equal(actual[away], expected[away])
     np.testing.assert_array_equal(np.bincount(actual[away]), [16, 32])
     np.testing.assert_array_equal(actual[-8:], np.ones(8, dtype=int))
+
+
+def _tilted_ring_tube(tilt):
+    """The tube with its z=1 ring tilted by ``tilt * cos(angle)``: one physical ring that straddles the strip edge.
+
+    The unstructured gmsh skin mesh has such rings (odd/tasks/gmsh-official-mesher.md L-S7, L-S14): the spread is far
+    beyond the edge-snapping tolerance, but the in-ring edges keep it one ring (|dz| / length < RING_EDGE_SLOPE).
+    """
+    mesh = _tube(0.0)
+    for i, node in enumerate(mesh.nodes[16:24]):
+        node.coords[2] = 1.0 + tilt * np.cos(2 * np.pi * i / 8)
+    return mesh
+
+
+def test_a_ring_straddling_a_strip_edge_goes_whole_to_one_strip():
+    mesh = _tilted_ring_tube(0.02)
+    aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=2.0)
+    projector = ForceProjector(mesh, aero)
+    edge_ring = np.arange(16, 24)
+    overlap = [np.intersect1d(edge_ring, strip.node_indices).size for strip in projector._strips]
+    # mean span 1.0 lies on the interior edge, which belongs to the higher half-open band
+    assert overlap == [0, 8], f"straddling ring split across strips: {overlap}"
+    for k in range(2):
+        assert all(len(group) == 8 for group in projector._strip_ring_groups[k])
+        assert all(section is not None for section in projector._strip_wall_flow_sections[k])
+
+
+def test_a_stub_ring_does_not_take_the_wall_flow_from_its_strip():
+    """A 1-2 node group (no section) is left out of the wall-flow rings instead of failing the whole strip."""
+    mesh = _tube(0.0)
+    mesh.nodes.append(Node([0.15, 0.0, 2.25]))  # isolated node at its own span: a one-node "ring"
+    mesh = MeshModel(nodes=mesh.nodes, elements=mesh.elements)
+    aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=2.0)
+    projector = ForceProjector(mesh, aero)
+    groups, sections = projector._strip_ring_groups[1], projector._strip_wall_flow_sections[1]
+    assert sorted(len(g) for g in groups) == [1, 8, 8, 8, 8, 8]
+    assert len(sections) == 5 and all(section is not None for section in sections)

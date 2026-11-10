@@ -400,6 +400,21 @@ class ForceProjector:
         # Handle nodes exactly at the tip boundary (including snapped nodes).
         node_strip[assignment_span == r_high[-1]] = len(r_stations) - 1
 
+        # A physical ring whose span spread crosses a strip edge (the rings of an
+        # unstructured skin mesh are not constant-span) goes whole to the strip of its
+        # mean assignment span: a split ring is an open arc on each side, bounds no cell,
+        # and sends both strips to the minimum-norm field (odd/tasks/gmsh-official-mesher.md
+        # L-S14).  Rings already inside one strip keep their assignment.
+        ring_labels = physical_ring_labels(mesh, span_coords, self._ring_gap_tolerance)
+        assigned = node_strip >= 0
+        for label in np.unique(ring_labels[assigned]):
+            members = np.flatnonzero((ring_labels == label) & assigned)
+            if np.unique(node_strip[members]).size < 2:
+                continue
+            mean_span = float(assignment_span[members].mean())
+            k = int(np.searchsorted(r_low, mean_span, side="right")) - 1
+            node_strip[members] = min(max(k, 0), len(r_stations) - 1)
+
         # Build strip objects
         self._strips: List[_Strip] = []
         self._n_nodes = n_nodes
@@ -433,7 +448,6 @@ class ForceProjector:
         # mesh-scaled tolerance and the element topology (:func:`physical_ring_labels`).  ``project()`` hands these groups to
         # :func:`realise_section_load` so the strip's own (band-wide) extent can
         # never set a tolerance below its rings' prebend spread.
-        ring_labels = physical_ring_labels(mesh, span_coords, self._ring_gap_tolerance)
         self._strip_ring_groups: list[list[np.ndarray]] = []
         for strip in self._strips:
             if len(strip.node_indices) == 0:
@@ -497,6 +511,16 @@ class ForceProjector:
                     )
                 )
             self._strip_ring_sections.append(sections)
+
+        # The rings that carry the wall flow: every group of three or more nodes.  A
+        # one- or two-node group (a stub the ring labelling leaves on an unstructured
+        # mesh) defines no section and is not a ring; it takes only the residual
+        # minimum-norm load instead of failing its whole strip.  A real ring that is
+        # unrealisable still sends its strip to ``_distribute``.
+        self._strip_wall_flow_sections: list[list[_RingSection | None]] = [
+            [s for g, s in zip(groups, sections, strict=True) if len(g) >= 3]
+            for groups, sections in zip(self._strip_ring_groups, self._strip_ring_sections, strict=True)
+        ]
 
         # ------------------------------------------------------------------
         # Per-strip load frames and AC-to-centroid offset vectors.
@@ -890,7 +914,7 @@ class ForceProjector:
                 M_strip,
                 self._span_dir,
                 ring_groups=self._strip_ring_groups[k],
-                ring_sections=self._strip_ring_sections[k],
+                ring_sections=self._strip_wall_flow_sections[k],
             )
             forces[strip.node_indices] = f_nodes
 
