@@ -226,7 +226,8 @@ def test_factory_participant_realises_every_precomputed_ring(production):
         element_properties=production["props"],
     )
 
-    sections = [s for per_strip in participant._projector._strip_ring_sections for s in per_strip]
+    # the sections project() realises (one- and two-node stub groups are not rings, e1dc98f)
+    sections = [s for per_strip in participant._projector._strip_wall_flow_sections for s in per_strip]
     total = len(sections)
     assert total > 0, "the factory-built projector precomputed no ring section at all"
 
@@ -279,7 +280,8 @@ def test_aero_dispatcher_activates_the_realisation_on_the_campaign_path(producti
     assert projector is not None, (
         f"the dispatcher built {type(participant).__name__} without a ForceProjector"
     )
-    sections = [s for per_strip in projector._strip_ring_sections for s in per_strip]
+    # the sections project() realises (one- and two-node stub groups are not rings, e1dc98f)
+    sections = [s for per_strip in projector._strip_wall_flow_sections for s in per_strip]
     total = len(sections)
     assert total > 0, "the dispatcher-built projector precomputed no ring section at all"
     unrealisable = [i for i, section in enumerate(sections) if section is None]
@@ -383,7 +385,8 @@ def test_without_the_property_map_every_strip_falls_back(production):
     blade_aero = production["blade_aero"]
 
     without_properties = ForceProjector(mesh, blade_aero, span_direction=SPAN_DIR)
-    sections = [s for per_strip in without_properties._strip_ring_sections for s in per_strip]
+    # the sections project() realises (one- and two-node stub groups are not rings, e1dc98f)
+    sections = [s for per_strip in without_properties._strip_wall_flow_sections for s in per_strip]
     assert sections, "the coupling mesh carries no ring section to refuse"
     assert all(section is not None for section in sections), (
         "the element-bearing coupling mesh should still extract a geometric section; "
