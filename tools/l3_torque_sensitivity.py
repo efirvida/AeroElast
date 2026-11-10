@@ -71,7 +71,7 @@ def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = Fa
     """Mesh, participant and the rated displacement field (n_nodes, 3).
 
     ``mesher="gmsh"`` builds the blade with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO v2 YAML of the
-    IEA-15, mid-surface) instead of the NuMAD ``Blade`` model; the load, the clamp, the BEM participant and the solve are the same code.
+    IEA-15, mid-surface) instead of the NuMAD ``Blade`` model; ``mesher="windio2"`` builds the same windIO v2 blade with the windio2 mesher; the load, the clamp, the BEM participant and the solve are the same code.
     """
     from _aeroelast import PyMeshAssembler  # type: ignore[import-not-found]
     from scipy.sparse import coo_matrix
@@ -99,6 +99,11 @@ def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = Fa
         from tests.support.v2_blade import build_v2_blade
 
         mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="gmsh", es_range=(0.05, 0.25))
+    elif mesher == "windio2":
+        # the NuMAD-derived windio2 mesher on the same windIO v2 YAML as "gmsh": isolates the mesher from the blade definition
+        from tests.support.v2_blade import build_v2_blade
+
+        mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="windio2")
     else:
         Node._id_counter = 0
         MeshElement._id_counter = 0
