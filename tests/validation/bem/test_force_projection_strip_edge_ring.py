@@ -1,11 +1,13 @@
 """Strip-edge round-off must not split a closed physical shell ring."""
 
+import dataclasses
+
 import numpy as np
 import pytest
 
 from aeroelast.core.mesh.entities import ElementType, MeshElement, Node
 from aeroelast.core.mesh.model import MeshModel
-from aeroelast.solvers.bem.force_projection import ForceProjector
+from aeroelast.solvers.bem.force_projection import ForceProjector, realise_section_load
 
 from tests.validation.bem.test_force_projection import _make_simple_blade_aero
 
@@ -106,3 +108,32 @@ def test_a_stub_ring_does_not_take_the_wall_flow_from_its_strip():
     groups, sections = projector._strip_ring_groups[1], projector._strip_wall_flow_sections[1]
     assert sorted(len(g) for g in groups) == [1, 8, 8, 8, 8, 8]
     assert len(sections) == 5 and all(section is not None for section in sections)
+
+
+def test_an_unrealisable_ring_is_skipped_and_the_others_keep_the_wall_flow():
+    """A real (>= 3 node) ring with no section is skipped; its strip is not sent whole to the minimum-norm field."""
+    mesh = _tube(0.0)
+    aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=2.0)
+    projector = ForceProjector(mesh, aero)
+    strip = projector._strips[1]
+    # a projector built without element_properties marks every section non-physical; flag them as physical here
+    good = [dataclasses.replace(s, from_element_properties=True) for s in projector._strip_wall_flow_sections[1]]
+    assert len(good) == 5
+    with_bad = [good[0], good[1], None, good[3], good[4]]
+    without_bad = [good[0], good[1], good[3], good[4]]
+    span = np.array([0.0, 0.0, 1.0])
+    F = np.array([3.0, -2.0, 5.0])
+    M = np.array([1.5, -0.7, 4.0])  # span component 4 N.m carried by the wall flow, the rest transverse
+
+    f = realise_section_load(strip, F, M, span, ring_sections=with_bad)
+    mn = ForceProjector._distribute(strip, F, M)
+
+    np.testing.assert_allclose(f.sum(axis=0), F, atol=1e-9)
+    np.testing.assert_allclose(np.cross(strip.offsets, f).sum(axis=0), M, atol=1e-9)
+    assert not np.allclose(f, mn, atol=1e-6), "the strip fell back to the minimum-norm field"
+    # skipping the bad ring is the same as not listing it: weights renormalised over the realisable rings, the rest minimum-norm
+    np.testing.assert_allclose(f, realise_section_load(strip, F, M, span, ring_sections=without_bad), atol=1e-12)
+
+    # a strip with no realisable ring at all still falls back to the minimum-norm solve
+    f_none = realise_section_load(strip, F, M, span, ring_sections=[None, None])
+    np.testing.assert_allclose(f_none, mn, atol=1e-12)

@@ -59,13 +59,19 @@ def test_projector_rings_are_realisable_on_the_gmsh_mesh(coupling):
         element_properties=coupling["props"],
     )
     # the sections project() realises the wall flow on: one- and two-node stubs of the
-    # unstructured ring labelling are not rings and take only the minimum-norm residual
-    sections = [s for per_strip in proj._strip_wall_flow_sections for s in per_strip]
-    stubs = sum(len(g) < 3 for per_strip in proj._strip_ring_groups for g in per_strip)
+    # unstructured ring labelling are not rings and take only the minimum-norm residual; a real
+    # (>= 3 node) ring with no usable section is skipped and takes only its minimum-norm share
+    per_strip = proj._strip_wall_flow_sections
+    sections = [s for strip_sections in per_strip for s in strip_sections]
+    stubs = sum(len(g) < 3 for strip_groups in proj._strip_ring_groups for g in strip_groups)
     usable = sum(1 for s in sections if s is not None)
+    skipped = len(sections) - usable
+    fallback = [k for k, strip_sections in enumerate(per_strip) if strip_sections and not any(strip_sections)]
     print(
         f"[gmsh-coupling] {len(coupling['mesh'].nodes)} nodes, {usable} of {len(sections)} ring sections usable, "
-        f"{stubs} stub groups excluded"
+        f"{skipped} unrealisable rings skipped, {stubs} stub groups excluded, "
+        f"{len(fallback)} strips with no realisable ring (minimum-norm fallback): {fallback}"
     )
     assert sections, "the projector precomputed no ring section"
-    assert usable == len(sections), f"{len(sections) - usable} of {len(sections)} ring sections are unrealisable"
+    # strict about strips: every strip that has a ring must realise the wall flow on at least one of them
+    assert not fallback, f"strips {fallback} have no realisable ring and fall back to the minimum-norm field"

@@ -469,8 +469,8 @@ class ForceProjector:
         # cell on this mesh (a degenerate/collinear outline, or a coupling mesh
         # stripped of its elements), or whose cells carry only a round-off-sized
         # area (see :func:`_cells_have_usable_area`) is recorded as ``None`` rather
-        # than raising: :func:`realise_section_load` then falls back to
-        # :meth:`_distribute` for the whole strip, exactly as before.
+        # than raising: :func:`realise_section_load` then skips that ring (and falls
+        # back to :meth:`_distribute` only when no ring of the strip is usable).
         self._strip_ring_sections: list[list[_RingSection | None]] = []
         for k, strip in enumerate(self._strips):
             if len(strip.node_indices) == 0:
@@ -515,8 +515,8 @@ class ForceProjector:
         # The rings that carry the wall flow: every group of three or more nodes.  A
         # one- or two-node group (a stub the ring labelling leaves on an unstructured
         # mesh) defines no section and is not a ring; it takes only the residual
-        # minimum-norm load instead of failing its whole strip.  A real ring that is
-        # unrealisable still sends its strip to ``_distribute``.
+        # minimum-norm load.  A real ring that is unrealisable is skipped by the
+        # projector (the strip keeps the wall flow on its other rings).
         self._strip_wall_flow_sections: list[list[_RingSection | None]] = [
             [s for g, s in zip(groups, sections, strict=True) if len(g) >= 3]
             for groups, sections in zip(self._strip_ring_groups, self._strip_ring_sections, strict=True)
@@ -907,7 +907,8 @@ class ForceProjector:
             # the multi-cell branch never regroups with a strip-scaled tolerance.  A
             # strip whose rings could not be extracted - or that was built without
             # ``element_properties``, so its walls are only the uniform ``S = 1.0`` -
-            # falls back to ``_distribute`` inside ``realise_section_load``.
+            # falls back to ``_distribute`` inside ``realise_section_load``; an
+            # unrealisable ring of an otherwise usable strip is skipped there.
             f_nodes = realise_section_load(
                 strip,
                 F_strip,
@@ -1091,24 +1092,25 @@ def realise_section_load(
     1. **Split the moment.**  ``span_hat = span_dir / ||span_dir||``;
        ``torsion = M_strip . span_hat`` is the part the wall flow can carry, and
        ``transverse = M_strip - torsion * span_hat`` is left to the fallback.
-    2. **Fail fast on an unextractable or non-physical ring.**  In the multi-cell mode,
-       ``ring_sections`` holds one entry per non-empty physical-ring group of the strip, in
-       the strip's own ring order.  A ring is only realisable when it carries **real** wall
-       stiffnesses (``_RingSection.from_element_properties``), bounds **at least one**
-       closed cell, and every wall's ``edge_shear_stiffness`` is strictly positive.  If
-       **any** entry fails any of those - an entry is ``None`` because the ring has fewer
-       than three nodes, because :func:`ring_section` found no closed cell for it (a
-       collinear/degenerate outline, or a coupling mesh stripped of its elements), or
-       because a cell's shoelace area is a round-off residual rather than a wall cell
-       (:func:`_cells_have_usable_area`); or the whole projector was built without
-       ``element_properties``, so every wall fell back to the uniform, geometric-only
-       ``S = 1.0`` - the strip falls back to :meth:`ForceProjector._distribute`; a
-       half-realised or geometric-only strip is never returned.
-    3. **Tributary per-ring flow.**  Otherwise the strip's torsion is split over its rings
-       by their **tributary span weight**: sort the rings by their own mean span position
+    2. **Skip an unextractable or non-physical ring.**  In the multi-cell mode,
+       ``ring_sections`` holds one entry per ring of the strip that has three or more nodes,
+       in the strip's own ring order.  A ring is only realisable when it carries **real**
+       wall stiffnesses (``_RingSection.from_element_properties``), bounds **at least one**
+       closed cell, and every wall's ``edge_shear_stiffness`` is strictly positive.  A ring
+       that fails any of those - an entry is ``None`` because :func:`ring_section` found no
+       closed cell for it (a collinear/degenerate outline, or a coupling mesh stripped of its
+       elements), or because a cell's shoelace area is a round-off residual rather than a wall
+       cell (:func:`_cells_have_usable_area`), or the projector was built without
+       ``element_properties`` so every wall is the uniform, geometric-only ``S = 1.0`` - is
+       **skipped**: the span moment is realised on the remaining rings and the skipped
+       ring's nodes carry only their share of the minimum-norm residual.  Only a strip with
+       **no** realisable ring falls back to :meth:`ForceProjector._distribute`; a
+       geometric-only ring is never given a physical split.
+    3. **Tributary per-ring flow.**  Otherwise the strip's torsion is split over its realisable
+       rings by their **tributary span weight**: sort the rings by their own mean span position
        ``t_0 < ... < t_{n-1}`` inside the strip and give ring ``i`` the trapezoidal
        length ``w_0 = (t_1 - t_0)/2``, ``w_i = (t_{i+1} - t_{i-1})/2``,
-       ``w_{n-1} = (t_{n-1} - t_{n-2})/2``, normalised by ``sum w`` (a single ring takes
+       ``w_{n-1} = (t_{n-1} - t_{n-2})/2``, normalised by ``sum w`` (weights renormalised over the realisable rings; a single ring takes
        all of ``torsion``; see :func:`_ring_tributary_weights`).  The trapezoid is the
        right quadrature here because the BEM ``Mp`` is a **per-unit-span** moment: a strip
        is one BEM band wider than one physical ring, so the band's moment per metre has to
@@ -1238,9 +1240,9 @@ def _ring_section_is_realisable(section: _RingSection) -> bool:
     (:func:`ring_section` returns a uniform, geometric-only ``S = 1.0`` without them, so
     a no-properties projector must not claim a physical split), it bounds at least one
     closed cell, and every wall's ``S = G*t`` is strictly positive (a zero-stiffness wall
-    makes the compliance singular).  Any failure routes the whole strip to
-    :meth:`ForceProjector._distribute`; a half-realised or geometric-only strip is never
-    returned.
+    makes the compliance singular).  A ring that fails is skipped by
+    :func:`_realise_multi_cell_section_load`; a strip with no realisable ring goes to
+    :meth:`ForceProjector._distribute`.
     """
     if not section.from_element_properties:
         return False
@@ -1295,23 +1297,23 @@ def _realise_multi_cell_section_load(
 
     ``ring_sections`` is one entry per non-empty physical-ring group of the strip.  A
     ring is only realisable when it was built from ``element_properties`` (real wall
-    stiffnesses), bounds at least one cell, and every wall stiffness is positive; any
-    ``None`` entry, empty list, no-cell ring or non-positive wall fails the gate
-    (:func:`_ring_section_is_realisable`) and the whole strip falls back to the unchanged
-    :meth:`ForceProjector._distribute`, so a partially-realised or geometric-only strip
-    is never returned.  Otherwise the torsion is split over the rings by their tributary
-    span weight (:func:`_ring_tributary_weights`), ``multi_cell_shear_flow`` solves each
-    ring's cells, and the per-cell wall walk below (no shared-wall special case: the two
-    cells traverse a shared wall in opposite directions, so it collects ``q_i - q_j`` by
-    construction) realises the field.
+    stiffnesses), bounds at least one cell, and every wall stiffness is positive; a
+    ``None`` entry, a no-cell ring or a non-positive wall fails the gate
+    (:func:`_ring_section_is_realisable`) and that ring alone is skipped.  The torsion is
+    split over the **realisable** rings by their tributary span weight
+    (:func:`_ring_tributary_weights`, renormalised over them), ``multi_cell_shear_flow``
+    solves each ring's cells, and the per-cell wall walk below (no shared-wall special case:
+    the two cells traverse a shared wall in opposite directions, so it collects ``q_i - q_j``
+    by construction) realises the field.
     """
-    if not ring_sections:
+    # An unrealisable ring is skipped, not fatal: the torsion is spread over the realisable
+    # rings (tributary weights renormalised over them below) and the skipped ring's nodes
+    # take only their share of the minimum-norm residual.
+    sections = [
+        section for section in ring_sections if section is not None and _ring_section_is_realisable(section)
+    ]
+    if not sections:
         return ForceProjector._distribute(strip, F_strip, M_strip)
-    sections: list[_RingSection] = []
-    for section in ring_sections:
-        if section is None or not _ring_section_is_realisable(section):
-            return ForceProjector._distribute(strip, F_strip, M_strip)
-        sections.append(section)
 
     n = len(strip.node_indices)
     f_shear = np.zeros((n, 3))
