@@ -68,7 +68,7 @@ BEM_CONFIG = {
 
 
 def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False, chord_divisions: float | None = None,
-                load_transform=None):
+                load_transform=None, mesh_transform=None):
     """Mesh, participant and the rated displacement field (n_nodes, 3).
 
     ``mesher="gmsh"`` builds the blade with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO v2 YAML of the
@@ -111,6 +111,8 @@ def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = Fa
         model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=element_size)
         model.generate_mesh()
         mesh, props = model.mesh, model.get_element_properties()
+    if mesh_transform is not None:  # diagnostic hook: edit the property assignment (tools/diagnose_gc_twist_chord.py --te-fill)
+        mesh, props = mesh_transform(mesh, props)
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props),
         props,

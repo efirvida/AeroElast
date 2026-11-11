@@ -66,6 +66,39 @@ def skin_area_load(participant, mesh, forces):
     return out
 
 
+def te_fill(mesh, props):
+    """Diagnostic (T5b L34-L35): move every skin element whose property is the isotropic gelcoat-only shortcut into the
+    element set of an edge neighbour that carries a laminate, i.e. fill the input's 1 % TE gelcoat band with the adjacent stack."""
+    iso = {k for k, v in props.items() if isinstance(v, dict)}
+    owner = {}
+    for name, es in mesh.element_sets.items():
+        if name.startswith("SEC"):
+            for e in es.elements:
+                owner[e.id] = name
+    by_node = {}
+    for e in mesh.elements:
+        for nid in e.node_ids:
+            by_node.setdefault(nid, []).append(e)
+    moved = 0
+    for name in iso:
+        for e in list(mesh.element_sets[name].elements):
+            share = {}
+            for nid in e.node_ids:
+                for o in by_node[nid]:
+                    if o.id != e.id and owner.get(o.id) not in iso and owner.get(o.id) is not None:
+                        share[o.id] = share.get(o.id, 0) + 1
+            if not share:
+                continue
+            best = max(share, key=share.get)
+            if share[best] < 2:
+                continue
+            mesh.element_sets[name].elements.discard(e)
+            mesh.element_sets[owner[best]].elements.add(e)
+            moved += 1
+    print(f"te_fill: moved {moved} gelcoat-only elements into neighbouring laminate sets")
+    return mesh, props
+
+
 def main() -> int:
     import l3_torque_sensitivity as l3
 
@@ -73,13 +106,15 @@ def main() -> int:
     ap.add_argument("case")
     ap.add_argument("--out", default="logs/chord_scaled/t5b")
     ap.add_argument("--load", choices=["production", "skin-area"], default="production")
+    ap.add_argument("--te-fill", action="store_true", help="fill the gelcoat-only TE band with the neighbouring stack")
     a = ap.parse_args()
     if a.case.startswith("N"):
         es, nd = 0.25, float(a.case[1:])
     else:
         es, nd = float(a.case[2:]), None
     transform = skin_area_load if a.load == "skin-area" else None
-    p, disp = l3.solve_rated(es, "gmsh", wall_flow=True, chord_divisions=nd, load_transform=transform)
+    p, disp = l3.solve_rated(es, "gmsh", wall_flow=True, chord_divisions=nd, load_transform=transform,
+                             mesh_transform=te_fill if a.te_fill else None)
     span = p._span_dir
     sense = p._twist_mesh_to_bem
     # the applied nodal load, recomputed exactly as solve_rated builds it (undeformed geometry, no nodal moments)
@@ -141,7 +176,7 @@ def main() -> int:
         })
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{a.case}{'' if a.load == 'production' else '-' + a.load}.json").write_text(json.dumps({"case": a.case, "n_nodes": int(disp.shape[0]), "strips": rows}, indent=1))
+    (out / f"{a.case}{'' if a.load == 'production' else '-' + a.load}{'-tefill' if a.te_fill else ''}.json").write_text(json.dumps({"case": a.case, "n_nodes": int(disp.shape[0]), "strips": rows}, indent=1))
     for r in rows[-8:]:
         print(r["k"], round(r["r"], 2), r["n_ring"], round(r["ring_z_ptp"], 4), r["twist_prod_deg"], r["twist_slope_deg"])
     return 0
