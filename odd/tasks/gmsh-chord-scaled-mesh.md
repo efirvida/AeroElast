@@ -18,6 +18,7 @@ Replace the uniform element size of the gmsh skin mesher by a size proportional 
 - T4e | S3 | worker | partial (L17): option min_band_fraction added, default unchanged; no fraction passes all six gates (IEA-15 N20 tip quad 165.9 deg); S3 change awaits user | Relative min-band floor (apply 2 only when the band exceeds a fraction of c/N) to remove thin spanwise slivers.
 - T4f | S1 | worker | partial (L19), uncommitted: goal 1 done (all six meshes pass the gate at min_band_fraction 1.0 and None); web-entry cluster and band-termination wedges diagnosed, no general remedy found | Web-entry/root transition zone (IEA-3.4 z 5-7 cluster, IEA-15 z 9-10) and band-termination wedges (pre-existing in the uniform mesh).
 - T5 | S4 | parent+SLURM | done (L25): modal/LC1/LC3/LC4/S-7 converged from N15-N20; LC2 tip flap and G-C twist NOT converged | Convergence in N (10, 15, 20, 30, 40) on the S4 metrics.
+- T5b | S4 | worker | in progress | Diagnose the G-C tip twist scatter in N (L25): per-station rotation, which rings jump, extraction vs structure.
 - T6 | S4 | parent+SLURM | pending | AR 1 vs 2 at the converged N.
 - T7 | S1 | parent+SLURM | pending | Re-run gates S-2, S-4, S-7, G-C and the BEM projector tests on the converged mesh.
 - T8 | - | parent | pending | Close: report, user decision on the converged N (replaces rule 9).
@@ -138,3 +139,4 @@ Gate failure (IEA-15 N20, all three fractions): one skin quad at z 116.76 (last 
   - S-7: ratio 0.17 -0.06 -0.42 0.06 | -0.12 (1.06); S-7 W 19.9 -0.36 0.07 0.04 | +21.0 (N10 and es0.25 both 3.5 J vs 4.23 J for N>=15; tip load introduction again).
   - G-C rated (one-way, rigid thrust identical in all cases 2.525 MN): production tip twist 2.66 / 4.97 / 5.07 / 4.08 / 2.29 deg (es0.25 2.72), dQ deformed/rigid -5.1 / -9.0 / -9.7 / -9.0 / -0.8 %; min-norm 2.85 / 4.41 / 4.58 / 3.40 / 2.28 deg. NOT converged, non-monotone by 2x, while the structure (modal, LC4, S-7 ratio) is converged: the scatter sits in the twist extraction (participant._compute_deformed_geometry ring rotation; L24 item 4, tip ring chaining / BEM ring-gap rule), not in the stiffness. Not diagnosed yet. BeamDyn rated reference: Engram #175.
   - Consequence: S4 cannot pick N on G-C or LC2 until those two are diagnosed; on the structural metrics N15-N20 already meets < 1 %. Decision on N stays with the user (T8).
+- L26 (2026-11-11, user, verbatim, reply to "¿Arranco por el diagnóstico de G-C?"): "si". T5b opened; LC2 diagnosis and the windio2 removal (L23) come after it.
