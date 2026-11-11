@@ -99,6 +99,35 @@ def te_fill(mesh, props):
     return mesh, props
 
 
+ADHESIVE_T = 0.010  # m, the TE bond line thickness of option C (T5c L39)
+
+
+def te_adhesive(mesh, props, thickness=ADHESIVE_T):
+    """Diagnostic (T5c option C): every gelcoat-only skin element (the isotropic single-ply shortcut) becomes the laminate
+    gelcoat (its own 1 mm) + the YAML ``adhesive`` (``thickness``, default 10 mm), built with ``build_rust_properties`` like
+    every other v2_blade section. Mid-surface node positions and normals are left as they are."""
+    import yaml
+    from aeroelast.models.blade.model import build_rust_properties
+
+    from tests.support.paths import DATA_DIR
+
+    yml = yaml.safe_load((DATA_DIR / "IEA-15-240-RWT.yaml").read_text())
+    adh = next(m for m in yml["materials"] if m["name"] == "adhesive")
+    iso = {k: v for k, v in props.items() if isinstance(v, dict)}
+    mats, secs = {}, []
+    for k, v in iso.items():
+        mats.setdefault("gelcoat", {"name": "gelcoat", "density": v["rho"], "elastic": {"E": v["e"], "nu": v["nu"]}})
+        secs.append({"elementSet": k, "layup": [["gelcoat", v["thickness"], 0.0], ["adhesive", thickness, 0.0]]})
+    if secs:
+        mats["adhesive"] = {"name": "adhesive", "density": float(adh["rho"]), "elastic": {"E": float(adh["E"]), "nu": float(adh["nu"]), "G": float(adh["G"])}}
+        new = build_rust_properties({"materials": list(mats.values()), "sections": secs})
+        props = dict(props)
+        props.update(new)
+    print(f"te_adhesive: {len(secs)} gelcoat-only property sets -> gelcoat + adhesive {thickness * 1e3:.0f} mm "
+          f"({sum(len(mesh.element_sets[k].elements) for k in iso)} elements)")
+    return mesh, props
+
+
 def main() -> int:
     import l3_torque_sensitivity as l3
 
@@ -107,6 +136,7 @@ def main() -> int:
     ap.add_argument("--out", default="logs/chord_scaled/t5b")
     ap.add_argument("--load", choices=["production", "skin-area"], default="production")
     ap.add_argument("--te-fill", action="store_true", help="fill the gelcoat-only TE band with the neighbouring stack")
+    ap.add_argument("--te-adhesive", action="store_true", help="option C: gelcoat-only TE band = gelcoat + YAML adhesive 10 mm")
     a = ap.parse_args()
     if a.case.startswith("N"):
         es, nd = 0.25, float(a.case[1:])
@@ -114,7 +144,7 @@ def main() -> int:
         es, nd = float(a.case[2:]), None
     transform = skin_area_load if a.load == "skin-area" else None
     p, disp = l3.solve_rated(es, "gmsh", wall_flow=True, chord_divisions=nd, load_transform=transform,
-                             mesh_transform=te_fill if a.te_fill else None)
+                             mesh_transform=te_fill if a.te_fill else (te_adhesive if a.te_adhesive else None))
     span = p._span_dir
     sense = p._twist_mesh_to_bem
     # the applied nodal load, recomputed exactly as solve_rated builds it (undeformed geometry, no nodal moments)
@@ -176,7 +206,7 @@ def main() -> int:
         })
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{a.case}{'' if a.load == 'production' else '-' + a.load}{'-tefill' if a.te_fill else ''}.json").write_text(json.dumps({"case": a.case, "n_nodes": int(disp.shape[0]), "strips": rows}, indent=1))
+    (out / f"{a.case}{'' if a.load == 'production' else '-' + a.load}{'-tefill' if a.te_fill else ''}{'-teadh' if a.te_adhesive else ''}.json").write_text(json.dumps({"case": a.case, "n_nodes": int(disp.shape[0]), "strips": rows}, indent=1))
     for r in rows[-8:]:
         print(r["k"], round(r["r"], 2), r["n_ring"], round(r["ring_z_ptp"], 4), r["twist_prod_deg"], r["twist_slope_deg"])
     return 0
