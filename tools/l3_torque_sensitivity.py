@@ -67,7 +67,8 @@ BEM_CONFIG = {
 }
 
 
-def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False, chord_divisions: float | None = None):
+def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False, chord_divisions: float | None = None,
+                load_transform=None):
     """Mesh, participant and the rated displacement field (n_nodes, 3).
 
     ``mesher="gmsh"`` builds the blade with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO v2 YAML of the
@@ -129,6 +130,8 @@ def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = Fa
         mesh, build_blade_aero_from_aerodyn(ad), BEM_CONFIG, element_properties=props if wall_flow else None
     )
     forces, _ = participant._compute_forces(np.zeros((n // 6, 3)))
+    if load_transform is not None:  # diagnostic hook: redistribute the nodal load (tools/diagnose_gc_twist_chord.py --load)
+        forces = load_transform(participant, mesh, forces)
     load = np.zeros(n)
     for dof in range(3):
         load[dof::6] = forces[:, dof]

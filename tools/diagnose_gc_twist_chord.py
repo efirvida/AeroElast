@@ -21,22 +21,71 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
+def skin_area_load(participant, mesh, forces):
+    """Pressure-equivalent redistribution of the production nodal load, strip by strip (diagnostic, T5b L29).
+
+    Keeps each strip's force and moment resultants (about the strip node mean) and spreads them over the strip's skin nodes
+    only, weighted by the skin area each node carries (element area split equally among its corners); web nodes get none.
+    Weighted minimum norm: min sum |f_j|^2 / w_j subject to the six resultants, i.e. f = W A^T (A W A^T)^-1 b.
+    """
+    participant._mesh_for_diag = mesh  # kept for the second (recording) call in main
+    X = np.asarray(participant._ref_coords, float)
+    w = np.zeros(len(X))
+    skin = mesh.get_element_set("allOuterShellEls")
+    for e in skin.elements:
+        e = e if hasattr(e, "node_ids") else mesh.get_element(e)
+        idx = [mesh.node_id_to_index[i] for i in e.node_ids]
+        P = X[idx]
+        area = 0.5 * np.linalg.norm(np.cross(P[1] - P[0], P[2] - P[0]))
+        if len(P) == 4:
+            area += 0.5 * np.linalg.norm(np.cross(P[2] - P[0], P[3] - P[0]))
+        w[idx] += area / len(P)
+    out = np.zeros_like(forces)
+    for idx in participant._strip_node_indices:
+        idx = np.asarray(idx)
+        if len(idx) == 0:
+            continue
+        F = forces[idx]
+        c = X[idx].mean(axis=0)
+        d = X[idx] - c
+        b = np.concatenate([F.sum(0), np.cross(d, F).sum(0)])
+        wi = w[idx]
+        keep = wi > 0
+        dk, wk = d[keep], wi[keep]
+        A = np.zeros((6, 3 * len(dk)))
+        for j, dj in enumerate(dk):
+            A[:3, 3 * j:3 * j + 3] = np.eye(3)
+            A[3:, 3 * j:3 * j + 3] = np.array([[0, -dj[2], dj[1]], [dj[2], 0, -dj[0]], [-dj[1], dj[0], 0]])
+        Wd = np.repeat(wk, 3)
+        lam = np.linalg.solve((A * Wd) @ A.T, b)
+        f = (Wd * (A.T @ lam)).reshape(-1, 3)
+        sub = np.zeros_like(F)
+        sub[keep] = f
+        assert np.allclose(np.concatenate([sub.sum(0), np.cross(d, sub).sum(0)]), b, rtol=1e-8, atol=1e-6 * max(1.0, np.abs(b).max()))
+        out[idx] = sub
+    return out
+
+
 def main() -> int:
     import l3_torque_sensitivity as l3
 
     ap = argparse.ArgumentParser()
     ap.add_argument("case")
     ap.add_argument("--out", default="logs/chord_scaled/t5b")
+    ap.add_argument("--load", choices=["production", "skin-area"], default="production")
     a = ap.parse_args()
     if a.case.startswith("N"):
         es, nd = 0.25, float(a.case[1:])
     else:
         es, nd = float(a.case[2:]), None
-    p, disp = l3.solve_rated(es, "gmsh", wall_flow=True, chord_divisions=nd)
+    transform = skin_area_load if a.load == "skin-area" else None
+    p, disp = l3.solve_rated(es, "gmsh", wall_flow=True, chord_divisions=nd, load_transform=transform)
     span = p._span_dir
     sense = p._twist_mesh_to_bem
     # the applied nodal load, recomputed exactly as solve_rated builds it (undeformed geometry, no nodal moments)
     forces = np.asarray(p._compute_forces(np.zeros((disp.shape[0], 3)))[0], float)
+    if transform is not None:
+        forces = transform(p, p._mesh_for_diag, forces)
     rows = []
     for k, ring in enumerate(p._strip_ring_indices):
         idx = p._strip_node_indices[k]
@@ -92,7 +141,7 @@ def main() -> int:
         })
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{a.case}.json").write_text(json.dumps({"case": a.case, "n_nodes": int(disp.shape[0]), "strips": rows}, indent=1))
+    (out / f"{a.case}{'' if a.load == 'production' else '-' + a.load}.json").write_text(json.dumps({"case": a.case, "n_nodes": int(disp.shape[0]), "strips": rows}, indent=1))
     for r in rows[-8:]:
         print(r["k"], round(r["r"], 2), r["n_ring"], round(r["ring_z_ptp"], 4), r["twist_prod_deg"], r["twist_slope_deg"])
     return 0
