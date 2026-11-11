@@ -17,6 +17,7 @@ from functools import lru_cache
 import numpy as np
 
 
+COLLAPSE_EDGE_M = 1e-9  # physical edge length treated as a geometric collapse
 MIN_RING_DIVISIONS = 16  # about 45 degrees of turning per element on average
 
 
@@ -39,13 +40,14 @@ class SkinMesh:
     cells: tuple  # source laminate sampled at each element's parametric centroid
     eta_bounds: tuple
     attachments: dict = field(default_factory=dict)
+    layout: tuple = None  # (stations, {(e0, e1): sub-stations}) reused by the web charts
 
 
-def generate_skin_mesh(topology, element_size=.25, eta_bounds=(0., 1.)):
-    return _generate_chart(topology, element_size, eta_bounds, 'skin')
+def generate_skin_mesh(topology, element_size=.25, eta_bounds=(0., 1.), min_strip_m=0.):
+    return _generate_chart(topology, element_size, eta_bounds, 'skin', min_strip_m=min_strip_m)
 
 
-def _generate_chart(topology, element_size, eta_bounds, surface):
+def _generate_chart(topology, element_size, eta_bounds, surface, layout=None, min_strip_m=0.):
     """Return boundary-conforming skin ONLY, including empty-laminate cells.
 
     ``element_size`` is a resolution target, not a maximum-edge guarantee on a
@@ -91,6 +93,9 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
     # The definition's span is the authoritative curvilinear reference length.
     length = topology._definition.span[-1]
     stations = sorted({lo, hi, *(e for e in topology.event_stations if lo < e < hi)})
+    if layout is not None:
+        stations = list(layout[0])  # the skin's stations, so web rows land on skin nodes
+    substations = {}
 
     def precision_error(detail):
         raise ValueError('Unsupported extended chart subdivision precision: ' + detail
@@ -145,12 +150,23 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
                             guess = guess-rational(extended(d)/slope)
                             guess = min(max(guess, e0), e1)
                         # The landmark is computed, not a source event: a root
-                        # within a millionth of the strip joins its end station.
-                        if e0+(e1-e0)/10**6 < guess < e1-(e1-e0)/10**6:
+                        # within a quarter element of a station joins it, since a
+                        # strip thinner than that cannot hold a usable element.
+                        margin = rational(element_size/4/length)
+                        if e0+margin < guess < e1-margin:
                             added.append(guess)
             if not added:
                 break
             stations = sorted({*stations, *added})
+    if min_strip_m > 0 and layout is None:
+        # Resolution limit: two stations closer than min_strip_m of span are one
+        # station. The strip between them is thinner than any element can be and
+        # the sign of its Jacobian is numerical noise. The first one is kept.
+        kept = [stations[0]]
+        for e in stations[1:-1]:
+            if (e-kept[-1])*length >= min_strip_m and (stations[-1]-e)*length >= min_strip_m:
+                kept.append(e)
+        stations = kept+[stations[-1]]
     rows, strips, event_strips, finest = {}, [], [], {}
     for e in stations:
         points = section(e).points
@@ -165,37 +181,45 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
         if surface != 'skin' and not _has_material(mid.skin_cells):
             continue  # a web whose laminate is zero thick here does not exist
         reference = perimeter(e0, midpoint, e1)
-        intervals = []
-        for left, right in mid.intervals:
-            keys = (left.identities[0], right.identities[0])
-            width = max(idmap(e)[keys[1]]-idmap(e)[keys[0]] for e in (e0, e1))
-            n = count(width, reference)
-            if (LE in idmap(midpoint) and idmap(midpoint)[keys[0]] < idmap(midpoint)[LE] < idmap(midpoint)[keys[1]]
-                    and all(LE in idmap(e) and idmap(e)[keys[0]] <= idmap(e)[LE] <= idmap(e)[keys[1]]
-                            for e in (e0, e1))):
-                # Same interval over the whole strip: split it at the landmark.
-                n = max(n, 2)
-                w1 = max(idmap(e)[LE]-idmap(e)[keys[0]] for e in (e0, e1))
-                n1 = min(n-1, max(1, int(round(n*extended(w1)/extended(width)))))
-                intervals.append(((keys[0], LE), n1))
-                intervals.append(((LE, keys[1]), n-n1))
-            else:
-                intervals.append((keys, n))
-        if surface == 'skin':
-            # A closed profile needs a minimum angular resolution: below
-            # MIN_RING_DIVISIONS a coarse size on a small chord wraps one
-            # element around the leading edge or collapses the ring.
-            widths = [max(idmap(e)[k[1]]-idmap(e)[k[0]] for e in (e0, e1)) for k, _ in intervals]
-            counts = [n for _, n in intervals]
-            while sum(counts) < MIN_RING_DIVISIONS:
-                counts[max(range(len(counts)), key=lambda i: widths[i]/counts[i])] += 1
-            intervals = [(k, n) for (k, _), n in zip(intervals, counts, strict=True)]
-        # A boundary that slides along the contour must not shear a row of
-        # elements beyond ~45 degrees: the span step also bounds the slide.
-        slide = max(abs(idmap(e1)[k]-idmap(e0)[k]) for pair, _ in intervals for k in pair)
-        n_span = max(1, int(np.ceil((e1-e0)*length/element_size)),
-                     int(np.ceil(extended(slide)*reference/element_size)))
-        sub = linspace(e0, e1, n_span+1)
+        for use_le in (True, False):
+            intervals = []
+            for left, right in mid.intervals:
+                keys = (left.identities[0], right.identities[0])
+                width = max(idmap(e)[keys[1]]-idmap(e)[keys[0]] for e in (e0, e1))
+                n = count(width, reference)
+                if (use_le and LE in idmap(midpoint) and idmap(midpoint)[keys[0]] < idmap(midpoint)[LE] < idmap(midpoint)[keys[1]]
+                        and all(LE in idmap(e)
+                                and idmap(e)[LE]-idmap(e)[keys[0]] >= rational(element_size/4/perimeter(e))
+                                and idmap(e)[keys[1]]-idmap(e)[LE] >= rational(element_size/4/perimeter(e))
+                                for e in (e0, e1))):
+                    # Same interval over the whole strip: split it at the landmark.
+                    n = max(n, 2)
+                    w1 = max(idmap(e)[LE]-idmap(e)[keys[0]] for e in (e0, e1))
+                    n1 = min(n-1, max(1, int(round(n*extended(w1)/extended(width)))))
+                    intervals.append(((keys[0], LE), n1))
+                    intervals.append(((LE, keys[1]), n-n1))
+                else:
+                    intervals.append((keys, n))
+            if surface == 'skin':
+                # A closed profile needs a minimum angular resolution: below
+                # MIN_RING_DIVISIONS a coarse size on a small chord wraps one
+                # element around the leading edge or collapses the ring.
+                widths = [max(idmap(e)[k[1]]-idmap(e)[k[0]] for e in (e0, e1)) for k, _ in intervals]
+                counts = [n for _, n in intervals]
+                while sum(counts) < MIN_RING_DIVISIONS:
+                    counts[max(range(len(counts)), key=lambda i: widths[i]/counts[i])] += 1
+                intervals = [(k, n) for (k, _), n in zip(intervals, counts, strict=True)]
+            # A boundary that slides along the contour must not shear a row of
+            # elements beyond ~45 degrees: the span step also bounds the slide.
+            slide = max(abs(idmap(e1)[k]-idmap(e0)[k]) for pair, _ in intervals for k in pair)
+            n_span = max(1, int(np.ceil((e1-e0)*length/element_size)),
+                         int(np.ceil(extended(slide)*reference/element_size)))
+            sub = layout[1][(e0, e1)] if layout is not None else linspace(e0, e1, n_span+1)
+            # The landmark split holds only if the order is kept at every row.
+            if all(idmap(s).get(k[0], 0) <= idmap(s).get(k[1], 1) and k[0] in idmap(s) and k[1] in idmap(s)
+                   for s in sub for k, _ in intervals):
+                break
+        substations[(e0, e1)] = sub
         for s in sub[1:-1]:
             row = {idmap(s)[intervals[0][0][0]]}
             for (first, last), n in intervals:
@@ -242,6 +266,9 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
         if al == ar and bl == br:
             continue
         lower, upper = span_row(a, al, ar), span_row(b, bl, br)
+        if not lower or not upper:
+            precision_error(f'strip {(a, b, al, ar, bl, br)!r} lost its boundary nodes '
+                            f'(lower {len(lower)}, upper {len(upper)})')
         tl, tu = fractions(lower, al, ar), fractions(upper, bl, br)
         i = j = 0
         # Merge the two rows: a quad where the next cuts agree to within a
@@ -282,14 +309,41 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
     for (eta, q), i in ids.items():
         if surface == 'skin' and q == 1.:
             remap[i] = ids[(eta, 0.)]
-    padded = np.array([list(e)+[-1]*(4-len(e)) for e in elements], dtype=int)
+    # An edge of (numerically) zero physical length is a geometric collapse of
+    # the source, e.g. a zero-width TE leg: its two chart nodes are one point.
+    # Merge exactly those nodes (edge < COLLAPSE_EDGE_M, far below any band) and
+    # let the element lose a corner; an element that loses its area disappears.
+    parent = list(range(len(nodes)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for e in elements:
+        for u, v in zip(e, e[1:]+e[:1], strict=True):
+            if uv[u][0] != uv[v][0]:
+                continue  # only along a section: a thin span strip is a band, not a collapse
+            a_, b_ = u, v
+            u, v = remap[u], remap[v]
+            if (u != v and np.linalg.norm(nodes[u]-nodes[v]) < COLLAPSE_EDGE_M
+                    and abs(float(uv[a_][1]-uv[b_][1])) > 1e-6):  # a real chart gap, zero length on the loft
+                parent[find(max(u, v))] = find(min(u, v))
+    remap = np.array([find(int(remap[i])) for i in range(len(nodes))])
+    kept, kept_ids, cells = [], [], []
+    for e in elements:
+        mapped = [remap[i] for i in e]
+        keep = [k for k in range(len(e)) if mapped[k] not in mapped[:k]]
+        if len(keep) < 3:
+            continue
+        kept.append([mapped[k] for k in keep])
+        kept_ids.append([e[k] for k in keep])
+        eta, q = average(*(uv[e[k]] for k in keep))
+        cells.append(next(c for c in section(eta).skin_cells if c.nd_bounds[0] <= q <= c.nd_bounds[1]))
+    padded = np.array([r+[-1]*(4-len(r)) for r in kept_ids], dtype=int)
     live = padded >= 0
-    connectivity = np.where(live, remap[np.where(live, padded, 0)], -1)
-    cells = []
-    for quad in elements:
-        eta, q = average(*(uv[i] for i in quad))
-        cell = next(c for c in section(eta).skin_cells if c.nd_bounds[0] <= q <= c.nd_bounds[1])
-        cells.append(cell)
+    connectivity = np.array([r+[-1]*(4-len(r)) for r in kept], dtype=int)
     used = np.unique(connectivity[live])
     compact = np.full(len(nodes), -1, dtype=int)
     compact[used] = np.arange(len(used))
@@ -324,7 +378,8 @@ def _generate_chart(topology, element_size, eta_bounds, surface):
     corner_uv = extended_array(uv)
     corner_uv = np.stack([corner_uv[np.where(r >= 0, r, r[0])] for r in padded])
     return SkinMesh(nodes, connectivity, parameters, corner_uv,
-                    tuple(cells), (extended(lo), extended(hi)), chains)
+                    tuple(cells), (extended(lo), extended(hi)), chains,
+                    (tuple(stations), substations))
 
 
 @dataclass(frozen=True)
@@ -347,18 +402,25 @@ class RawMesh:
                      for stack in self.material_stacks)
 
 
-def generate_mesh(topology, element_size=.25, eta_bounds=(0., 1.), *, with_materials=False):
+def generate_mesh(topology, element_size=.25, eta_bounds=(0., 1.), *, with_materials=False,
+                  min_strip_m=0., collapse_ratio=None, collapse_max_shift=0.05, collapse_optimize=True):
     """Isolated skin+web raw mesh; not the BladeMesh/MeshModel dispatch.
 
     Exact source attachment identities share skin nodes and whole edges. The
     geometric basis is suitable for explicit physical-vector angle conversion.
     ``with_materials=True`` opts into the restricted S12 SONATA-derived policy;
     unsupported web stacks raise ValueError. Default geometry-only behavior and
-    source cells are unchanged. OML/reference nodes are never relocated.
+    source cells are unchanged. OML/reference nodes are never relocated, except by the opt-in
+    ``collapse_ratio`` (e.g. 0.15): strips thinner than ``collapse_ratio * element_size`` are cut
+    out and end in triangles (``windio2_collapse``); that moves the merged lines by up to a few
+    percent of the element size and drops the thin bands' elements, which the caller must accept. The
+    cumulative shift of a merged line is capped at ``collapse_max_shift`` and, with ``collapse_optimize``, merged
+    apexes slide along their own line (up to 0.6 es) to make the closing triangles near-equilateral
+    (``collapse_opt``). Recommended: ``collapse_ratio=0.25``, ``collapse_max_shift=0.05``.
     """
     from .windio2_basis import shell_bases
     topology = topology.with_extended_precision()
-    skin = generate_skin_mesh(topology, element_size, eta_bounds)
+    skin = generate_skin_mesh(topology, element_size, eta_bounds, min_strip_m)
     nodes, elements = list(skin.nodes), list(skin.elements)
     cells, surfaces = list(skin.cells), ['skin']*len(skin.cells)
     parameters = list(skin.element_parameters)
@@ -366,7 +428,7 @@ def generate_mesh(topology, element_size=.25, eta_bounds=(0., 1.), *, with_mater
             key[0]: None for key in skin.attachments}:
         if (name, 'start_nd_arc') not in skin.attachments:
             continue
-        web = _generate_chart(topology, element_size, eta_bounds, name)
+        web = _generate_chart(topology, element_size, eta_bounds, name, skin.layout)
         mapping = []
         shared = [{skin.parameters[i, 0]: i for i in skin.attachments[(name, handle)]}
                   for handle in ('start_nd_arc', 'end_nd_arc')]
@@ -384,6 +446,10 @@ def generate_mesh(topology, element_size=.25, eta_bounds=(0., 1.), *, with_mater
     nodes, elements = np.asarray(nodes), np.asarray(elements, dtype=int)
     mesh = RawMesh(nodes, elements, tuple(cells), tuple(surfaces), np.asarray(parameters),
                    shell_bases(nodes, elements), skin.attachments)
+    if collapse_ratio:
+        from .collapse_opt import collapse_and_optimize_raw_mesh
+        mesh, _ = collapse_and_optimize_raw_mesh(mesh, element_size, collapse_ratio,
+                                                 max_shift=collapse_max_shift, optimize=collapse_optimize)
     return map_mesh_materials(topology, mesh) if with_materials else mesh
 
 

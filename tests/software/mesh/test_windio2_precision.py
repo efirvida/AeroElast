@@ -129,7 +129,7 @@ def test_extended_public_mesh_keeps_finite_bands(tmp_path, official, case):
     path.write_text(yaml.safe_dump(source))
     before = path.read_bytes()
     topology = WindIO2Topology(source, hashlib.sha256(before).hexdigest(), definition)
-    mesh = geometry_mesh(topology, .25, (0., 1.))
+    mesh = geometry_mesh(topology, .25, (0., 1.), min_strip_m=0.)
     raw = mesh.windio2_metadata.raw_mesh
     assert mesh.coords_array.dtype == np.dtype(np.longdouble)
     assert np.isfinite(mesh.coords_array).all()

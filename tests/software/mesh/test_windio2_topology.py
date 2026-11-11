@@ -59,11 +59,13 @@ def test_web_positions_use_completed_full_midpoint_curve(official):
                 curve = anchors[ref["name"]][ref["handle"]]
             nd = np.interp(eta, curve["grid"], curve["values"])
             arc = g.arclength[0, k] + (1 - nd) * np.ptp(g.arclength[:, k])
-            xyz = PchipInterpolator(g.arclength[:, k], g.coordinates[:, :, k])(arc)
+            distinct = np.r_[True, np.diff(g.arclength[:, k]) > 0]  # zero TE legs removed
+            xyz = PchipInterpolator(g.arclength[distinct, k], g.coordinates[distinct, :, k])(arc)
             assert point.nd_arc == nd
             np.testing.assert_allclose(point.xyz, xyz, atol=2e-12, rtol=0)
+            # With the TE closed the corner-based and midpoint-based curves coincide.
             assert abs(arc - (g.arclength[1, k] + (1-nd) *
-                              (g.arclength[-2, k]-g.arclength[1, k]))) > 1e-6
+                              (g.arclength[-2, k]-g.arclength[1, k]))) < 1e-9
     np.testing.assert_allclose(section.points[0].xyz, g.coordinates[-1, :, k], atol=2e-12)
     np.testing.assert_allclose(section.points[-1].xyz, g.coordinates[0, :, k], atol=2e-12)
     np.testing.assert_array_equal(blade.geometry.coordinates, before)

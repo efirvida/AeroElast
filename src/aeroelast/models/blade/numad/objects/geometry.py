@@ -473,6 +473,10 @@ class Geometry:
             # Source convention may run suction first; NuMAD needs pressure first.
             if np.sum(xy[:-1, 0]*xy[1:, 1] - xy[1:, 0]*xy[:-1, 1]) > 0:
                 xy = xy[::-1]
+            # Close an open trailing edge here, where the profiles are read: both
+            # corners become their midpoint (sharp TE, chord unchanged), so the
+            # mesher never sees the thin TE legs (user decision 2026-11-02, S20).
+            xy[0] = xy[-1] = (xy[0] + xy[-1]) / 2
             arc = np.r_[0., np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
             if np.any(np.diff(arc) <= 0):
                 raise ValueError("windIO airfoils require nonzero consecutive surface segments")

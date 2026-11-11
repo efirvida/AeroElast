@@ -32,13 +32,13 @@ class WindIO2Metadata:
     structural_ready: bool = False
 
 
-def geometry_mesh(topology, element_size, eta_bounds, renumber=None):
+def geometry_mesh(topology, element_size, eta_bounds, renumber=None, min_strip_m=1e-6):
     """Adapt without welding, dropping cells, centering or material averaging."""
     if renumber not in (None, 'simple', 'rcm'):
         raise ValueError(f'Unknown renumbering algorithm: {renumber}')
     # Complete every fallible raw geometry/material check before entity creation.
     raw = generate_mesh(topology, element_size=element_size, eta_bounds=eta_bounds,
-                        with_materials=True)
+                        with_materials=True, min_strip_m=min_strip_m)
     mesh = MeshModel()
     for xyz in raw.nodes:
         mesh.add_node(Node(xyz, coordinate_dtype=np.longdouble))

@@ -28,6 +28,7 @@ def source_curve(airfoil, fractions):
     le = np.argmin(xy[:, 0])
     if xy[:le, 1].mean() > xy[le:, 1].mean():
         xy = xy[::-1]  # pressure first for the published source convention
+    xy[0] = xy[-1] = (xy[0] + xy[-1]) / 2  # TE closed to its midpoint when read
     distance = np.r_[0., np.cumsum(np.hypot(*np.diff(xy, axis=0).T))]
     return PchipInterpolator(distance / distance[-1], xy)(fractions)
 
@@ -65,7 +66,8 @@ def test_official_surface_uses_rthick_and_open_curve_pchip():
     np.testing.assert_array_equal(g.profiles[g.LEindex, 0], g.profiles[1:-1, 0].min(axis=0))
     # LE is a landmark on the completed loft, NOT an imposed common fraction .5.
     assert np.max(np.abs(g.surface_fraction[g.LEindex - 1] - .5)) > .001
-    assert np.max(np.abs(g.profiles[1, 1] - g.profiles[-2, 1])) > .01
+    # The open TE is closed when the profiles are read: both corners coincide.
+    assert np.max(np.abs(g.profiles[1] - g.profiles[-2])) < 1e-12
     # Thick-section x positions must follow arc fractions, not a common chord grid.
     assert np.max(np.abs(expected[4, :g.LEindex, 0] - expected[20, :g.LEindex, 0])) > .01
     # rthick dominates the simultaneously supplied, non-equivalent position grid.

@@ -14,7 +14,7 @@ from aeroelast.models.blade.numad.objects.definition import Definition
 from aeroelast.models.blade.numad.objects.material import Material
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 from aeroelast.models.blade.numad.utils.misc_utils import _parse_data, full_keys_from_substrings
-from aeroelast.models.blade.windio import normalize_windio
+from aeroelast.models.blade.windio import is_windio2, normalize_windio
 
 
 def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
@@ -47,7 +47,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     # initialize definition
     definition = Definition()
     blade.definition = definition
-    if str(data.get("windIO_version")) == "2.0":
+    if is_windio2(data):
         definition.windio2_reference_axis = copy.deepcopy(
             data["components"]["blade"]["reference_axis"]
         )
@@ -134,7 +134,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     }
     # Spar caps
     _add_spar_caps(definition, blade_structure_dict)
-    if str(data.get("windIO_version")) == "2.0":
+    if is_windio2(data):
         # v2 supplies explicit cap edges, not v1 pitch-axis offsets. The zero
         # offsets only initialize legacy fields; KeyPoints uses the arcs below.
         definition.sparcapoffset_hp = np.zeros_like(definition.span)
@@ -187,7 +187,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
         blade.definition.rotor_diameter = float(blade.definition.span[-1]) * 2
         blade.definition.hub_height = blade.definition.rotor_diameter / 2 * 1.3
 
-    if str(data.get("windIO_version")) == "2.0":
+    if is_windio2(data):
         from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
 
         blade.windio2_topology = WindIO2Topology(

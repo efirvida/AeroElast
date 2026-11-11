@@ -51,7 +51,8 @@ def shell_bases(nodes, elements):
                 dr = np.array([-(1-s), 1-s, 1+s, -(1+s)])/4
                 ds = np.array([-(1-r), -(1+r), 1+r, 1-r])/4
                 if not np.dot(np.cross(dr@local, ds@local), basis[2]) > 0:
-                    raise ValueError('Nonpositive shell Jacobian on source geometry')
+                    raise ValueError('Nonpositive shell Jacobian on source geometry: element nodes '
+                                     + repr(np.asarray(xyz, float).round(4).tolist()))
         result.append(basis)
     return np.asarray(result)
 

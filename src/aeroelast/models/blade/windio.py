@@ -1,4 +1,4 @@
-"""Normalize supported windIO 2.0 blade fields for the existing NuMAD reader.
+"""Normalize supported windIO 2.x (2.0.x, 2.1.x) blade fields for the existing NuMAD reader.
 
 The source file is never rewritten. Explicit anchor arcs are authoritative; plane
 intersection metadata is not used to recompute them. See windIO's turbine-model
@@ -8,6 +8,17 @@ construction guide, revision 63dcad638a9ac41d24f7a68172e24bde378c23e6.
 from copy import deepcopy
 
 import numpy as np
+
+# windIO versions whose ``blade`` / ``airfoils`` / ``materials`` schema is the 2.0.0 one.  turbine_schema.yaml diffed at tags 2.0.0,
+# 2.0.1, 2.1 and 2.1.1: ``components.blade`` differs only in the wording of the ``twist`` description, ``airfoils`` and ``materials``
+# are identical; the other changes are control, assembly and the floating platform, none of which this reader consumes.  A new
+# version is added here only after the same diff.
+WINDIO2_BLADE_VERSIONS = ("2.0", "2.0.0", "2.0.1", "2.1", "2.1.0", "2.1.1")
+
+
+def is_windio2(data: dict) -> bool:
+    """True when ``data`` is a windIO 2.x turbine whose blade schema this reader supports."""
+    return str(data.get("windIO_version", "1.0")) in WINDIO2_BLADE_VERSIONS
 
 
 def normalize_windio(data: dict) -> dict:
@@ -20,7 +31,7 @@ def normalize_windio(data: dict) -> dict:
     version = str(data.get("windIO_version", "1.0"))
     if version.startswith("1."):
         return data
-    if version != "2.0":
+    if version not in WINDIO2_BLADE_VERSIONS:
         raise ValueError(f"Unsupported windIO version: {version}")
     result = deepcopy(data)
     blade = result["components"]["blade"]

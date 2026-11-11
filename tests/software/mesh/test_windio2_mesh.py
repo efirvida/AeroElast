@@ -92,7 +92,9 @@ def test_short_source_crossing_coincidence_dropoff(tmp_path, official):
     seam = mesh.parameters[:, 1] == 0
     etas = mesh.parameters[seam, 0]
     thick = PchipInterpolator(shape['rthick']['grid'], shape['rthick']['values'])(etas)
-    xy = PchipInterpolator([m['rthick'] for m in masters], endpoints, axis=0)(thick).mean(axis=2)
+    # the TE is closed to its midpoint when the profiles are read, then interpolated
+    xy = PchipInterpolator([m['rthick'] for m in masters],
+                           np.array(endpoints).mean(axis=2), axis=0)(thick)
     np.testing.assert_allclose(mesh.nodes[seam], np.column_stack((-.2*xy[:, 0], .2*xy[:, 1], .5*etas)),
                                atol=2e-13, rtol=0)
     assert path.read_bytes() == before

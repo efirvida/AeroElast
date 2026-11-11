@@ -85,7 +85,9 @@ def test_official_anchor_arcs_widths_and_layer_thickness():
     eta = geometry.ispan / geometry.ispan[-1]
     hp_te_leg = geometry.arclength[1] - geometry.arclength[0]
     lp_te_leg = geometry.arclength[-1] - geometry.arclength[-2]
-    assert np.any((hp_te_leg > 0) & (lp_te_leg > 0)), "Fixture must exercise an open TE"
+    # The open TE is closed to its midpoint when the profiles are read, so both
+    # legs vanish; the arcs still start at that midpoint.
+    assert np.all(hp_te_leg == 0) and np.all(lp_te_leg == 0), "TE must be closed at read"
     arc0 = geometry.arclength[0]
     perimeter = geometry.arclength[-1] - arc0
     for name, rows in [("Spar_Cap_PS", (4, 3)), ("Spar_Cap_SS", (9, 8))]:
