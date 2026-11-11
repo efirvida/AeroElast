@@ -33,11 +33,12 @@ from scipy.interpolate import PchipInterpolator
 from scipy.optimize import brentq
 from scipy.spatial import cKDTree
 
-__all__ = ["generate_mesh_gmsh", "map_mesh_materials_gmsh", "le_landmark_line", "lookup_cells", "areal_mass", "conformity_report", "Line", "SkinSource", "Cleaned", "ChartMesh", "MeshQualityError", "RowLoft", "clean_source",
+__all__ = ["chord_profile", "chord_sizes", "generate_mesh_gmsh", "map_mesh_materials_gmsh", "le_landmark_line", "lookup_cells", "areal_mass", "conformity_report", "Line", "SkinSource", "Cleaned", "ChartMesh", "MeshQualityError", "RowLoft", "clean_source",
            "build_linework", "mesh_chart", "mesh_chart_structured", "add_le_lines", "map_to_3d", "element_metrics", "quality_gate", "generate_skin_mesh",
            "source_from_topology", "ring_size", "unique_edges", "mesh_web_chart"]
 
 EPS_GAP = 1e-12  # nd tolerance for "equal"
+MIN_CHORD_DIVISIONS = 4  # fewer elements per chord cannot follow an airfoil
 EPS_G = 1e-9  # chart-metre tolerance of the gap-vs-threshold sign (stations are rounded to 1e-13 in eta ~ 1e-11 m)
 
 
@@ -75,6 +76,7 @@ class SkinSource:
     eta0: float = 0.0  # chart window [eta0, eta1] (a patch of the blade); y = (eta - eta0) * L
     eta1: float = 1.0
     extra_stations: list = field(default_factory=list)  # eta stations that must be rows (topology events: web/layer spans)
+    chord: object = None  # eta -> chord c(eta) [m], vectorised; needed by the chord-scaled sizing (``chord_divisions``)
 
 
 @dataclass
@@ -91,6 +93,33 @@ def ring_size(h, perimeter, min_ring_divisions=0):
     if not min_ring_divisions:
         return lambda eta: np.full_like(np.asarray(eta, float), h)
     return lambda eta: np.minimum(h, np.asarray(perimeter(eta), float) / min_ring_divisions)
+
+
+def chord_profile(topology, loft, n_outline=257):
+    """Chord c(eta) [m] of the blade: the YAML chord when the topology carries it, else the LE-TE distance of the station outline
+    (the farthest outline point from the trailing edge, which is the seam point nd = 0; at a circular root that is the diameter)."""
+    shape = getattr(getattr(topology, "_definition", None), "windio2_outer_shape", None)
+    spec = shape.get("chord") if isinstance(shape, dict) else None
+    if spec is not None:
+        f = PchipInterpolator(np.asarray(spec["grid"], float), np.asarray(spec["values"], float))
+        return lambda eta: f(np.clip(np.asarray(eta, float), float(spec["grid"][0]), float(spec["grid"][-1])))
+    nd = np.linspace(0.0, 1.0, n_outline)
+    chords = []
+    for i in range(len(loft.rows)):
+        xyz = np.asarray(loft.station(i, nd), float)
+        chords.append(float(np.max(np.linalg.norm(xyz - xyz[0], axis=1))))
+    f = PchipInterpolator(np.asarray(loft.rows, float), np.asarray(chords))
+    return lambda eta: f(np.clip(np.asarray(eta, float), float(loft.rows[0]), float(loft.rows[-1])))
+
+
+def chord_sizes(chord, chord_divisions, span_aspect=1.0):
+    """``(size_c, size_s)``: chordwise size c(eta)/N and spanwise size AR * c(eta)/N, as functions of eta."""
+    n = float(chord_divisions)
+    if not (np.isfinite(n) and n >= MIN_CHORD_DIVISIONS):
+        raise ValueError(f"chord_divisions must be >= {MIN_CHORD_DIVISIONS}, got {chord_divisions}")
+    if not (np.isfinite(span_aspect) and span_aspect > 0):
+        raise ValueError(f"span_aspect must be > 0, got {span_aspect}")
+    return (lambda eta: np.asarray(chord(eta), float) / n), (lambda eta: span_aspect * np.asarray(chord(eta), float) / n)
 
 
 # --------------------------------------------------------------------------------------------------- 2D cleaning
@@ -112,7 +141,8 @@ def _uniq(values):
     return np.unique(np.round(np.asarray(sorted(values), float), 13))
 
 
-def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, snap=0.0, max_strip_ar=5.0, min_row_fraction=0.5):
+def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, snap=0.0, max_strip_ar=5.0, min_row_fraction=0.5,
+                 size_s=None, min_band=1, shorten_rows=True, min_band_fraction=None):
     """Merge event lines closer than ``tau * size(eta)`` (chart metres). Returns :class:`Cleaned`.
 
     ``max_strip_ar`` (default 5 = half the gate limit ``DEFAULT_LIMITS['max_ar']``; None/0 = merge every thin band, the
@@ -124,7 +154,14 @@ def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, s
 
     ``snap`` > 0 coalesces stations closer than ``snap * size(eta)`` (chart metres) into the lowest one of the chain
     (the first/last station and the layer drop-off stations are kept).  Event stations that sit a few millimetres apart
-    (closing steps of several bands at the ring-size cap, source vertices) otherwise force 1e-2 m elements, AR 10-18."""
+    (closing steps of several bands at the ring-size cap, source vertices) otherwise force 1e-2 m elements, AR 10-18.
+
+    ``size`` is the CHORDWISE size (it sets the band-gap threshold ``tau * size``); ``size_s`` (default ``size``) is the SPANWISE
+    size, which governs everything measured along the span: station snapping, short lenses and the row density a strip may cost.
+    ``min_band`` > 1 (the chord-scaled sizing) divides every surviving strip narrower than ``min_band * size`` into that many
+    elements, so its rows are shortened to keep the element aspect ratio below ``max_strip_ar`` (at most 1/``min_row_fraction``
+    in row density, because the strip is wider than ``tau * size``).  ``min_band_fraction`` (default None) restricts the floor to
+    strips at least that fraction of ``size`` wide (see ``mesh_chart_structured``), so only those get their rows shortened."""
     if mode not in ("mid", "snap"):
         raise ValueError("mode must be 'mid' or 'snap'")
     L, P = src.length, src.perimeter
@@ -135,6 +172,7 @@ def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, s
         return a[(a >= e0 - 1e-13) & (a <= e1 + 1e-13)]
 
     size = size or (lambda e: np.full_like(np.asarray(e, float), h))
+    size_s = size_s or size
 
     def thr(e):
         return tau * np.asarray(size(e), float)
@@ -215,7 +253,7 @@ def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, s
                 *(round(float(e), 13) for e in src.extra_stations)}
         keep = [S[0]]
         for v in S[1:]:
-            close = (v - keep[-1]) * L < snap * float(size(keep[-1]))
+            close = (v - keep[-1]) * L < snap * float(size_s(keep[-1]))
             if close and round(float(v), 13) not in hard:
                 snapped += 1
                 continue
@@ -264,7 +302,7 @@ def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, s
                     e += 1
                 if 0 < j and e < len(chain):
                     a, b = chain[j][0], chain[e - 1][0]
-                    if (S[b + 1] - S[a]) * L < tau * float(np.min(size(mid[a:b + 1]))):
+                    if (S[b + 1] - S[a]) * L < tau * float(np.min(size_s(mid[a:b + 1]))):
                         for jj, _ in chain[j:e]:
                             thin[jj][list(zip(orders[jj][:-1], orders[jj][1:], strict=False)).index(key)] = True
                             flips += 1
@@ -289,13 +327,27 @@ def clean_source(src, h, tau=0.25, mode="mid", size=None, max_station_gap=1.0, s
                     gl_ = (M[b, g] - M[a, g]) * Pe[g]
                     gr_ = (M[b, [x + 1 for x in g]] - M[a, [x + 1 for x in g]]) * Pe[[x + 1 for x in g]]
                     allowed = max_strip_ar * np.minimum(gl_, gr_)  # longest row step that keeps the strip's AR <= max_strip_ar
-                    if np.all(allowed >= min_row_fraction * np.asarray(size(mid[g]), float) - EPS_G):
+                    if np.all(allowed >= min_row_fraction * np.asarray(size_s(mid[g]), float) - EPS_G):
                         for jj in g:
                             thin[jj][list(zip(orders[jj][:-1], orders[jj][1:], strict=False)).index(key)] = False
                         row_limits[g] = np.minimum(row_limits[g], allowed)
                         kept.append({"lines": [lines[a].name, lines[b].name], "s_from_m": float(S[g[0]] * L),
                                      "s_to_m": float(S[g[-1] + 1] * L), "min_gap_m": float(min(gl_.min(), gr_.min())),
                                      "max_gap_m": float(max(gl_.max(), gr_.max())), "n_intervals": len(g)})
+
+    # a surviving strip narrower than min_band * size is split into min_band elements: bound the rows over it as for a kept strip
+    if shorten_rows and max_strip_ar and min_band > 1:
+        for j in range(m_int):
+            for i in range(len(orders[j]) - 1):
+                if thin[j][i]:
+                    continue
+                a, b = orders[j][i], orders[j][i + 1]
+                g = min((M[b, j] - M[a, j]) * Pe[j], (M[b, j + 1] - M[a, j + 1]) * Pe[j + 1])
+                sz = float(size(mid[j]))
+                if min_band_fraction is not None and g < min_band_fraction * sz:
+                    continue  # no floor on this strip: it gets the count rounding gives, no cap
+                if 1e-9 < g < min_band * sz:
+                    row_limits[j] = min(row_limits[j], max_strip_ar * g / min_band)
 
     # clusters and replacement values at both ends of every interval
     W, conflicts = {}, []
@@ -767,7 +819,7 @@ def _line_row_values(pl, eta_rows):
 
 
 def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1.25), algorithm=8, recombination=1,
-                          optimize_topology=5, extra_options=None, tol=1e-7, optimize=(), optimize_iter=3, strip_scale=None, optimize_scope="patches", rows=None, active=None, periodic=True, count_rule="round", row_blocks=False):
+                          optimize_topology=5, extra_options=None, tol=1e-7, optimize=(), optimize_iter=3, strip_scale=None, optimize_scope="patches", rows=None, active=None, periodic=True, count_rule="round", row_blocks=False, size_s=None, min_count=1, even_steps=0, min_band_fraction=None):
     """Structured chart mesh with gmsh as the engine.
 
     1. rows: the event stations plus uniform subdivisions with one count per interval (equal steps of the integral of
@@ -804,6 +856,19 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
     the skin; ``active`` (bool per row interval) restricts the cells to part of the span; ``periodic=False`` skips the
     TE seam identification (a web has two distinct edges).
 
+    ``size`` is the chordwise target; ``size_s`` (default ``size``) the spanwise one that sets the rows (the chord-scaled sizing
+    makes them differ).  ``min_count`` is the floor of the chordwise count of every strip (the minimum elements per band); with ``min_band_fraction`` the
+    floor applies only to a strip at least that fraction of the chordwise size wide, a narrower one gets the rounded count (>= 1).
+
+    ``even_steps`` (default 0 = off): a strip whose count is at least this value changes it only by an EVEN number (n -> n +- 2,
+    +- 4 ...), the new count being the one of the parity of the old that is closest to the target.  A transition patch whose two
+    sides carry n and n +- 1 divisions has an odd boundary node count and cannot be meshed with quads only: it leaves a column of
+    triangles and 45-degree quads (the one-element-wide transition columns of the chord-scaled blades), while n -> n +- 2 can be.
+    The element width stays inside the band widened by the step (n = 8, target 10: 10; n = 5, target 6.2: 7); when no count of
+    the parity of the old one is inside the band yet the strip keeps its count (while within a factor 2 of the target) instead of
+    stepping to an outside one that the next row would undo (5 -> 3 -> 4 at the IEA-15 N=20 tip).  Below the
+    threshold the step is free: 2 -> 4 doubles a strip (measured: at the tip of IEA-15 it made the gate reject, 2 -> 3 does not).
+
     ``strip_scale`` {(line_a, line_b): factor} scales the chordwise target of one strip (e.g. a leading-edge strip
     bounded by two mesh-control lines, see ``add_le_lines``); the spanwise row spacing is global."""
     import gmsh
@@ -813,6 +878,7 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
     Lspan, P = src.length, src.perimeter
     Ly = (src.eta1 - src.eta0) * Lspan
     size = size or (lambda e: np.full_like(np.asarray(e, float), h))
+    size_s = size_s or size
     t0 = time.perf_counter()
 
     # ---- rows
@@ -821,7 +887,7 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
         rows = [st[0]]
         lim = getattr(cleaned, "row_limits", None)
         for i_, (a, b) in enumerate(zip(st[:-1], st[1:], strict=False)):
-            rows.extend(_interval_rows(a, b, size, src.eta0, Lspan, np.inf if lim is None else lim[i_]))
+            rows.extend(_interval_rows(a, b, size_s, src.eta0, Lspan, np.inf if lim is None else lim[i_]))
     rows = np.asarray(rows)
     nr = len(rows)
     eta_rows = src.eta0 + rows / Lspan
@@ -870,6 +936,9 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
             by_k[k].append(c)
 
     # ---- chordwise count with hysteresis, per strip run
+    def floor(c, w):
+        return min_count if (min_band_fraction is None or w >= min_band_fraction * c.h) else 1
+
     runs = {}
     for (_k, a, b), c in sorted(cells.items()):
         runs.setdefault((a, b), []).append(c)
@@ -880,6 +949,17 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
             before = prev.n if (prev is not None and prev.k == c.k - 1) else None
             if before is not None and band[0] * c.h <= w / before <= band[1] * c.h:
                 c.n = before
+            elif even_steps and before is not None and before >= even_steps:
+                lo = max(1, floor(c, w))
+                m0 = int(round((w / c.h - before) / 2.0))
+                cand = [before + 2 * m for m in (m0 - 1, m0, m0 + 1) if before + 2 * m >= lo]
+                inside = [n_ for n_ in cand if band[0] * c.h <= w / n_ <= band[1] * c.h]
+                if inside:
+                    c.n = min(inside, key=lambda n_: abs(math.log(w / (n_ * c.h))))
+                elif 0.5 * c.h <= w / before <= 2.0 * c.h and before >= lo:
+                    c.n = before  # no count of this parity fits the band yet: a candidate outside it is a step the next row undoes
+                else:
+                    c.n = min(cand, key=lambda n_: abs(math.log(w / (n_ * c.h)))) if cand else before
             elif count_rule == "round":
                 c.n = max(1, int(round(w / c.h)))
             else:
@@ -895,6 +975,7 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
                     if best is None or key < best[0]:
                         best = (key, n_)
                 c.n = best[1]
+            c.n = max(c.n, floor(c, w))
             prev = c
 
     # ---- layer drop-off closures: transverse segments on a row (a material step).  The strip set changes there, so the
@@ -1249,6 +1330,8 @@ def mesh_chart_structured(src, cleaned, h, size=None, patch_rows=2, band=(0.8, 1
             "in_patch": np.asarray(in_patch), "optimize_report": opt_report, "rows": rows, "line_row_nodes": line_row_nodes,
             "line_names": names, "n_patches": int(sum(1 for s in surfaces if s[1] == "patch")), "patch_elements": int(patch_el),
             "patch_triangles": int(patch_tri), "count_conflicts": 0, "seam_nodes": int(len(lo)),
+            "count_steps": [(i, int(c1.k), int(c1.n - c0.n)) for i, lst in enumerate(runs.values()) for c0, c1 in zip(lst[:-1], lst[1:], strict=False)
+                            if c1.k == c0.k + 1 and c1.n != c0.n],
             "n_count_changes": int(sum(1 for lst in runs.values() for c0, c1 in zip(lst[:-1], lst[1:], strict=False) if c1.k == c0.k + 1 and c1.n != c0.n))}
     return ChartMesh(chart, elements, master, np.column_stack([ro, lo]), info)
 
@@ -1360,6 +1443,90 @@ def quality_gate(metrics, limits=None, raise_on_fail=True):
     return report
 
 
+def _corner_angles(p):
+    """Corner angles [deg] of polygons ``p`` (n, k, 3)."""
+    a, b = np.roll(p, 1, axis=1) - p, np.roll(p, -1, axis=1) - p
+    cosv = np.einsum("nki,nki->nk", a, b) / np.maximum(np.linalg.norm(a, axis=-1) * np.linalg.norm(b, axis=-1), 1e-300)
+    return np.degrees(np.arccos(np.clip(cosv, -1.0, 1.0)))
+
+
+def repair_patch_elements(xyz, chart, elements, in_patch, max_quad_angle=150.0, min_gain=1.0, max_passes=20):
+    """Local repair of the unstructured transition patches in the 3D metric.  A patch is meshed in the chart (eta, nd) plane, where
+    the near-tip loft is strongly sheared (the planform edges cross the rows at a shallow angle, the nd and eta lines are 15-20 degrees
+    apart in space): a well-shaped chart element can have a corner of 160+ degrees or a 4 degree angle on the blade.  Two moves, both
+    only on patch elements, both valid in the chart (orientation kept):
+
+    - a quad with a corner above ``max_quad_angle`` (a gate limit minus a margin) is cut into two triangles along the diagonal that
+      leaves the better smallest angle;
+    - a shared edge of two patch triangles is flipped when that raises the smaller of their two smallest corner angles by more than
+      ``min_gain`` degrees.
+
+    Returns ``(elements, in_patch)``; the element count grows by the number of cut quads (the new triangle is appended)."""
+    el = [list(map(int, e)) for e in np.asarray(elements)]
+    flag = [bool(f) for f in in_patch]
+    xyz, chart = np.asarray(xyz, float), np.asarray(chart, float)
+
+    def tri_min(ids):
+        return float(_corner_angles(xyz[list(ids)][None]).min())
+
+    def area(ids):  # signed chart area
+        p = chart[list(ids)]
+        return 0.5 * float(np.sum(p[:, 0] * np.roll(p[:, 1], -1) - np.roll(p[:, 0], -1) * p[:, 1]))
+
+    cut = 0
+    for i in range(len(el)):
+        if not (flag[i] and el[i][3] >= 0):
+            continue
+        q = el[i]
+        if float(_corner_angles(xyz[q][None]).max()) <= max_quad_angle:
+            continue
+        sgn = np.sign(area(q))
+        best = None
+        for t1, t2 in (((q[0], q[1], q[2]), (q[0], q[2], q[3])), ((q[0], q[1], q[3]), (q[1], q[2], q[3]))):
+            if np.sign(area(t1)) != sgn or np.sign(area(t2)) != sgn or min(abs(area(t1)), abs(area(t2))) < 1e-12:
+                continue
+            score = min(tri_min(t1), tri_min(t2))
+            if best is None or score > best[0]:
+                best = (score, t1, t2)
+        if best is not None:
+            el[i] = [*best[1], -1]
+            el.append([*best[2], -1])
+            flag.append(True)
+            cut += 1
+    flips = 0
+    for _ in range(max_passes):
+        edges = {}
+        for i, e in enumerate(el):
+            if flag[i] and e[3] < 0:
+                for a, b in zip(e[:3], (e[1], e[2], e[0]), strict=True):
+                    edges.setdefault((min(a, b), max(a, b)), []).append(i)
+        changed = False
+        touched = set()
+        for (b, c), tris in edges.items():
+            if len(tris) != 2 or tris[0] in touched or tris[1] in touched:
+                continue
+            t1, t2 = el[tris[0]][:3], el[tris[1]][:3]
+            a = next(v for v in t1 if v not in (b, c))
+            d = next(v for v in t2 if v not in (b, c))
+            sgn = np.sign(area(t1))
+            if np.sign(area(t2)) != sgn:
+                continue
+            # t1 holds the edge as (b, c) or (c, b); the flipped pair keeps t1's rotation sense
+            i1 = t1.index(b)
+            first, second = (b, c) if t1[(i1 + 1) % 3] == c else (c, b)
+            n1, n2 = (a, first, d), (a, d, second)
+            if np.sign(area(n1)) != sgn or np.sign(area(n2)) != sgn or min(abs(area(n1)), abs(area(n2))) < 1e-12:
+                continue
+            if min(tri_min(n1), tri_min(n2)) > min(tri_min(t1), tri_min(t2)) + min_gain:
+                el[tris[0]], el[tris[1]] = [*n1, -1], [*n2, -1]
+                touched.update(tris)
+                changed = True
+                flips += 1
+        if not changed:
+            break
+    return np.asarray(el, dtype=int).reshape(-1, 4), np.asarray(flag), {"cut_quads": cut, "flipped_edges": flips}
+
+
 # --------------------------------------------------------------------------------------------------- driver
 @dataclass
 class SkinResult:
@@ -1376,14 +1543,41 @@ class SkinResult:
 
 
 def generate_skin_mesh(src, h, tau=0.25, mode="mid", size=None, limits=None, enforce_gate=True, simplify_tol=0.005,
-                       snap=0.0, mesh_scale=1.0, h_range=(0.15, 0.25), structured=False, max_strip_ar=5.0, **gmsh_options):
+                       snap=0.0, mesh_scale=1.0, h_range=(0.15, 0.25), structured=False, max_strip_ar=5.0, chord_divisions=None,
+                       span_aspect=1.0, min_band_elements=2, min_band_fraction=1.0, **gmsh_options):
     """clean -> linework -> gmsh -> 3D -> gate. ``h`` must lie in ``h_range`` ([0.15, 0.25] m, the project rule for the
-    blade; a finer-mesh study of the prototype widens it explicitly)."""
-    if not (np.isfinite(h) and h_range[0] <= h <= h_range[1]):
+    blade; a finer-mesh study of the prototype widens it explicitly).
+
+    ``chord_divisions`` N (structured only; needs ``src.chord``) replaces the element size: chordwise size c(eta)/N, spanwise size
+    ``span_aspect`` * c(eta)/N, at least ``min_band_elements`` elements across every strip that survives the cleaning.  The merge
+    threshold stays ``tau`` * chordwise size, so a band thinner than that is still merged and reported (``clean`` report): halving
+    it keeps thinner bands but needs strips of aspect ratio far above the gate near the tip (measured, IEA-15 N=10).  ``h``,
+    ``size`` and ``h_range`` are then unused (``h`` is the largest local size).  ``min_band_fraction`` (default 1.0, the S3 floor
+    rule, odd/tasks/gmsh-chord-scaled-mesh.md L18) applies the ``min_band_elements`` floor only to a band at least
+    ``min_band_fraction`` * c/N wide; a narrower one gets the count rounding gives (>= 1) and no row shortening.  Explicit
+    ``None`` = no relative floor: every band gets ``min_band_elements`` whatever its width (the earlier S3 behaviour)."""
+    size_s = None
+    shorten_rows = gmsh_options.pop("row_shortening", True)  # internal switch (structured_options), for A/B measurements
+    repair = gmsh_options.pop("patch_repair", True) and chord_divisions is not None  # same, chord path only
+    if chord_divisions is not None:
+        if size is not None or mesh_scale != 1.0:
+            raise ValueError("chord_divisions replaces the element size: do not pass size or mesh_scale with it")
+        if src.chord is None or not structured:
+            raise ValueError("chord_divisions needs the structured mesher and a source with a chord")
+        size, size_s = chord_sizes(src.chord, chord_divisions, span_aspect)
+        probe = src.eta0 + np.linspace(0.0, 1.0, 801) * (src.eta1 - src.eta0)
+        h = float(max(np.max(size(probe)), np.max(size_s(probe))))
+        gmsh_options = {**gmsh_options, "size_s": size_s, "min_count": max(1, int(min_band_elements))}
+        if min_band_fraction is not None:
+            gmsh_options["min_band_fraction"] = float(min_band_fraction)
+        gmsh_options.setdefault("even_steps", 4)
+    elif not (np.isfinite(h) and h_range[0] <= h <= h_range[1]):
         raise ValueError(f"element size must be in [{h_range[0]}, {h_range[1]}] m")
     t = {}
     t0 = time.perf_counter()
-    cleaned = clean_source(src, h, tau, mode, size, snap=snap, max_strip_ar=max_strip_ar)
+    cleaned = clean_source(src, h, tau, mode, size, snap=snap, max_strip_ar=max_strip_ar, size_s=size_s,
+                           min_band=gmsh_options.get("min_count", 1), shorten_rows=shorten_rows,
+                           min_band_fraction=gmsh_options.get("min_band_fraction"))
     t["clean_s"] = time.perf_counter() - t0
     t0 = time.perf_counter()
     size_m = size and (lambda e: mesh_scale * np.asarray(size(e), float)) if mesh_scale != 1.0 else size
@@ -1398,6 +1592,9 @@ def generate_skin_mesh(src, h, tau=0.25, mode="mid", size=None, limits=None, enf
     t0 = time.perf_counter()
     xyz, eta, nd = map_to_3d(src, cm)
     t["map3d_s"] = time.perf_counter() - t0
+    if repair and structured:
+        cm.elements, in_patch, rep = repair_patch_elements(xyz, cm.chart, cm.elements, cm.info["in_patch"])
+        cm.info = {**cm.info, "in_patch": in_patch, "patch_repair": rep}
     # reference normal: d(loft)/d(eta) x d(loft)/d(nd) at the element centroid (positive (eta, nd) orientation)
     ids = np.where(cm.elements >= 0, cm.elements, cm.elements[:, :1])
     ce = src.eta0 + cm.chart[ids, 1].mean(1) / src.length  # chart centroid (the seam duplicates keep nd = 1 here)
@@ -1752,8 +1949,15 @@ def map_mesh_materials_gmsh(topology, mesh):
 
 def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=16, structured_options=None, le_landmark=True,
                        with_materials=False, material_dy=0.0, enforce_gate=True, h_range=(0.15, 0.25), loft=None,
-                       return_info=False, max_strip_ar=5.0):
+                       return_info=False, max_strip_ar=5.0, chord_divisions=None, span_aspect=1.0, min_band_elements=2,
+                       min_band_fraction=1.0):
     """Skin + webs raw mesh with the STRUCTURED gmsh mesher; a drop-in for ``windio2_mesh.generate_mesh`` outputs.
+
+    ``chord_divisions`` N (default None: the ``element_size`` path, unchanged) sizes the mesh by the local chord c(eta) instead
+    (see :func:`generate_skin_mesh`): chordwise c/N, spanwise ``span_aspect`` * c/N, at least ``min_band_elements`` elements across
+    every material band of width >= ``min_band_fraction`` (default 1.0) * c/N; a narrower band gets its rounded count (>= 1).
+    ``min_band_fraction=None`` restores the floor on every band whatever its width.  ``element_size``, ``ring`` and ``h_range``
+    are then unused.
 
     skin   ``generate_skin_mesh(structured=True)`` on the official topology (web attachment lines are fixed lines of the
            skin, so the skin carries one node per row on each of them);
@@ -1771,12 +1975,24 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     loft = loft or RowLoft(topology, end_spacing=0.1)
     src = source_from_topology(topology, loft, le_landmark=le_landmark)
     L = loft.length
-    size = ring_size(h, loft.perimeter, ring)
-    opts = {"patch_rows": 1, "extra_options": {"Mesh.Smoothing": 10.0, "Mesh.RecombineMinimumQuality": 0.7},
+    if chord_divisions is None:
+        size = ring_size(h, loft.perimeter, ring)
+        sized = {}
+    else:
+        src.chord = chord_profile(topology, loft)
+        size, size_s = chord_sizes(src.chord, chord_divisions, span_aspect)  # the webs use the chordwise one; h only bounds gmsh
+        probe = np.linspace(0.0, 1.0, 801)
+        h = float(max(np.max(size(probe)), np.max(size_s(probe))))
+        sized = {"chord_divisions": chord_divisions, "span_aspect": span_aspect, "min_band_elements": min_band_elements}
+        sized["min_band_fraction"] = None if min_band_fraction is None else float(min_band_fraction)
+    # chord-scaled: an unstructured transition patch is only recombined above this quality; 0.7 (the element_size value) leaves
+    # most of a one-row patch as triangles, 0.4 recombines them (measured on IEA-3.4/15/22: elements with min angle < 45 deg drop 30-70 %; 0.2-0.3 do the same but let one tip quad fail the gate at IEA-15 N 20)
+    min_q = 0.7 if chord_divisions is None else 0.4
+    opts = {"patch_rows": 1, "extra_options": {"Mesh.Smoothing": 10.0, "Mesh.RecombineMinimumQuality": min_q},
                 "optimize": ("Relocate2D",), "optimize_iter": 5, "optimize_scope": "patches"}
     opts.update(structured_options or {})
-    res = generate_skin_mesh(src, h, tau, "mid", size, enforce_gate=enforce_gate, snap=snap, structured=True, h_range=h_range,
-                             max_strip_ar=max_strip_ar, **opts)
+    res = generate_skin_mesh(src, h, tau, "mid", None if sized else size, enforce_gate=enforce_gate, snap=snap, structured=True,
+                             h_range=h_range, max_strip_ar=max_strip_ar, **sized, **opts)
     inf = res.info
     rows, _names, line_nodes = inf["rows"], inf["line_names"], inf["line_row_nodes"]
     nr = len(rows)
@@ -1839,7 +2055,12 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
             continue
         ns_f = np.where(ns >= 0, merged(np.where(ns >= 0, ns, 0)), -1)
         ne_f = np.where(ne_ >= 0, merged(np.where(ne_ >= 0, ne_, 0)), -1)
-        wm = mesh_web_chart(nodes[0], ns_f, ne_f, rows, active, h, size, L, src.eta0, src.eta1, n_new_first=n_nodes, **opts)
+        web_opts = {k: v for k, v in opts.items() if k not in ("row_shortening", "patch_repair")}
+        if sized:
+            web_opts = {"even_steps": 4, **web_opts, "min_count": min_band_elements}
+            if min_band_fraction is not None:
+                web_opts["min_band_fraction"] = float(min_band_fraction)
+        wm = mesh_web_chart(nodes[0], ns_f, ne_f, rows, active, h, size, L, src.eta0, src.eta1, n_new_first=n_nodes, **web_opts)
         nodes.append(wm["xyz_new"])
         n_nodes += len(wm["xyz_new"])
         wel, wpar = wm["elements"], wm["params"]

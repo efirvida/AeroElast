@@ -181,16 +181,29 @@ class GmshBladeMesh:
         IEA-15 0.25, IEA-22 0.177, see odd/tasks/gmsh-validation-15-22.md).
     skin_reference : {"mid", "oml"}
         Surface the shell is built on (default ``"mid"``).
+    chord_divisions : int, optional
+        N elements per chord (>= 4).  When given, ``element_size`` and ``h_range`` are not used: the chordwise size is c(eta)/N,
+        the spanwise size ``span_aspect`` * c(eta)/N and every material band gets at least ``min_band_elements`` elements across.
+        None (default) keeps the uniform ``element_size`` path.
+    min_band_fraction : float, optional
+        With ``chord_divisions``: the ``min_band_elements`` floor applies only to a band at least this fraction of c/N wide
+        (default 1.0, the S3 rule; narrower bands get their rounded count, >= 1).  None = the floor on every band.
     """
 
     def __init__(self, yaml_file: str, element_size: float = 0.25, skin_reference: str = "mid",
-                 h_range: Tuple[float, float] = (0.05, 0.25)) -> None:
+                 h_range: Tuple[float, float] = (0.05, 0.25), chord_divisions: Optional[float] = None,
+                 span_aspect: float = 1.0, min_band_elements: int = 2,
+                 min_band_fraction: Optional[float] = 1.0) -> None:
         if skin_reference not in SKIN_REFERENCES:
             raise ValueError(f"skin_reference must be one of {SKIN_REFERENCES}, got {skin_reference!r}")
         self.yaml_file = yaml_file
         self.element_size = float(element_size)
         self.skin_reference = skin_reference
         self.h_range = tuple(h_range)
+        self.chord_divisions = None if chord_divisions is None else float(chord_divisions)
+        self.span_aspect = float(span_aspect)
+        self.min_band_elements = int(min_band_elements)
+        self.min_band_fraction = None if min_band_fraction is None else float(min_band_fraction)
         self.mesh = None
         self.numad_mesh_data: Dict[str, Any] = {}
         self.numad_blade = None
@@ -203,7 +216,11 @@ class GmshBladeMesh:
         blade = Blade()
         blade.read_yaml(str(self.yaml_file))
         self.numad_blade = blade
-        raw = generate_mesh_gmsh(blade.windio2_topology, self.element_size, with_materials=True, h_range=self.h_range)
+        chord = {} if self.chord_divisions is None else {
+            "chord_divisions": self.chord_divisions, "span_aspect": self.span_aspect, "min_band_elements": self.min_band_elements}
+        if chord:
+            chord["min_band_fraction"] = self.min_band_fraction
+        raw = generate_mesh_gmsh(blade.windio2_topology, self.element_size, with_materials=True, h_range=self.h_range, **chord)
         return raw_to_arrays(raw)
 
     def generate(self, renumber: Optional[str] = None, verbose: bool = False):
