@@ -1,0 +1,21 @@
+  - id: "66"
+    title: >-
+      `tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py`
+      (windIO v2 counterpart of group 41: integrated blade mass against the declared IEA table)
+    slug: v2_blade_total_mass
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py
+    non_validation_tests:
+      - tests:
+          - test_tip_edgewise_deflection_in_range
+          - test_root_reaction_balances_weight
+          - test_deflection_direction_downward
+        reason: >-
+          Order-of-magnitude bound, internal equilibrium check and sign guard (as in v1 group 41);
+          none measures the blade against an independent quantitative physical reference.
+    provenance_note: >-
+      The v2 counterpart of group 41 (odd/tasks/v2-validation-store.md, T7). Same reference (IEA tabular
+      declared mass 67,921 kg), metric (assembled total mass, x-DOF row sum of M) and the same +-5 % bound
+      (L3 ceiling) as the v1 test; only the mesh differs: `build_v2_blade(0.25, skin_reference="mid")`
+      (windIO v2 mesher, tests/support/v2_blade.py) instead of `BladeMesh(...).generate(renumber="rcm")`.

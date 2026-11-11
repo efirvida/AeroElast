@@ -1,0 +1,18 @@
+  - id: '65'
+    title: S-4 v2 parked and rated modal frequencies against OpenFAST MBC3 (windIO v2 mesh)
+    slug: v2_blade_rotating_modes
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py
+    non_validation_tests:
+      - tests:
+          - test_v2_s4_centrifugal_stiffening_increases_first_flap
+          - test_v2_s4_assembly_smoke
+        reason: >-
+          A monotonic-stiffening direction guard and a builder/assembly fixture
+          smoke, neither a scalar comparison against an independent
+          modal-frequency reference.
+    provenance_note: >-
+      windIO v2 counterpart of group 40: same OpenFAST v5.0.0 BeamDyn p20
+      references and the same 5% bound as the v1 test code (the v1 registry
+      text says 8%; the test code, REL_TOL, says 5%). Prepared, not run.

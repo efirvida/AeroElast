@@ -1,0 +1,30 @@
+group: '62'
+rows:
+- id: v2_blade_s7_torsion.test_v2_s7_global_torsion_ratio_within_b.single
+  group: '62'
+  title: test_v2_s7_global_torsion_ratio_within_band
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py::test_v2_s7_global_torsion_ratio_within_band
+  validates: The shell's global torsional response on the windIO v2 mesh (mid-surface skin) — the tip twist under a 1000 N.m tip torsional moment — against the BeamDyn blade deck of the official IEA 15 MW model.
+  comparisons:
+  - label: rtol at line 53
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py:53
+      justified: true
+      justification: 'Same bound as v1 group 34 (maintainer rule 2026-10-16, L3 ceiling 5 % on the ratio, [0.95, 1.05]); not widened for v2. Reference: BeamDyn K[5,5] integrated to each z, one published numerical source.'
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: 1.07028
+      margin_pct: 7.0281
+      text: 'shell/beam tip twist ratio over the 0.3-0.9 span band (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.07028 vs 1 (error: 7.0281%, bound: 5.0000%)'
+      digest: 359361aa1ef756a3
+  flags: []
+  notes: 'v2 counterpart of group 34 (blade_s7_torsion). Mesh: build_v2_blade(0.25, skin_reference=mid). Tip ring taken from TipNodes (v2 tip section is not planar in z; the v1 mask z>=zmax-1e-6 selects 1 node).'

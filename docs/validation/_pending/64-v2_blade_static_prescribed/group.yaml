@@ -1,0 +1,16 @@
+  - id: "64"
+    title: >-
+      `tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py`
+      (windIO v2 counterpart of group 39: S-2 official IEA 15 MW static response against BeamDyn)
+    slug: v2_blade_static_prescribed
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py
+    provenance_note: >-
+      The v2 counterpart of group 39 (odd/tasks/v2-validation-store.md, T5). Same cases LC1-LC4, same
+      `run_shell_case` load definitions (tip `equal`/`arc`, LC4 `equal`/`area`), same OpenFAST BeamDyn p60 references
+      (tests/IEA15MW/bd_static), same metrics (tip uy/ux; S12 interior-station arc ring mean, predeclared node rule)
+      and the same 5 % bound (K3) as the v1 test; official blade only (no UTD input). Only the mesh differs:
+      `build_v2_blade(0.25, skin_reference="mid")` (windIO v2 mesher, tests/support/v2_blade.py) instead of
+      `BladeMesh(...).generate(renumber="rcm")`; rings are eta rows and the tip ring is TipNodes (v2 rings are not
+      planar). The v1 in-house EB beam comparison (printed only) is not repeated.

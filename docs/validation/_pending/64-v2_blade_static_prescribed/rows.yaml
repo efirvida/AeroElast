@@ -1,0 +1,233 @@
+group: '64'
+rows:
+- id: v2_blade_static_prescribed.s2_v2_lc1_tip_displacement
+  group: '64'
+  title: S-2 v2 LC1 tip displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity]
+  validates: v2-mesh shell tip uy for LC1 against the OpenFAST BeamDyn static driver (K9/K11.3).
+  comparisons:
+  - label: Tip displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC1 tip uy, m
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:209
+      justified: true
+      justification: Same 5 % (K3, L3 ceiling) as the v1 test; reference is the OpenFAST BeamDyn static driver (K8/K9), BeamDyn p40-p60 move <= 0.13 %.
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.018176
+      margin_pct: 1.8176
+      text: 'S-2 v2 LC1 tip uy: shell -2.190924 m vs BeamDyn p60 -2.231483 m, -1.8176 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783
+        (logs/check/v2_s2/run-11641783.out).'
+    expected: -2.231483
+  flags: []
+  notes: v2 counterpart of v1 row blade_static_prescribed.s2_official_lc1_tip_displacement; tip node = argmax z of the v2 tip ring.
+- id: v2_blade_static_prescribed.s2_v2_lc2_tip_displacement
+  group: '64'
+  title: S-2 v2 LC2 tip displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap]
+  validates: v2-mesh shell tip uy for LC2 against the OpenFAST BeamDyn static driver (K9/K11.3).
+  comparisons:
+  - label: Tip displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC2 tip uy, m
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:209
+      justified: true
+      justification: Same 5 % (K3, L3 ceiling) as the v1 test; reference is the OpenFAST BeamDyn static driver (K8/K9), BeamDyn p40-p60 move <= 0.13 %.
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.103995
+      margin_pct: 10.3995
+      text: 'S-2 v2 LC2 tip uy: shell 90.829308 m vs BeamDyn p60 82.273278 m, +10.3995 % (not asserted (as v1)); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse),
+        SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    expected: 82.273278
+  flags:
+  - info_only
+  notes: v2 counterpart of v1 row blade_static_prescribed.s2_official_lc2_tip_displacement; tip node = argmax z of the v2 tip ring.
+- id: v2_blade_static_prescribed.s2_v2_lc3_tip_displacement
+  group: '64'
+  title: S-2 v2 LC3 tip displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_edgewise_lc3_tip_ux
+  validates: v2-mesh shell tip ux for LC3 against the OpenFAST BeamDyn static driver (K9/K11.3).
+  comparisons:
+  - label: Tip displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 tip ux, m
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:209
+      justified: true
+      justification: Same 5 % (K3, L3 ceiling) as the v1 test; reference is the OpenFAST BeamDyn static driver (K8/K9), BeamDyn p40-p60 move <= 0.13 %.
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.120914
+      margin_pct: 12.0914
+      text: 'S-2 v2 LC3 tip ux: shell 38.637278 m vs BeamDyn p60 34.469441 m, +12.0914 % (not asserted (K11.3, as v1)); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse),
+        SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    expected: 34.469441
+  flags:
+  - info_only
+  notes: v2 counterpart of v1 row blade_static_prescribed.s2_official_lc3_tip_edge_displacement; tip node = argmax z of the v2 tip ring.
+- id: v2_blade_static_prescribed.s2_v2_lc4_tip_displacement
+  group: '64'
+  title: S-2 v2 LC4 tip displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed]
+  validates: v2-mesh shell tip uy for LC4 against the OpenFAST BeamDyn static driver (K9/K11.3).
+  comparisons:
+  - label: Tip displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC4 tip uy, m
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:209
+      justified: true
+      justification: Same 5 % (K3, L3 ceiling) as the v1 test; reference is the OpenFAST BeamDyn static driver (K8/K9), BeamDyn p40-p60 move <= 0.13 %.
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.025732
+      margin_pct: 2.5732
+      text: 'S-2 v2 LC4 tip uy: shell 8.829434 m vs BeamDyn p60 9.062631 m, -2.5732 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    expected: 9.062631
+  flags: []
+  notes: v2 counterpart of v1 row blade_static_prescribed.s2_official_lc4_distributed_tip_displacement; tip node = argmax z of the v2 tip ring.
+- id: v2_blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc1
+  group: '64'
+  title: S-2 v2 LC1 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC1]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC1.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC1 node 56 (z 114.845 m, 4.35 tip chords), uy, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:254
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.0156
+      margin_pct: 1.56
+      text: 'S-2 v2 LC1 station uy: shell arc ring mean -2.124655 m vs BeamDyn p60 node 56 -2.158325 m, -1.5600 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip
+        collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+  flags: []
+  notes: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.
+- id: v2_blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc2
+  group: '64'
+  title: S-2 v2 LC2 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC2]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC2.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC2 node 56 (z 114.845 m, 4.35 tip chords), uy, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:254
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.006437
+      margin_pct: 0.6437
+      text: 'S-2 v2 LC2 station uy: shell 74.085445 m vs BeamDyn p60 node 56 73.611629 m, +0.6437 % (not asserted, S13); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip
+        collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+  flags:
+  - info_only
+  notes: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.
+- id: v2_blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc3
+  group: '64'
+  title: S-2 v2 LC3 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC3]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC3.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 node 56 (z 114.845 m, 4.35 tip chords), ux, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:254
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.102959
+      margin_pct: 10.2959
+      text: 'S-2 v2 LC3 station ux: shell 35.188603 m vs BeamDyn p60 node 56 31.903817 m, +10.2959 % (not asserted, S13); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip
+        collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+  flags:
+  - info_only
+  notes: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.
+- id: v2_blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc4
+  group: '64'
+  title: S-2 v2 LC4 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC4]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC4.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC4 node 56 (z 114.845 m, 4.35 tip chords), uy, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:254
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.021489
+      margin_pct: 2.1489
+      text: 'S-2 v2 LC4 station uy: shell arc ring mean 8.446527 m vs BeamDyn p60 node 56 8.632019 m, -2.1489 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse),
+        SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+  flags: []
+  notes: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.

@@ -1,0 +1,14 @@
+  - id: "62"
+    title: >-
+      `tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py`
+      (windIO v2 counterpart of group 34: the shell's global torsional response against the BeamDyn blade deck)
+    slug: v2_blade_s7_torsion
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py
+    provenance_note: >-
+      The v2 counterpart of group 34 (odd/tasks/v2-validation-store.md, T3). Same case, load, section-rotation
+      estimator, BeamDyn K[5,5] reference, metric (mean shell/beam twist ratio over 0.3-0.9 span) and the same
+      +-5 % bound as the v1 test; only the mesh differs: `build_v2_blade(0.25, skin_reference="mid")`
+      (windIO v2 mesher, tests/support/v2_blade.py) instead of `BladeMesh(...).generate(renumber="rcm")`.
+      The v1 machinery tests (reference-integral exactness, applied moment) are mesher-independent and not repeated.

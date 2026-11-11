@@ -1,0 +1,33 @@
+group: '67'
+rows:
+- id: v2_blade_structural_properties.testassembledstiffnesspropertiesv2_test.single
+  group: '67'
+  title: TestAssembledStiffnessPropertiesV2::test_mass_matrix_total_consistent_with_reference
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_v05_structural_properties.py::TestAssembledStiffnessPropertiesV2::test_mass_matrix_total_consistent_with_reference
+  validates: Total mass from M within 5 % of the official v1.1 BeamDyn deck mass (66,996.9 kg).
+  comparisons:
+  - label: rtol at line 84
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn v1.1 deck mass (integral of M11 over the 117.149 m reference axis)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_v05_structural_properties.py:84
+      justified: true
+      justification: >-
+        Same L3 bound (<= 5 %, maintainer rule 2026-10-16) as the v1 test of group 42.
+    measured:
+      status: measured
+      run: 0da03be+worktree
+      date: '2026-11-03'
+      raw: 0.001623
+      margin_pct: 0.1623
+      text: >-
+        Shell 67,105.6 kg vs BeamDyn v1.1 deck 66,996.9 kg, signed error +0.1623 % at es 0.25, windIO v2 mesh,
+        skin on mid-surface; login-node pytest (12 s, cached mesh), 3 passed. Bound 5 %.
+    expected: 66996.9
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

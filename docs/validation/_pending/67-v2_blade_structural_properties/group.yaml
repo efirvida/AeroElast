@@ -1,0 +1,22 @@
+  - id: '67'
+    title: >-
+      `tests/validation/blade/v2/test_v2_iea15mw_v05_structural_properties.py`
+      (windIO v2 counterpart of group 42: the shell's assembled total mass against the BeamDyn v1.1 deck)
+    slug: v2_blade_structural_properties
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_v05_structural_properties.py
+    non_validation_tests:
+      - tests:
+          - test_assembler_creates_valid_matrices
+          - test_stiffness_matrix_size_consistent_with_dof_count
+        reason: >-
+          Matrix existence and DOF-size assertions are implementation checks,
+          not physical-reference comparisons.
+    provenance_note: >-
+      The v2 counterpart of group 42 (odd/tasks/v2-validation-store.md, T8). Same reference (integral of the
+      BeamDyn v1.1 deck M11 over the 117.149 m reference axis, 66,996.9 kg), metric (row-sum of M over x-DOFs,
+      relative error) and the same 5 % bound as the v1 test; only the mesh differs:
+      `build_v2_blade(0.25, skin_reference="mid")` (windIO v2 mesher, tests/support/v2_blade.py) instead of
+      `BladeMesh(...).generate(renumber="rcm")`. The v1 deck-vs-deck K55/EI_flap record (no aeroelast code,
+      mesher independent) is not repeated.

@@ -1,0 +1,50 @@
+group: '61'
+rows:
+- id: v2_blade_v02_natural_frequencies.testv2bladenaturalfrequencies_test_1st_f.single
+  group: '61'
+  title: TestV2BladeNaturalFrequencies::test_1st_flapwise_frequency
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py::TestV2BladeNaturalFrequencies::test_1st_flapwise_frequency
+  validates: 1st flapwise freq must be within ±5 % of 0.5585 Hz [R1][R4].
+  comparisons:
+  - label: rtol at line 124
+    asserted: true
+    reference:
+      kind: paper
+      label: NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]
+      citation: gaertner2020
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py:124
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: v2_blade_v02_natural_frequencies.testv2bladenaturalfrequencies_test_1st_e.single
+  group: '61'
+  title: TestV2BladeNaturalFrequencies::test_1st_edgewise_frequency
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py::TestV2BladeNaturalFrequencies::test_1st_edgewise_frequency
+  validates: 1st edgewise freq must be within ±5 % of 0.6406 Hz [R1][R4].
+  comparisons:
+  - label: rtol at line 147
+    asserted: true
+    reference:
+      kind: paper
+      label: NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]
+      citation: gaertner2020
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py:147
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -1,0 +1,30 @@
+group: '66'
+rows:
+- id: v2_blade_total_mass.testblademassintegrationv2_test_total_bl.single
+  group: '66'
+  title: TestBladeMassIntegrationV2::test_total_blade_mass_within_5pct
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py::TestBladeMassIntegrationV2::test_total_blade_mass_within_5pct
+  validates: Assembled mass within +-5 % of 67,921 kg (IEA tabular, L3 ceiling), as the v1 test.
+  comparisons:
+  - label: rtol at line 129
+    asserted: true
+    reference:
+      kind: code
+      label: IEA-15-240-RWT_tabular.xlsx, Overview declared mass, 67,921 kg
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py:129
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: 67105.6
+      margin_pct: 1.2005
+      text: 'V-03 v2 assembled total blade mass [kg] vs IEA-15-240-RWT_tabular.xlsx, Overview declared mass, 67,921 kg: 67105.6 vs 67921 (error: 1.2005%, bound: 5.0000%)'
+      digest: ae291b11b8f4ba07
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -1,0 +1,104 @@
+group: '65'
+rows:
+- id: v2_blade_rotating_modes.test_v2_s4_parked_modal_vs_openfast.single
+  group: '65'
+  title: test_v2_s4_parked_modal_vs_openfast
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py::test_v2_s4_parked_modal_vs_openfast
+  validates: Parked (0 rpm) first flap, first edge and second flap vs OpenFAST BeamDyn p20 (ElastoDyn printed).
+  comparisons:
+  - label: rtol at line 128
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first flap, Hz
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:128
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 133
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first edge, Hz
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:133
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 138
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked second flap, Hz
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:138
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: v2_blade_rotating_modes.test_v2_s4_rated_modal_vs_openfast.single
+  group: '65'
+  title: test_v2_s4_rated_modal_vs_openfast
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py::test_v2_s4_rated_modal_vs_openfast
+  validates: Rated (7.56 rpm) first flap, first edge and second flap vs OpenFAST BeamDyn p20 / BeamDyn driver.
+  comparisons:
+  - label: rtol at line 149
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) rated first flap at 7.56 rpm, Hz
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:149
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 154
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver, dynamic, p20 (official v1.1 deck, hub 0) rated first edge at 7.56 rpm, Hz
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:154
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 159
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) rated second flap at 7.56 rpm, Hz
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:159
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -1,0 +1,13 @@
+  - id: "63"
+    title: >-
+      `tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py`
+      (windIO v2 counterpart of group 38: mid-span sectional EI, mass, GJ and EA distributions against BeamDyn)
+    slug: v2_blade_sectional_distribution
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py
+    provenance_note: >-
+      The v2 counterpart of group 38 (odd/tasks/v2-validation-store.md, T4). Same BeamDyn reference, same five
+      mid-span (0.2-0.85) mean relative-error metrics and the same 5 % bound as the v1 test; the mesh is
+      `build_v2_blade(0.25, skin_reference="mid")` and the stations come from the v2 extractor of
+      tests/support/v2_sectional.py (ring-to-ring bays; the v1 station-named element sets do not exist in the v2 mesh).

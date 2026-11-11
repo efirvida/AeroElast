@@ -1,0 +1,142 @@
+group: '63'
+rows:
+- id: v2_blade_sectional_distribution.testv2s1sectionalproperties_test_edgewis.single
+  group: '63'
+  title: TestV2S1SectionalProperties::test_edgewise_ei_matches_beamdyn
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py::TestV2S1SectionalProperties::test_edgewise_ei_matches_beamdyn
+  validates: EI_edge mid-span mean |rel err| vs the BeamDyn elastic-centre EI below 5 %.
+  comparisons:
+  - label: rtol at line 98
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(err, tol=_TOL, kind='code', reference_name=_REF, what='S-1 EI_edge mid-span mean |rel err| (windIO
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py:98
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: null
+      margin_pct: 8.6534
+      text: 'S-1 EI_edge mid-span mean |rel err| (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, 6x6 section matrices; EI at the elastic centre, principal axes): 8.6534% (bound: 5.0000%)'
+      digest: 1ff9ee8c62ec037b
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: v2_blade_sectional_distribution.testv2s1sectionalproperties_test_flapwis.single
+  group: '63'
+  title: TestV2S1SectionalProperties::test_flapwise_ei_within_band
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py::TestV2S1SectionalProperties::test_flapwise_ei_within_band
+  validates: EI_flap mid-span mean |rel err| vs the BeamDyn elastic-centre EI below 5 %.
+  comparisons:
+  - label: rtol at line 104
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(err, tol=_TOL, kind='code', reference_name=_REF, what='S-1 EI_flap mid-span mean |rel err| (windIO
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py:104
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: null
+      margin_pct: 4.5339
+      text: 'S-1 EI_flap mid-span mean |rel err| (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, 6x6 section matrices; EI at the elastic centre, principal axes): 4.5339% (bound: 5.0000%)'
+      digest: 63ba8fc01b4b71e9
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: v2_blade_sectional_distribution.testv2s1sectionalproperties_test_mass_di.single
+  group: '63'
+  title: TestV2S1SectionalProperties::test_mass_distribution_matches_beamdyn
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py::TestV2S1SectionalProperties::test_mass_distribution_matches_beamdyn
+  validates: Mass per unit length mid-span mean |rel err| vs BeamDyn below 5 %.
+  comparisons:
+  - label: rtol at line 110
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(err, tol=_TOL, kind='code', reference_name=_REF, what='S-1 m(r) mid-span mean |rel err| (windIO v2
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py:110
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: null
+      margin_pct: 3.3774
+      text: 'S-1 m(r) mid-span mean |rel err| (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, 6x6 section matrices; EI at the elastic centre, principal axes): 3.3774% (bound: 5.0000%)'
+      digest: 35f48ab8aa762dca
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: v2_blade_sectional_distribution.testv2s1sectionalproperties_test_gj_dist.single
+  group: '63'
+  title: TestV2S1SectionalProperties::test_gj_distribution_matches_beamdyn
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py::TestV2S1SectionalProperties::test_gj_distribution_matches_beamdyn
+  validates: GJ(r) mid-span mean |rel err| vs BeamDyn below 5 % (static torsion, end-ring wall shear flow).
+  comparisons:
+  - label: rtol at line 116
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(err, tol=_TOL, kind='code', reference_name=_REF, what='S-1 GJ(r) mid-span mean |rel err| (windIO v
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py:116
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: null
+      margin_pct: 9.3782
+      text: 'S-1 GJ(r) mid-span mean |rel err| (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, 6x6 section matrices; EI at the elastic centre, principal axes): 9.3782% (bound: 5.0000%)'
+      digest: cb7b6c2125f218d9
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: v2_blade_sectional_distribution.testv2s1sectionalproperties_test_ea_clt.single
+  group: '63'
+  title: TestV2S1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py::TestV2S1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
+  validates: EA(r) from the direct CLT section integral, mid-span mean |rel err| vs BeamDyn below 5 %.
+  comparisons:
+  - label: rtol at line 122
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(err, tol=_TOL, kind='code', reference_name=_REF, what='S-1 EA(r) CLT mid-span mean |rel err| (wind
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py:122
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 0da03be
+      date: '2026-11-03'
+      raw: null
+      margin_pct: 7.1148
+      text: 'S-1 EA(r) CLT mid-span mean |rel err| (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, 6x6 section matrices; EI at the elastic centre, principal axes): 7.1148% (bound: 5.0000%)'
+      digest: 2b557cf5b0639ffe
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

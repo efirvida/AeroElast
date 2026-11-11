@@ -1,0 +1,17 @@
+  - id: "61"
+    title: >-
+      `tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py`
+      (windIO v2 mesher: the IEA 15 MW blade's natural frequencies against the definition report; counterpart of group 32)
+    slug: v2_blade_v02_natural_frequencies
+    citation: gaertner2020
+    source_files:
+      - tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py
+    provenance_note: >-
+      The windIO v2 counterpart of group 32: the same blade alone, clamped at the root, no rotation and no
+      aerodynamics, through the Rust assembler and the SLEPc modal solver, but over the mesh of
+      `tests/support/v2_blade.py::build_v2_blade(0.25, skin_reference="mid")` (windio2_mesh) instead of
+      BladeMesh. Same references, metric and bounds as the v1 test code: the 1st flapwise and the 1st edgewise
+      against Table 5-2 of NREL/TP-5000-75698, each within 5% (the edgewise L3 ceiling; ADJ-1034 withdraws the
+      former 10%, adjudications/32-blade_v02_natural_frequencies.yaml). The 2nd flapwise is not a row: it carries
+      the same shell-versus-beam validity-limit xfail as v1 (closest mode to 1.659 Hz). Measured by a SLURM run,
+      not by CI.
