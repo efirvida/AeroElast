@@ -22,6 +22,7 @@ Replace the uniform element size of the gmsh skin mesher by a size proportional 
 - T5 | S4 | parent+SLURM | done (L25): modal/LC1/LC3/LC4/S-7 converged from N15-N20; LC2 tip flap and G-C twist NOT converged | Convergence in N (10, 15, 20, 30, 40) on the S4 metrics.
 - T5b | S4 | worker | in progress | Diagnose the G-C tip twist scatter in N (L25): per-station rotation, which rings jump, extraction vs structure.
 - T5c | S4, S5 | worker | partial (L40): N10-N20 M1/M2/M3 measured; N30/N40 for A and B queued (11725962/63), C not run there | Compare the three TE-gap representations (L38-L39) numerically: A literal gelcoat, B neighbour stack, C gelcoat + YAML adhesive.
+- T5d | S4 | worker | in progress | Rated-load shell vs beam twist disagreement independent of the TE option (L40): r60 equal size opposite sign, r90 shell 0.44x beam. Units/signs/frames first.
 - T6 | S4 | parent+SLURM | pending | AR 1 vs 2 at the converged N.
 - T7 | S1 | parent+SLURM | pending | Re-run gates S-2, S-4, S-7, G-C and the BEM projector tests on the converged mesh.
 - T8 | - | parent | pending | Close: report, user decision on the converged N (replaces rule 9).
@@ -165,3 +166,4 @@ Gate failure (IEA-15 N20, all three fractions): one skin quad at z 116.76 (last 
   - Note: the `te_adhesive` edit of tools/diagnose_gc_twist_chord.py was swept into the parent's commit 606c3de (git commit of the whole tree); the files of this task otherwise first appear in the L40 commit.
 - L42 (parent): t5b-N30 11725962 TIMEOUT at 20 min on dev after finishing run A (12 min; logs/chord_scaled/t5b/N30.json: tip 4.08, r106.6 5.28 deg); run B resubmitted alone on dev (job1.sbatch, one run per job); C N30 next, after it.
 - L43 T5c N30 (parent; N30.json A, N30-tefill.json B, job 11726114 9.7 min). Twist tip / r60 / r90 / r106.6 deg, N20 -> N30: A 5.07 -> 4.08, -0.213 -> -0.228, 0.548 -> 0.528, 5.63 -> 5.28; B 3.22 -> 2.49, -0.213 -> -0.228, 0.548 -> 0.528, 3.36 -> 3.41 (B r106.6 +1.4 %). B converges at r106.6 within ~1.5 % from N15 (3.40/3.36/3.41) but the tip ring value drops 23 % at N30 in both options: the last ring carries its own extraction problem (tip ring chaining, L24 item 4), so the tip ring is not a usable convergence metric; r60/r90 move 0.01-0.02 deg (relative % large only because the values are small). C N30 on dev (11726233), N40 A+B running on bigmem (11725963, started 10:55).
+- L44 (2026-11-11, user, verbatim, reply to "¿Arranco con lo del signo en r 60 m acá, o cerramos?"): "arranca". T5d opened.
