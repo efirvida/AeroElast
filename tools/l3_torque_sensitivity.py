@@ -67,11 +67,11 @@ BEM_CONFIG = {
 }
 
 
-def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False):
+def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False, chord_divisions: float | None = None):
     """Mesh, participant and the rated displacement field (n_nodes, 3).
 
     ``mesher="gmsh"`` builds the blade with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO v2 YAML of the
-    IEA-15, mid-surface) instead of the NuMAD ``Blade`` model; ``mesher="windio2"`` builds the same windIO v2 blade with the windio2 mesher; the load, the clamp, the BEM participant and the solve are the same code.
+    IEA-15, mid-surface) instead of the NuMAD ``Blade`` model (``chord_divisions`` N sizes that mesh by the local chord, c/N, instead of ``element_size``; gmsh only); ``mesher="windio2"`` builds the same windIO v2 blade with the windio2 mesher; the load, the clamp, the BEM participant and the solve are the same code.
     """
     from _aeroelast import PyMeshAssembler  # type: ignore[import-not-found]
     from scipy.sparse import coo_matrix
@@ -98,7 +98,7 @@ def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = Fa
     elif mesher == "gmsh":
         from tests.support.v2_blade import build_v2_blade
 
-        mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="gmsh", es_range=(0.05, 0.25))
+        mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="gmsh", es_range=(0.05, 0.25), chord_divisions=chord_divisions)
     elif mesher == "windio2":
         # the NuMAD-derived windio2 mesher on the same windIO v2 YAML as "gmsh": isolates the mesher from the blade definition
         from tests.support.v2_blade import build_v2_blade
@@ -273,6 +273,8 @@ def main() -> int:
     parser.add_argument("--element-size", type=float, default=0.25)
     parser.add_argument("--mesher", choices=("numad", "numad-mid", "gmsh"), default="numad",
                         help="blade mesh source: numad = the Blade model (BladeMesh default skin_reference=oml, unchanged default), numad-mid = BladeMesh on the mid-surface, gmsh")
+    parser.add_argument("--chord-divisions", type=float, default=None,
+                        help="gmsh only: elements per chord N (chord-scaled mesh) instead of --element-size")
     parser.add_argument("--twist-ratio", type=float, required=True, help="S-7 twist, ours / beam")
     parser.add_argument("--flap-error", type=float, required=True, help="S-2 flap tip, ours/ref - 1")
     parser.add_argument("--edge-error", type=float, required=True, help="edgewise, ours/ref - 1")
@@ -284,7 +286,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
-    participant, disp = solve_rated(args.element_size, args.mesher)
+    participant, disp = solve_rated(args.element_size, args.mesher, chord_divisions=args.chord_divisions)
     if args.save_displacements:
         np.save(args.save_displacements, disp)
     if args.slab_twist:
