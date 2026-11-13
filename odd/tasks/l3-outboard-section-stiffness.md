@@ -20,7 +20,7 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
 
 ## Tasks
 - T1 | S2, S3 D1-D2 | explore | done (L3, L4; 47fb767) | Deck provenance: which tool produced the IEA-15 BeamDyn 6x6 (SONATA/ANBA4, PreComp, BECAS...), from which yaml version, which reference surface (OML with thickness inward?) and which material set. Decides whether K66/K44 is an arbiter for our input at all.
-- T2 | S2, D1 | parent | pending | Decompose the D1 gap per station z 60-105 with closed-form variants on the same cut: Bredt mid vs OML vs thickness-inward geometry (enclosed area A^2), + wall own St-Venant term (G t^3 / 3 per wall, open-section part), + core shear contribution; per-ply A66 vs the deck material G12. Each step either closes part of the gap or not; seconds per run.
+- T2 | S2, D1 | parent | done (L5) | Decompose the D1 gap per station z 60-105 with closed-form variants on the same cut: Bredt mid vs OML vs thickness-inward geometry (enclosed area A^2), + wall own St-Venant term (G t^3 / 3 per wall, open-section part), + core shear contribution; per-ply A66 vs the deck material G12. Each step either closes part of the gap or not; seconds per run.
 - T3 | S2, D1-D2 | parent+SLURM | pending | Same-input 2D section arbiter: run our yaml section at z 80, 90, 95, 105 (and 60 as control) through a cross-section solver with full warping (ANBA4/SONATA, BECAS or VABS, whichever is installable). If it reproduces K66/K44 -> the deck is our input and the gap is our shell/thin-wall model (a/c); if it reproduces our Bredt -> the deck differs in input (a, provenance).
 - T4 | S2, D1-D2 | parent+SLURM | pending | Physical arbiter for thick-wall effects: CalculiX solid (C3D20R, layered) segment z 90-96 m under pure torque and edgewise bending, ends far from the measured middle third; GJ and EI_edge from the middle third. Solid ~ deck -> shell kinematics (mid-surface, thin wall) is the deficit (a/c); solid ~ shell -> the deck is stiffer than this geometry allows (a, provenance).
 - T5 | S2, D3 | parent | pending | Tip-region compliance: FE local GJ vs Bredt at z 95-110 for gmsh N15/N20/N30, in-plane section distortion rms per station, decay length from the tip ring; decides (b) load introduction/distortion vs (c) mesh/extraction.
@@ -44,3 +44,26 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
   - yaml at deef925 vs ours: identical (exact string match) for skins, spar caps, LE/TE reinforcement (incl. 0.0029763 at r/R 0.061), fillers, web skins, web arcs and offsets, airfoil labels/positions. Only differences: chord grid refined at r/R 0.985/0.99/0.995 (d27a768, 2021-11-30; ours 1.78/1.71/1.47 m vs linear to 0.5 m, i.e. +21 % / +49 % at 0.985 / 0.99) and ref-axis x end 1e-15.
   - Caveat for D2/D3 only: the deck predates the tip chord refinement at r/R > 0.98 (z > ~114.7 m). D2 sits at z 114.845 (r/R ~0.982), at the edge of that zone; the integrated root-to-station compliance is unaffected, but any tip-local comparison beyond z ~114.7 is not same-input.
   - Not checked at deef925: web layer lists beyond thickness, `elastic_properties_mb`, materials (compared against 692ef91 in L3).
+- L5 (2026-11-13, parent, T2 RESULT). Tool `tools/l3_bredt_yaml.py` unchanged (yaml only, no mesh, seconds), at the exact deck stations so no deck interpolation enters; logs `logs/chord_scaled/t2/bredt_yaml_deckst.{log,json}` (and `bredt_yaml.{log,json}` at z 60-105). Ratio vs GJ_sc (K66 condensed over the two shear strains):
+
+  | eta | z m | inward mid-wall (var 3) | OML (var 2) | open term / GJ_sc | TE-cell flex share |
+  |---|---|---|---|---|---|
+  | 0.40 | 46.8 | -3.0 % | +9.3 % | 1.2 % | 0.51 |
+  | 0.50 | 58.5 | -4.7 % | +9.2 % | 1.5 % | 0.51 |
+  | 0.60 | 70.2 | -6.9 % | +8.1 % | 1.9 % | 0.52 |
+  | 0.70 | 81.9 | -12.0 % | +2.0 % | 2.0 % | 0.58 |
+  | 0.75 | 87.8 | -12.5 % | -0.2 % | 1.3 % | 0.59 |
+  | 0.78 | 91.3 | -15.9 % | -5.8 % | 0.8 % | 0.62 |
+  | 0.80 | 93.6 | -19.4 % | -11.0 % | 0.6 % | 0.68 |
+  | 0.81 | 94.8 | -20.9 % | -13.4 % | 0.5 % | 0.69 |
+  | 0.85 | 99.5 | -16.1 % | -10.3 % | 0.2 % | 0.69 |
+  | 0.90 | 105.3 | -11.3 % | -6.8 % | 0.1 % | 0.67 |
+  | 0.95 | 111.2 | -14.2 % | -11.3 % | 0.03 % | 0.53 |
+
+  - Cross-check: yaml inward mid-wall -20.9 % at eta 0.81 vs mesh-cut mid-surface Bredt/K66 0.751-0.759 at z 95 (gmsh-chord-scaled-mesh.md L81) -> the yaml Bredt reproduces the mesh-cut Bredt; variant 1 (mesh mid-surface) is taken from L81, not re-run.
+  - Variant 4 (open-section G t^3 l/3): 0.03-2 % of GJ, falling outboard -> excluded as the cause.
+  - Variant 5 (core): foam/filler layers are already inside the wall Gt (`YamlBlade.active_layers` sums every skin layer, `tools/audit_blade_input.py:222`); foam G 4.89e7 Pa -> no separate core term to add.
+  - Variant 6 (per-ply A66 vs G12): all 18 `fiber_orientation` entries of the yaml are 0 and the materials are homogenised (biax/triax carry their own G12), so A66 = sum G12 t identically; deck-era materials equal ours (L3) -> excluded.
+  - Finding (partly falsifies L2): inboard of eta 0.70 the deck lies between inward mid-wall and OML Bredt, as a real-thickness section should (L2 reading (a) holds there). From eta 0.78 outward the deck exceeds even the OML Bredt, which is the thin-wall area upper bound, by 6-13 %. Area/reference surface alone cannot close the outboard gap.
+  - The excess opens where the TE reinforcement ends (thickness taper to 0 at r/R 0.796, width 0 at 0.816): between eta 0.75 and 0.80 our OML GJ falls 36 % (5.04e7 -> 3.23e7), the deck 27 % (5.25e7 -> 3.81e7), while the TE-cell exterior share of the wall flexibility rises 0.59 -> 0.68. To match the deck at eta 0.81 with OML area, the TE-cell exterior flexibility must drop ~16 % (0.11/0.69), i.e. its Gt must be ~+19 % higher than the yaml layup gives.
+  - Open candidates for T3 (none tested yet): (i) SONATA's TE treatment after the reinforcement ends (inward-grown layers from both surfaces overlap in the thin TE wedge; how SONATA trims or fills it, and whether a TE adhesive/filler region adds closed-wall stiffness); (ii) thick-wall effects in the thin outboard airfoils that ANBA4 resolves and Bredt does not; (iii) a TE-cell layup interpretation difference (layer bounds via `fixed: TE` + width). T3 (our yaml through SONATA/ANBA4, cut at eta 0.75, 0.80, 0.85) is now the decider; check (i) first by inspecting SONATA's TE topology at eta 0.80.
