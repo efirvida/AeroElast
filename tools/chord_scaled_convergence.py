@@ -1,7 +1,7 @@
 """T5 (odd/tasks/gmsh-chord-scaled-mesh.md, S4): one metric group of the chord-scaled gmsh mesh convergence on the IEA-15.
 
 Mesh: tests.support.v2_blade.build_v2_blade, gmsh mesher, windIO v2 YAML, mid-surface. ``--case N<k>`` = chord_divisions k,
-span_aspect 1.0, min_band_elements 2, min_band_fraction 1.0; ``--case es0.25`` = the uniform element size 0.25 reference.
+span_aspect 1.0 (``N<k>A<ar>``: span_aspect ar), min_band_elements 2, min_band_fraction 1.0; ``--case es0.25`` = the uniform element size 0.25 reference.
 Groups (each writes ``<out-dir>/<group>.json``; nothing is asserted, the numbers are the deliverable):
   mesh    build the mesh into the disk cache, report its size
   modal   S-4 rotating modal at 7.56 rpm: 1st/2nd flap, 1st edge, 1st torsion (reused tools/run_s4_rotating_modal.py)
@@ -35,10 +35,11 @@ BD_LC3_UX = 31.903817
 def parse_case(case: str) -> dict:
     if case.startswith("es"):
         return {"element_size": float(case[2:])}
-    if case.startswith("N"):
-        return {"element_size": 0.25, "chord_divisions": float(case[1:]), "span_aspect": 1.0, "min_band_elements": 2,
-                "min_band_fraction": 1.0}
-    raise SystemExit(f"--case must be N<k> or es<h>, got {case!r}")
+    if case.startswith("N"):  # N<k> or N<k>A<ar> (T6: span_aspect ar, default 1.0)
+        n, _, ar = case[1:].partition("A")
+        return {"element_size": 0.25, "chord_divisions": float(n), "span_aspect": float(ar) if ar else 1.0,
+                "min_band_elements": 2, "min_band_fraction": 1.0}
+    raise SystemExit(f"--case must be N<k>, N<k>A<ar> or es<h>, got {case!r}")
 
 
 def build(case: str):
