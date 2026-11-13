@@ -65,7 +65,7 @@ def run_torsion_case_v2(mesh, properties, torque: float) -> np.ndarray:
     solver.add_dirichlet_conditions([DirichletCondition(root_dofs, 0.0)])
 
     tip = np.asarray(
-        sorted(idx_of[nid] for nid in mesh.get_node_set("TipNodes").nodes.keys()), dtype=np.intp
+        sorted(idx_of[nid] for nid in mesh.get_node_set("TipNodes").nodes), dtype=np.intp
     )
     tip_nodes, f_tip = section_torque_wall_forces(
         mesh, tip, (0.0, 0.0, 1.0), properties, torque, coords=mesh.coords_array

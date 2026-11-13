@@ -102,7 +102,7 @@ def test_full_cached_mesh_has_what_v1_consumers_read(monkeypatch):
     tip = np.nonzero(z >= z.max() - 0.2)[0]
     assert len(tip) > 20  # S-2/S-7 tip ring found from coords_array
     assert set(props) == {n for n in mesh.element_sets_names if n.startswith("SEC")}
-    for name, lam in props.items():
+    for _name, lam in props.items():
         assert isinstance(lam, dict) or hasattr(lam, "total_thickness")
     # blade length and mass of the right order (official blade: 117 m span, ~67 t BeamDyn)
     assert 116.0 < z.max() - z.min() < 118.0

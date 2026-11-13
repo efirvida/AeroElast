@@ -4,7 +4,7 @@ Mesh in (native eta, source nd_arc), then evaluate every node on the actual
 completed loft. Internal triangles are split into three four-distinct-node
 quads; triangles/degenerate quads are never returned to the shell adapter.
 """
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from types import SimpleNamespace
 
@@ -275,17 +275,23 @@ def _generate_chart(topology, element_size, eta_bounds, surface, layout=None, mi
         # fraction of the local spacing, otherwise one transition triangle.
         while i < len(lower)-1 or j < len(upper)-1:
             if i == len(lower)-1:
-                append([lower[i], upper[j], upper[j+1]]); j += 1
+                append([lower[i], upper[j], upper[j+1]])
+                j += 1
             elif j == len(upper)-1:
-                append([lower[i], upper[j], lower[i+1]]); i += 1
+                append([lower[i], upper[j], lower[i+1]])
+                i += 1
             else:
                 step = min(tl[i+1]-tl[i], tu[j+1]-tu[j])
                 if abs(tl[i+1]-tu[j+1]) <= .3*step:
-                    append([lower[i], upper[j], upper[j+1], lower[i+1]]); i += 1; j += 1
+                    append([lower[i], upper[j], upper[j+1], lower[i+1]])
+                    i += 1
+                    j += 1
                 elif tl[i+1] < tu[j+1]:
-                    append([lower[i], upper[j], lower[i+1]]); i += 1
+                    append([lower[i], upper[j], lower[i+1]])
+                    i += 1
                 else:
-                    append([lower[i], upper[j], upper[j+1]]); j += 1
+                    append([lower[i], upper[j], upper[j+1]])
+                    j += 1
 
     # Evaluate on the true loft, not on linear chords between mesh vertices.
     parameters = extended_array(uv)

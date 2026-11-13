@@ -8,7 +8,6 @@ import pytest
 import yaml
 
 from aeroelast.models.blade.numad.objects.blade import Blade
-from tests.software.mesh.test_windio2_topology import official  # noqa: F401
 from tests.software.mesh.test_windio2_laminate import expected
 
 
@@ -212,7 +211,7 @@ def test_hanging_cuts_keep_narrow_span_quads_aligned(tmp_path, official):  # noq
     uv = mesh.element_parameters
     narrow = (uv[:, :, 0].min(axis=1) >= lo) & (uv[:, :, 0].max(axis=1) <= hi)
     assert narrow.any()
-    for chart, indices in zip(uv[narrow], mesh.elements[narrow], strict=True):
+    for chart, _indices in zip(uv[narrow], mesh.elements[narrow], strict=True):
         # No diagonal fan across different contour locations: both span levels
         # carry the same cuts, including the original hanging source cut.
         assert len(np.unique(chart[:, 0])) == 2

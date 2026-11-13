@@ -19,7 +19,7 @@ SHA256 = "af51499e4d4b35293f9c6bca7701a9af6df0b3884c532891b1cc133efd420978"
 def source_reference_length(axis):
     """Independent schema reference_axis integral using only source data."""
     curves = [PchipInterpolator(axis[c]["grid"], axis[c]["values"]) for c in "xyz"]
-    knots = sorted(set(v for c in "xyz" for v in axis[c]["grid"]))
+    knots = sorted({v for c in "xyz" for v in axis[c]["grid"]})
     def speed(eta):
         return np.sqrt(sum(curve.derivative()(eta)**2 for curve in curves))
     return sum(quad(speed, a, b)[0] for a, b in zip(knots[:-1], knots[1:], strict=True))

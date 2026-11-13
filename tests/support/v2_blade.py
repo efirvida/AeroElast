@@ -306,7 +306,7 @@ def _numad_data(tables: dict, layup_names: list) -> dict:
         if m["G"] is not None:
             elastic["G"] = m["G"]
         materials.append({"name": name, "density": m["rho"], "elastic": elastic})
-    sections = [{"elementSet": name, "layup": layup} for name, layup in zip(layup_names, tables["layups"])]
+    sections = [{"elementSet": name, "layup": layup} for name, layup in zip(layup_names, tables["layups"], strict=False)]
     return {"materials": materials, "sections": sections}
 
 

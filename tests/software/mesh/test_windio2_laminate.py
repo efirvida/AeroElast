@@ -6,7 +6,6 @@ import pytest
 import yaml
 
 from aeroelast.models.blade.numad.objects.blade import Blade
-from tests.software.mesh.test_windio2_topology import official  # noqa: F401
 from tests.software.mesh.test_windio2_official import ROOT
 
 

@@ -10,7 +10,7 @@ so material-cell ownership cannot change.
 
 from __future__ import annotations
 
-from typing import Callable, Mapping
+from typing import Callable
 
 import numpy as np
 
@@ -192,7 +192,7 @@ def smooth_chart(parameters, elements, jacobians_or_evaluator, fixed, slide_line
 
     par = par0.copy()
     done = 0
-    for it in range(iterations):
+    for _it in range(iterations):
         cur_ang, cur_ar, _ = evaluate(par)
         if not ((cur_ang < lim) | (cur_ar > max_aspect)).any():
             break

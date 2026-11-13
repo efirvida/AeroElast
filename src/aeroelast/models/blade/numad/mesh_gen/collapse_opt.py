@@ -70,12 +70,15 @@ def mesh_stats(nodes, elements):
     x = np.asarray(nodes, float)
     el = _pad(elements)
     tri = (el < 0).any(axis=1)
-    ar = np.empty(len(el)); amin = np.empty(len(el)); amax = np.empty(len(el))
+    ar = np.empty(len(el))
+    amin = np.empty(len(el))
+    amax = np.empty(len(el))
     for sel, k in ((tri, 3), (~tri, 4)):
         if sel.any():
             ang, ln = _angles_lengths(x[el[sel][:, :k]])
             ar[sel] = ln.max(-1) / np.maximum(ln.min(-1), 1e-300)
-            amin[sel] = ang.min(-1); amax[sel] = ang.max(-1)
+            amin[sel] = ang.min(-1)
+            amax[sel] = ang.max(-1)
     out = {"elements": int(len(el)), "triangles": int(tri.sum()), "ar_gt5": int((ar > 5).sum()),
            "ar_gt10": int((ar > 10).sum()), "max_ar": float(ar.max()) if len(el) else 0.0,
            "quad_ar_gt5": int(((ar > 5) & ~tri).sum()), "quad_max_angle_gt120": int(((amax > 120) & ~tri).sum()),

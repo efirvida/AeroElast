@@ -12,7 +12,6 @@ import pytest
 
 from aeroelast.core.mesh.entities import Node
 from aeroelast.models.blade.numad.mesh_gen.windio2_basis import shell_bases
-from tests.software.mesh.test_windio2_topology import official  # noqa: F401
 
 
 def test_le_landmark_brackets_interior_minimum_not_te_extrema():

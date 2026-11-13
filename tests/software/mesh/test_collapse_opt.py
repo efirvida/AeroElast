@@ -119,7 +119,8 @@ def test_slide_budget_shift_cap_and_quad_floor_are_respected():
     # a high floor keeps quads from degrading below min(floor, their own quality before)
     new3, _ = optimize_collapsed(cn, ce, max_slide=0.2, quad_floor=0.95)
     quad = (ce >= 0).all(axis=1)
-    qb = element_quality(cn[ce[quad]]); qa = element_quality(new3[ce[quad]])
+    qb = element_quality(cn[ce[quad]])
+    qa = element_quality(new3[ce[quad]])
     assert (qa >= np.minimum(0.95, qb) - 1e-9).all()
 
 

@@ -74,7 +74,7 @@ def _build_assembly(element_size=ELEMENT_SIZE):
 def _family_frequency(freqs, modes, free, mesh, direction, order):
     """Return the n-th lowest mode frequency whose beam-projected motion is `direction`."""
     labels = classify_modes(mesh, modes, free)
-    candidates = sorted(f for f, lab in zip(freqs, labels) if lab == direction)
+    candidates = sorted(f for f, lab in zip(freqs, labels, strict=False) if lab == direction)
     if len(candidates) < order:
         raise AssertionError(f"only {len(candidates)} {direction} mode(s) found; need {order}")
     return float(candidates[order - 1])

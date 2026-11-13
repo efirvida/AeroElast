@@ -10,7 +10,6 @@ import yaml
 from aeroelast.models.blade.numad.objects.blade import Blade
 from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
 from tests.software.mesh.test_windio2_laminate import expected
-from tests.software.mesh.test_windio2_topology import official  # noqa: F401
 
 
 def generate(*args, **kwargs):
