@@ -16,6 +16,25 @@ studies already done (below), where it is the coarse point of the sequence.
 - Never re-band an anchor to absorb a mesh change: re-measure it on the finer mesh and report
   the move (AGENTS.md, "Physics discipline").
 
+### Chord-scaled gmsh mesh: the reference mesh (decision 2026-11-13)
+
+The gmsh skin mesher sized by the local chord, `chord_divisions` N = 20 with `span_aspect` 1
+(chordwise c/N, spanwise c/N), is the reference mesh of the blade. Evidence and history:
+`odd/tasks/gmsh-chord-scaled-mesh.md` (T5-T7b, L25, L70, L73, L75-L81).
+
+- Converged from N15 to N30 on the structural metrics (modal, S-2 stations, S-7, G-C flap and
+  inboard twist); N20 is the working point.
+- N > 30 is out of range for the ring-based BEM quantities (wall-flow realisation, G-C twist):
+  the z-gap ring rule percolates at N40 and the mesher has no closed topological rings (L61, L67).
+- AR 2 (`span_aspect` 2) is rejected by the mesher quality gate (L72).
+- Gates on N20 AR 1 (rev c177694): S-4 pass (rotating 1E -1.55 %, was -5.6 % rejected at
+  es 0.25), S-2 pass, S-7 +5.90 % RED. S-7 is not a mesh defect: the uniform windio2 es 0.25
+  mesh gives +7.03 %, and both follow a 15-25 % outboard St-Venant GJ deficit of the section
+  model vs the BeamDyn deck (L79, L81).
+- The uniform `element_size` 0.15-0.25 m rule above still holds for meshes sized by element
+  size (windio2, v1 and uniform gmsh); a chord-scaled mesh below N15 needs the same written
+  convergence statement as a coarse uniform mesh.
+
 ## Evidence (all already in the repository; nothing here is new measurement except 5)
 
 1. **Static flap tip, coupled convergence study** (`docs/origin_main_integration_2026-09-30.md`,
