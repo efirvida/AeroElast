@@ -359,3 +359,14 @@ def test_te_coating_fill_leaves_an_all_coating_ring_and_a_laminate_only_mesh_alo
     lam = [_cell((0.0, 0.5), GELCOAT, _triax("A")), _cell((0.5, 1.0), GELCOAT, _triax("B"))]
     cells, n = gs.fill_te_coating_cells(elements, lam, corner_nd)
     assert n == 0 and cells == lam
+
+
+def test_te_coating_fill_finds_a_band_touching_only_one_seam_side():
+    elements, corner_nd = _strip([0.50, 0.99, 0.9987, 1.0])  # band reaches nd 1 only
+    a = _cell((0.5, 0.99), GELCOAT, _triax("A"))
+    cells, n = gs.fill_te_coating_cells(elements, [a, _cell((0.99, 0.9987), GELCOAT), _cell((0.9987, 1.0), GELCOAT)], corner_nd)
+    assert n == 2 and cells[1] is a and cells[2] is a
+    elements, corner_nd = _strip([0.0, 0.0013, 0.01, 0.5])  # band starts at nd 0 only
+    b = _cell((0.01, 0.5), GELCOAT, _triax("B"))
+    cells, n = gs.fill_te_coating_cells(elements, [_cell((0.0, 0.0013), GELCOAT), _cell((0.0013, 0.01), GELCOAT), b], corner_nd)
+    assert n == 2 and cells[0] is b and cells[1] is b
