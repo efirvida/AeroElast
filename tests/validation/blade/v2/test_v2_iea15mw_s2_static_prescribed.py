@@ -15,7 +15,7 @@ not planar, tip ring spans ~0.1 m in z):
     (half of each element side with both corners on the ring), the ring z is the arc-weighted mean z.
   * tip chord: largest in-plane extent of the TipNodes ring.
   * the in-house EB beam comparison (printed only in v1) is not repeated; it is built from z-sliced v1 geometry.
-LC1 and LC4 are asserted at the tip node and at the station (as v1); LC2/LC3 are printed, as in v1.
+LC1 and LC4 are asserted at the tip node and at the station (as v1); LC2 at the station only (T5i); LC3 is printed.
 
 See docs/validation/_pending/64-v2_blade_static_prescribed/NOTES.md.
 """
@@ -58,7 +58,10 @@ _NOT_ASSERTED_VS_BD = {"LC2_tip_flap"}
 _BD_STATIC_LC3_UX = 34.469441  # K11.3: printed, not asserted (v1 _LC3_ASSERTED_VS_BD = False)
 _BD_STATIC_DIR = REPO_ROOT / "tests" / "IEA15MW" / "bd_static"
 _BD_SCALE_SPREAD = 1.0e-3
-_STATION_ASSERTED = ("LC1", "LC4")
+# LC2 joins at the interior station (odd/tasks/gmsh-chord-scaled-mesh.md T5i, L63-L64): the tip-introduction effect decays
+# within ~one section depth, the station sits 4.35 tip chords inboard and is load-distribution independent; measured +0.2271 %
+# vs BeamDyn node 56 (es 0.25, 2026-11-13).  The LC2 tip ring stays reported only.  LC3 stays diagnostic: +10.22 % (open).
+_STATION_ASSERTED = ("LC1", "LC2", "LC4")
 
 _TIP_CASES = {
     "LC1_gravity": {"type": "gravity", "value": GRAVITY},
