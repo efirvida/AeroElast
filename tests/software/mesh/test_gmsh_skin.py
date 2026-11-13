@@ -310,3 +310,52 @@ def test_row_blocks_keep_every_regular_node_exactly_on_a_row_between_slanted_lin
         on_rows[rb] = float(off.max())
         assert res.metrics["jacobian"].min() > 0
     assert on_rows[True] < 1e-9  # (on the blade a multi-row block tilted its grid lines by up to 0.17 m: row_blocks=False)
+
+
+def _cell(nd, *layers):
+    from aeroelast.models.blade.numad.objects.windio2_laminate import LaminateCell, LayerSample
+
+    zero = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0))
+    return LaminateCell("skin", nd, zero, tuple(LayerSample(n, n, m, t, 0.0, None) for n, m, t in layers))
+
+
+GELCOAT = ("UV_protection", {"orth": 0, "E": 3.44e9, "rho": 1235.0}, 0.001)
+
+
+def _triax(name):
+    return (name, {"orth": 1, "E": [28.2e9, 16.2e9, 15.2e9], "rho": 1940.0}, 0.003)
+
+
+def _strip(nd_edges):
+    """One chordwise strip of quads between vertical edges at chart nd ``nd_edges`` (bottom node i, top node i + m)."""
+    m = len(nd_edges)
+    elements = np.array([[i, i + 1, i + 1 + m, i + m] for i in range(m - 1)])
+    nd = np.asarray(nd_edges, float)
+    return elements, np.column_stack([nd[:-1], nd[1:], nd[1:], nd[:-1]])
+
+
+def test_te_coating_fill_gives_a_te_coating_band_the_laminate_of_its_own_side():
+    """T5b L34-L36 / T5c L40 option B: coating-only elements edge-connected to the TE seam (a corner at nd 0 or 1) take the
+    cell of an edge neighbour with a laminate, each from its own side; the band is found geometrically, not from the cell
+    bounds, which other layer breakpoints split (IEA-15: (0.99, 0.9987) / (0.9987, 1)).  A coating-only element away from the
+    TE and the laminate cells keep theirs."""
+    # e0 interior coating | e1 laminate A | e2, e3 TE coating up to the seam nd 1 | e4 TE coating from nd 0 | e5 laminate B
+    elements, corner_nd = _strip([0.40, 0.50, 0.99, 0.9987, 1.0, 0.01, 0.50])
+    corner_nd[4] = [0.0, 0.01, 0.01, 0.0]  # the element after the seam starts again at nd 0 (its left edge is the seam)
+    a, b = _cell((0.5, 0.99), GELCOAT, _triax("A")), _cell((0.01, 0.5), GELCOAT, _triax("B"))
+    interior = _cell((0.4, 0.5), GELCOAT)
+    te = [_cell((0.99, 0.9987), GELCOAT), _cell((0.9987, 1.0), GELCOAT), _cell((0.0, 0.01), GELCOAT)]
+    cells, n = gs.fill_te_coating_cells(elements, [interior, a, *te, b], corner_nd)
+    assert n == 3
+    assert cells[2] is a and cells[3] is a and cells[4] is b
+    assert cells[0] is interior and cells[1] is a and cells[5] is b
+
+
+def test_te_coating_fill_leaves_an_all_coating_ring_and_a_laminate_only_mesh_alone():
+    elements, corner_nd = _strip([0.0, 0.5, 1.0])
+    only = [_cell((0.0, 1.0), GELCOAT)] * 2
+    cells, n = gs.fill_te_coating_cells(elements, only, corner_nd)
+    assert n == 0 and all(c is only[0] for c in cells)
+    lam = [_cell((0.0, 0.5), GELCOAT, _triax("A")), _cell((0.5, 1.0), GELCOAT, _triax("B"))]
+    cells, n = gs.fill_te_coating_cells(elements, lam, corner_nd)
+    assert n == 0 and cells == lam

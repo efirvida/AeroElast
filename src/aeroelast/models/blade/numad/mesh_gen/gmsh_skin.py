@@ -33,7 +33,7 @@ from scipy.interpolate import PchipInterpolator
 from scipy.optimize import brentq
 from scipy.spatial import cKDTree
 
-__all__ = ["chord_profile", "chord_sizes", "generate_mesh_gmsh", "map_mesh_materials_gmsh", "le_landmark_line", "lookup_cells", "areal_mass", "conformity_report", "Line", "SkinSource", "Cleaned", "ChartMesh", "MeshQualityError", "RowLoft", "clean_source",
+__all__ = ["chord_profile", "chord_sizes", "generate_mesh_gmsh", "map_mesh_materials_gmsh", "le_landmark_line", "lookup_cells", "fill_te_coating_cells", "areal_mass", "conformity_report", "Line", "SkinSource", "Cleaned", "ChartMesh", "MeshQualityError", "RowLoft", "clean_source",
            "build_linework", "mesh_chart", "mesh_chart_structured", "add_le_lines", "map_to_3d", "element_metrics", "quality_gate", "generate_skin_mesh",
            "source_from_topology", "ring_size", "unique_edges", "mesh_web_chart"]
 
@@ -1790,6 +1790,73 @@ def areal_mass(topology, eta, nd, length=None, dy=0.0):
 
 
 # --------------------------------------------------------------------------------------------------- skin + webs
+def _isotropic(material):
+    """True for an isotropic source material (``orth: 0``, or one E value / identical E components)."""
+    if "orth" in material:
+        return not material["orth"]
+    e = np.atleast_1d(np.asarray(material.get("E", 0.0), float))
+    return bool(np.all(e == e[0]))
+
+
+def fill_te_coating_cells(elements, cells, corner_nd):
+    """Give every skin element of a TE coating band the cell of an edge neighbour that carries a laminate.
+
+    An element is coating only when every layer of its source cell with thickness is isotropic; a TE coating band is a set of
+    edge-connected coating-only elements of which at least one has a corner on the TE seam (``corner_nd`` 0 or 1).  windIO
+    blades end the structural skin short of the TE (IEA-15 ``Shell_skin`` 0.01-0.99) and leave the gelcoat alone over the last
+    band; a mesh row with its centroid there would otherwise be a ~1 mm isotropic shell along the whole TE, a hinge ~70x
+    softer than the TE reinforcement that doubles the outboard twist and breaks its convergence in N
+    (odd/tasks/gmsh-chord-scaled-mesh.md L33-L36, L40 option B, L47).  The source cell bounds cannot decide it: other layer
+    breakpoints split the band (IEA-15 N 15: (0.99, 0.9987) and (0.9987, 1)).  The filled element takes the neighbour's stack
+    as is, the stack a row whose centroid fell past the band edge would have.  Jacobi passes: an element first takes a
+    neighbour that was a laminate at the start of the pass, so each side keeps its own laminate and several rows of a band are
+    filled from the laminate side; neighbours share two nodes, lowest element index first.  Coating-only elements away from
+    the TE, and a band with no laminate neighbour, are left as they are.  ``elements`` (n, 4) with -1 padding, ``corner_nd``
+    (n, 4) chart nd of the corners; returns (list of cells, number filled)."""
+    cells = list(cells)
+    elements, corner_nd = np.asarray(elements), np.asarray(corner_nd, float)
+
+    def coating_only(c):
+        live = [layer for layer in c.layers if layer.thickness_m > 0]
+        return bool(live) and all(_isotropic(layer.material) for layer in live)
+
+    cand = {i for i, c in enumerate(cells) if coating_only(c)}
+    if not cand:
+        return cells, 0
+    by_edge = {}
+    for i, el in enumerate(elements):
+        v = [int(x) for x in el if x >= 0]
+        for a, b in zip(v, v[1:] + v[:1], strict=True):
+            by_edge.setdefault((min(a, b), max(a, b)), []).append(i)
+    nbr = {i: set() for i in cand}
+    for owners in by_edge.values():
+        for i in owners:
+            if i in nbr:
+                nbr[i].update(j for j in owners if j != i)
+    live = elements >= 0
+    seam = [i for i in sorted(cand) if np.any(live[i] & ((corner_nd[i] <= EPS_GAP) | (corner_nd[i] >= 1.0 - EPS_GAP)))]
+    todo, stack = set(seam), list(seam)
+    while stack:  # the TE bands: coating-only elements edge-connected to a seam element
+        for j in nbr[stack.pop()]:
+            if j in cand and j not in todo:
+                todo.add(j)
+                stack.append(j)
+    done = set()  # filled band elements: they carry a laminate now
+    while todo:
+        step = {}
+        for i in sorted(todo):
+            src = sorted(j for j in nbr[i] if j not in cand or j in done)
+            if src:
+                step[i] = cells[src[0]]
+        if not step:
+            break
+        for i, c in step.items():
+            cells[i] = c
+        todo -= set(step)
+        done |= set(step)
+    return cells, len(done)
+
+
 def _pad_corners(values, elements):
     """(ne, 4, k) corner values; a triangle repeats its first corner (the convention of the v2 mesher)."""
     idx = np.where(elements >= 0, elements, elements[:, :1])
@@ -1950,12 +2017,14 @@ def map_mesh_materials_gmsh(topology, mesh):
 def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=16, structured_options=None, le_landmark=True,
                        with_materials=False, material_dy=0.0, enforce_gate=True, h_range=(0.15, 0.25), loft=None,
                        return_info=False, max_strip_ar=5.0, chord_divisions=None, span_aspect=1.0, min_band_elements=2,
-                       min_band_fraction=1.0):
+                       min_band_fraction=1.0, te_coating_fill=True):
     """Skin + webs raw mesh with the STRUCTURED gmsh mesher; a drop-in for ``windio2_mesh.generate_mesh`` outputs.
 
     ``chord_divisions`` N (default None: the ``element_size`` path, unchanged) sizes the mesh by the local chord c(eta) instead
     (see :func:`generate_skin_mesh`): chordwise c/N, spanwise ``span_aspect`` * c/N, at least ``min_band_elements`` elements across
     every material band of width >= ``min_band_fraction`` (default 1.0) * c/N; a narrower band gets its rounded count (>= 1).
+    ``te_coating_fill`` (default True) gives a skin element whose source cell is TE coating only the laminate of its edge
+    neighbour (:func:`fill_te_coating_cells`); the count is ``info['te_coating_filled']``.
     ``min_band_fraction=None`` restores the floor on every band whatever its width.  ``element_size``, ``ring`` and ``h_range``
     are then unused.
 
@@ -2016,6 +2085,9 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     c_eta, c_nd = ((skin_par * live).sum(1) / live.sum(1)).T
     t0 = time.perf_counter()
     skin_cells = lookup_cells(topology, "skin", c_eta, c_nd, L, material_dy)
+    n_te_filled = 0
+    if te_coating_fill:  # False reproduces the raw centroid lookup (T5c option A)
+        skin_cells, n_te_filled = fill_te_coating_cells(skin_el, skin_cells, skin_par[:, :, 1])
     t_cells = time.perf_counter() - t0
     elements, params, cells, surfaces = [skin_el], [skin_par], list(skin_cells), ["skin"] * len(skin_el)
 
@@ -2086,6 +2158,6 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     if with_materials:
         mesh = map_mesh_materials_gmsh(topology, mesh)
     info = {"skin_result": res, "webs": web_info, "n_skin_elements": len(skin_el), "gate": res.gate, "seconds_skin_mesh": t_skin,
-            "seconds_cells": t_cells, "seconds_materials_map": time.perf_counter() - t0, "rows": rows,
+            "seconds_cells": t_cells, "te_coating_filled": n_te_filled, "seconds_materials_map": time.perf_counter() - t0, "rows": rows,
             "conformity": conformity_report(nodes, elements, surfaces=surfaces)}
     return (mesh, info) if return_info else mesh
