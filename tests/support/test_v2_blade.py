@@ -153,3 +153,16 @@ def test_element_size_env_override_wins_and_is_range_checked(monkeypatch):
     monkeypatch.setenv("V2_BLADE_ELEMENT_SIZE", "0.5")
     with pytest.raises(ValueError):
         v2_blade.load_raw(0.25, generate=False)
+
+
+def test_chord_divisions_env_reaches_the_gmsh_campaign(monkeypatch):
+    """T7 (odd/tasks/gmsh-chord-scaled-mesh.md): ``V2_BLADE_CHORD_DIVISIONS`` runs the gates on the N-sized gmsh mesh."""
+    monkeypatch.setenv("V2_BLADE_CHORD_DIVISIONS", "20")
+    assert vb._resolve_chord_divisions(None) == 20.0
+    assert vb._resolve_chord_divisions(15) == 15  # an explicit argument wins
+    monkeypatch.delenv("V2_BLADE_CHORD_DIVISIONS")
+    assert vb._resolve_chord_divisions(None) is None
+    monkeypatch.setenv("V2_BLADE_CHORD_DIVISIONS", "20")
+    monkeypatch.delenv("V2_BLADE_MESHER", raising=False)
+    with pytest.raises(ValueError, match="gmsh mesher option"):
+        vb.load_raw(0.25, generate=False)

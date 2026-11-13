@@ -238,6 +238,15 @@ def _resolve_element_size(element_size):
     return float(override) if override else element_size
 
 
+def _resolve_chord_divisions(chord_divisions):
+    """An explicit N wins; otherwise ``V2_BLADE_CHORD_DIVISIONS`` (e.g. ``20``, with ``V2_BLADE_MESHER=gmsh``), so the gates
+    run on the chord-scaled mesh without editing tests (odd/tasks/gmsh-chord-scaled-mesh.md T7); unset = unchanged."""
+    if chord_divisions is not None:
+        return chord_divisions
+    override = os.environ.get("V2_BLADE_CHORD_DIVISIONS")
+    return float(override) if override else None
+
+
 def _resolve_mesher(mesher):
     """An explicit mesher wins; otherwise ``V2_BLADE_MESHER`` (``gmsh``), so a campaign runs on the gmsh mesh without
     editing tests; otherwise ``windio2``.  The gmsh mesher builds the full blade only and takes no collapse ratio."""
@@ -257,6 +266,7 @@ def load_raw(element_size=0.25, collapse_ratio=None, eta_bounds=(0.0, 1.0), *, y
     mesher = _resolve_mesher(mesher)
     element_size = _resolve_element_size(element_size)
     collapse_ratio = _resolve_collapse(collapse_ratio)
+    chord_divisions = _resolve_chord_divisions(chord_divisions)
     if mesher == "gmsh":
         if collapse_ratio or tuple(eta_bounds) != (0.0, 1.0):
             raise ValueError("the gmsh mesher builds the full blade and takes no collapse ratio")
