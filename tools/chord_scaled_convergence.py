@@ -132,6 +132,8 @@ def group_gc(case, args):
     import l3_torque_sensitivity as l3
 
     spec = parse_case(case)
+    if spec.get("span_aspect", 1.0) != 1.0:  # solve_rated builds its own mesh from chord_divisions only
+        raise SystemExit(f"gc: span_aspect {spec['span_aspect']} is not passed to l3.solve_rated; only AR 1 is supported")
     out = {}
     for label, wall_flow in (("wall_flow_production", True), ("min_norm", False)):
         t0 = time.time()
