@@ -23,7 +23,7 @@ Replace the uniform element size of the gmsh skin mesher by a size proportional 
 - T5b | S4 | worker | in progress | Diagnose the G-C tip twist scatter in N (L25): per-station rotation, which rings jump, extraction vs structure.
 - T5c | S4, S5 | worker | done (L47): N10-N30 for A/B/C; N40 failed on the wall-flow guard (open); user chose B (L49) | Compare the three TE-gap representations (L38-L39) numerically: A literal gelcoat, B neighbour stack, C gelcoat + YAML adhesive.
 - T5d | S4 | worker | done (L48) | Rated-load shell vs beam twist disagreement independent of the TE option (L40): r60 equal size opposite sign, r90 shell 0.44x beam. Units/signs/frames first.
-- T5e | S4 | parent | done (L50), commit: see L50 | Option B in the gmsh mesher: `fill_te_coating_cells` in gmsh_skin.py, `te_coating_fill=True` default, RED/GREEN tests in tests/software/mesh/test_gmsh_skin.py.
+- T5e | S4 | parent | done (L50), commit: 5cccc88 | Option B in the gmsh mesher: `fill_te_coating_cells` in gmsh_skin.py, `te_coating_fill=True` default, RED/GREEN tests in tests/software/mesh/test_gmsh_skin.py.
 - T6 | S4 | parent+SLURM | pending | AR 1 vs 2 at the converged N.
 - T7 | S1 | parent+SLURM | pending | Re-run gates S-2, S-4, S-7, G-C and the BEM projector tests on the converged mesh.
 - T8 | - | parent | pending | Close: report, user decision on the converged N (replaces rule 9).
