@@ -167,6 +167,11 @@ def blade_section(eta, yaml_path=YAML):
             lay.append((l.material_name, float(l.thickness_m)))
         webs.append({"name": name, "A": np.array(pa.xyz[:2]), "B": np.array(pb.xyz[:2]), "sA": float(pa.nd_arc), "sB": float(pb.nd_arc),
                          "layers": lay, "le_dir": le - xy0})
+    import yaml
+
+    for m in yaml.safe_load(open(yaml_path))["materials"]:  # materials with no layer on the section (TE filler factor test)
+        if m["name"] == "adhesive":
+            mats.setdefault("adhesive", mprop(m))
     return Section(f"blade_eta{eta}", P, cells, webs, mats, closed=False, le_point=le, te_point=xy0)
 
 
@@ -281,7 +286,59 @@ def tip_setup(sec, h_s, f_min=0.25):
     return {"s_c": s_c, "sp_c": sp0, "stations": st, "area": float(poly.buffer(0).area)}
 
 
-def build_2d(sec, h_s, t_max, web_mode="bonded"):
+def ray_partner(sec, s):
+    """(partner s on the opposite surface, ray length) of the SS point s along its inward normal (None if the ray misses)."""
+    from shapely.geometry import LinearRing, LineString, Point
+
+    ring = LinearRing(sec.xy_dense)
+    P, u = sec.P(s), sec.normal_in(s)
+    o = P + 1e-6 * u
+    inter = ring.intersection(LineString([o, P + 6.0 * u]))
+    pts = [inter] if inter.geom_type == "Point" else [g for g in getattr(inter, "geoms", []) if g.geom_type == "Point"]
+    if not pts:
+        return None
+    q = min(pts, key=lambda g: g.distance(Point(*o)))
+    return float(np.interp(ring.project(q), sec.arc, sec.s_dense)), float(np.linalg.norm(np.array([q.x, q.y]) - P))
+
+
+def te_filler_stations(sec, tip, arc_end, dx=0.02, gap0=4e-4):
+    """Stations of the trailing-edge filler (W1 factor test): SS columns from the first s >= s_c where the gap between the two inward layer stacks
+    is >= gap0 up to arc_end metres of SS arc from the TE, paired with their normal-ray partners on the PS. Returns (s_list, sp_list)."""
+    s_c = tip["s_c"]
+    grid = np.linspace(s_c, min(1.0, s_c + 0.2), 4001)
+    first = None
+    for sg in grid:
+        r = ray_partner(sec, sg)
+        if r is not None and r[1] - sec.depth_total(sg) - sec.depth_total(r[0]) >= gap0:
+            first = float(sg)
+            break
+    assert first is not None, "no gap >= gap0 near the TE"
+    s_end = float(np.interp(arc_end, sec.arc, sec.s_dense))
+    assert s_end > first, f"te filler extent {arc_end} m ends before the gap opens (s={first:.5f})"
+    a0, a1 = sec.arc_at(first), sec.arc_at(s_end)
+    n = max(1, math.ceil((a1 - a0) / dx - 1e-9))
+    pairs = [(first, ray_partner(sec, first)[0])]
+    pairs += [(x, ray_partner(sec, x)[0]) for x in (float(np.interp(a0 + (a1 - a0) * i / n, sec.arc, sec.s_dense)) for i in range(1, n + 1))]
+    # cell boundaries of either surface inside the strip become stations too (no skin column may fall inside a filler segment)
+    for c in sec.cells:
+        for b in (c[0], c[1]):
+            if first + 1e-9 < b < s_end - 1e-9:  # SS boundary
+                pairs.append((b, ray_partner(sec, b)[0]))
+            if b > 0.5 and pairs[-1][1] + 1e-9 < b < pairs[0][1] - 1e-9:  # PS boundary inside the PS span of the strip
+                r = ray_partner(sec, b)
+                if r is not None and first + 1e-9 < r[0] < s_end - 1e-9:
+                    pairs.append((r[0], b))
+    pairs = sorted({(round(a, 12), round(b, 12)) for a, b in pairs})
+    keep = [pairs[0]]
+    for a, b in pairs[1:]:
+        if a - keep[-1][0] > 1e-7 and keep[-1][1] - b > 1e-7:
+            keep.append((a, b))
+    return [a for a, _ in keep], [b for _, b in keep]
+
+
+def build_2d(sec, h_s, t_max, web_mode="bonded", te_filler=None):
+    """te_filler: None or {"mat": name, "arc": metres of SS arc from the TE}: the gap between the two inward layer stacks near the TE is
+    filled with that material (SONATA 2026 adds such an adhesive wedge, converter_WT.py); every other element is untouched."""
     from scipy.optimize import brentq
 
     tip = tip_setup(sec, h_s)
@@ -313,6 +370,11 @@ def build_2d(sec, h_s, t_max, web_mode="bonded"):
     must = {s_lo, s_hi}
     for a, b, _ in cells:
         must.update([a, b])
+    fill = None
+    if te_filler:
+        assert tip, "te_filler needs the open-TE tip setup"
+        fill = te_filler_stations(sec, tip, te_filler["arc"])
+        must.update(fill[0] + fill[1])
     for w in sec.webs:
         tl = [t for _, t in w["layers"]]  # (LE skin, core, TE skin)
         u = (w["B"] - w["A"])
@@ -442,6 +504,19 @@ def build_2d(sec, h_s, t_max, web_mode="bonded"):
                     mat = cell[2][int(np.searchsorted(cum, 0.5 * (Dn[k] + Dn[k + 1])))][0]
                     ids = [tnode(side, j, k), tnode(side, j + 1, k), tnode(side, j + 1, k + 1), tnode(side, j, k + 1)]
                     quads.append((ids, mat, tv, "tip"))
+    # TE filler: quads between the SS inner surface and the PS inner surface (ray partners), conforming with the skin nodes
+    if fill:
+        sl, spl = fill
+        ci = [int(np.argmin(np.abs(cols - x))) for x in sl]
+        cj = [int(np.argmin(np.abs(cols - x))) for x in spl]
+        for x, c in zip(sl + spl, ci + cj, strict=False):
+            assert abs(cols[c] - x) < 1e-9, "te filler column missing"
+        for i in range(len(sl) - 1):
+            cS = sec.cell_at(0.5 * (sl[i] + sl[i + 1]))
+            cP = sec.cell_at(0.5 * (spl[i] + spl[i + 1]))
+            kS, kP = kmax_of(sum(t for _, t in cS[2])), kmax_of(sum(t for _, t in cP[2]))
+            ids = [node_id[(col_key(ci[i]), kS)], node_id[(col_key(ci[i + 1]), kS)], node_id[(col_key(cj[i + 1]), kP)], node_id[(col_key(cj[i]), kP)]]
+            quads.append((ids, te_filler["mat"], np.array([1.0, 0.0]), "te_filler"))
     # webs
     for w in sec.webs:
         cA = [int(np.argmin(np.abs(cols - sf))) for sf in w["foot"]["A"]]
@@ -478,7 +553,8 @@ def build_2d(sec, h_s, t_max, web_mode="bonded"):
             a = -a
         assert a > 1e-14, f"degenerate quad area {a} tag {tag}"
         out.append((ids, mat, tv, a, tag))
-    return {"xy": xy2, "quads": out, "node_sk": node_sk, "sec": sec, "s_lo": s_lo, "s_hi": s_hi, "tip_area": tip_area, "ncol": nc, "Dn": Dn}
+    return {"xy": xy2, "quads": out, "node_sk": node_sk, "sec": sec, "s_lo": s_lo, "s_hi": s_hi, "tip_area": tip_area, "ncol": nc, "Dn": Dn,
+            "te_filler_s": fill[0] if fill else None}
 
 
 # ------------------------------------------------------------------------------------------------ solid + input deck
@@ -559,7 +635,7 @@ def write_model(sec, m2, out_dir, n_chord, hz, nmid, planes_frac):
         for e, (a, b) in enumerate(ekeys):
             m = 0.5 * (xy[a] + xy[b])
             sa, sb = m2["node_sk"].get(a), m2["node_sk"].get(b)
-            if sa and sb and abs(sa[1] - sb[1]) < 1e-12:  # along-wall edge: midside node on the true offset curve
+            if sa and sb and abs(sa[1] - sb[1]) < 1e-12 and (sec.closed or abs(sa[0] - sb[0]) < 0.2):  # along-wall edge (open section: not a TE-filler cross edge SS<->PS)
                 s_a, s_b = sa[0], sb[0]
                 if abs(s_a - s_b) > 0.5:  # closed seam: the node is shared by s=0 and s=1
                     s_a, s_b = (s_a + 1, s_b) if s_a < s_b else (s_a, s_b + 1)
@@ -811,7 +887,7 @@ def build(args):
         sec = blade_section(args.eta)
     else:
         sec = tube_section(args.case)
-    m2 = build_2d(sec, args.h, args.tmax, args.web_mode)
+    m2 = build_2d(sec, args.h, args.tmax, args.web_mode, {"mat": "adhesive", "arc": args.te_filler} if args.te_filler else None)
     meta = write_model(sec, m2, args.out, args.nchord, args.hz, args.nmid, [0.25, 1 / 3, 0.4, 0.5, 0.6, 2 / 3, 0.75])
     if args.st2d:
         meta["GJ_st2d"] = torsion_2d(sec, m2)
@@ -847,6 +923,8 @@ def main():
     ap.add_argument("--nchord", type=float, default=4.0)
     ap.add_argument("--web-mode", dest="web_mode", default="bonded", choices=["bonded", "through"],
                     help="bonded: web ends on the inner skin surface (cap stays whole); through: web (OML chart line) replaces the skin under its footprint")
+    ap.add_argument("--te-filler", dest="te_filler", type=float, default=0.0,
+                    help="W1 factor test: fill the gap between the two skin stacks near the TE with the yaml adhesive over this SS arc length from the TE, m (SONATA 2026 ~0.08)")
     ap.add_argument("--threads", type=int, default=int(os.environ.get("SLURM_NTASKS", "4")))
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
