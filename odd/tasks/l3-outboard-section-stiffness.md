@@ -31,6 +31,11 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
 - T9 | S2, D1-D2 | worker W2 | done (L19) | Spar-cap area provenance (L17): CarbonUD (and glass_uni) area from the yaml by hand (t x arc width on the OML, inward-normal geometry) at eta 0.50/0.80 vs solid 0.161 / SONATA 0.147; locate where SONATA (2026 and 2021) loses ~9-10 % of the cap; consequence for the deck EA/flap.
 - T10 | S2, D3 | worker W7 | done (L28) | D3 closure: torque/power/thrust sensitivity of the end-region compliance, and the N-dependent residual (z 100-108 FE/Bredt rising with N): N40 or local refinement, extraction check, decide converged or bounded.
 - T11 | S2, D1 | worker W8 | done (L29) | Solid arbiter with TE filler: re-run tube proofs after the mid-side-node fix; isolate the 3D-vs-2D gap (4.4 % with filler vs 1.2 % without; candidates: one element across the filler in 2D, unbonded step at s 0.01); converge 3D vs SONATA 2026.
+- T12 | S2 | worker | pending | L30 remainder (i): reconcile the S-1 EI_edge CLT number (+5.1 %, L21) with the older -0.40 % (beamdyn-arbiter-midsurface.md T8): same station, same reference axis, same deck term; name which is right and why; no band moved.
+- T13 | S2, D3 | worker | pending | L30 remainder (ii): section distortion ~0.12 at z 90-92 (L24): is it a web start/end or ply-drop artefact, mesh-dependent (N15/N20/N30), and does it move GJ/twist there; classify (a)/(b)/(c).
+- T14 | S2, D4 | worker | pending | L30 remainder (iii): commit a test of the v2 box mask on a real v2 mesh (L20 risk), asserting the box membership at named stations through `sectional.box_node_mask`; check.sh quick plus the test.
+- T15 | S2 | parent | pending | Close L3 in odd/tasks/thesis-validation-plan.md (T1/T2 status, Log entry with the D1-D4 declarations and T12-T14 outcomes).
+- T16 | - | parent | pending | Open the L4 feature document (BEM rigid vs AeroDyn, matched corrections, tower and wake off; Zhou rigid means).
 
 ## Log
 - L1 (2026-11-13, user, verbatim): "deja todo bien documentado para atacarlo en otra sesion y respondeme esas diferencias vs beamdym so de modelo o pudieran ser fisicas? como lo determinamos?"
@@ -198,3 +203,4 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
   - D4 S-7 metric: (c) fixed (v2 box mask, L20). S-7 excess +6-9 % = real GJ deficit of D1 (declared above); estimator choice for S-7 and the production twist deferred to L5 (S8).
   - Also recorded: the deck under-represents the yaml spar cap ~9 % at eta 0.50 (SONATA layer-end rounding, L19; (a)).
   - S1/S2 answered: every open difference has its classification and its torque/power sensitivity; all are below the ~1 % L3 threshold. Remaining known items (not blocking L3): S-1 EI_edge CLT number +5.1 % vs old -0.40 % unreconciled (L21); distortion ~0.12 at z 90-92 (L24); real-mesh v2 box-mask test not committed (L20 risk). Next step per the thesis plan: L4 (BEM rigid) only with the user's go-ahead.
+- L31 (2026-11-14, user, verbatim): "cerrar los pendientes antes de L3 Luego Cerrar L3, y comienza con L4". Parent: L30 remainders (i)-(iii) -> T12-T14; L3 closure -> T15; L4 opening -> T16.
