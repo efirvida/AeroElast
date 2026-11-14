@@ -60,7 +60,7 @@ def tip_u(ei, zstar):
 
 
 ud = tip_u(ei_d, zs)
-import yaml  # structural twist of the yaml (deg): the principal axes sit at this angle to the load direction x
+import yaml  # structural twist of the yaml (deg): the principal axes sit at this angle to the load direction x  # noqa: E402
 
 _y = yaml.safe_load(open(Path(__file__).resolve().parents[1] / "tests/IEA-15-240-RWT.yaml"))[
     "components"
