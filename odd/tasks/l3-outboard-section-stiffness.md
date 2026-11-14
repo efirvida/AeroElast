@@ -29,6 +29,8 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
 
 - T8 | S2, D4 | worker W5 | done (L20) | S-7 box-node fit on v2 meshes: map v2 SEC<n> sets to box (spar cap + shear web) membership for `sectional.box_node_mask` (`src/aeroelast/postprocess/sectional.py:78-87`), test it, and compare S-7 with box mask vs equal-weight all-node fit on gmsh N20.
 - T9 | S2, D1-D2 | worker W2 | in_progress (L18) | Spar-cap area provenance (L17): CarbonUD (and glass_uni) area from the yaml by hand (t x arc width on the OML, inward-normal geometry) at eta 0.50/0.80 vs solid 0.161 / SONATA 0.147; locate where SONATA (2026 and 2021) loses ~9-10 % of the cap; consequence for the deck EA/flap.
+- T10 | S2, D3 | worker W7 | in_progress (L26) | D3 closure: torque/power/thrust sensitivity of the end-region compliance, and the N-dependent residual (z 100-108 FE/Bredt rising with N): N40 or local refinement, extraction check, decide converged or bounded.
+- T11 | S2, D1 | worker W8 | in_progress (L26) | Solid arbiter with TE filler: re-run tube proofs after the mid-side-node fix; isolate the 3D-vs-2D gap (4.4 % with filler vs 1.2 % without; candidates: one element across the filler in 2D, unbonded step at s 0.01); converge 3D vs SONATA 2026.
 
 ## Log
 - L1 (2026-11-13, user, verbatim): "deja todo bien documentado para atacarlo en otra sesion y respondeme esas diferencias vs beamdym so de modelo o pudieran ser fisicas? como lo determinamos?"
@@ -178,3 +180,4 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
   - D4 S-7 metric: (c) fixed (v2 box mask, L20). S-7 excess +6-9 % is a real GJ deficit tied to D1; estimator choice deferred to L5 (S8).
   - Also: the deck under-represents the yaml spar cap by ~9 % at eta 0.50 (SONATA layer-end rounding, L19): EA +8.9 %, EI_flap +10.5 % of deck if the yaml is taken as written; (a) representation.
   - Remaining to close L3 fully: (i) D3 N-dependent residual and its torque sensitivity; (ii) 3D-vs-2D -5 % with TE filler in the solid arbiter (and re-run tube proofs after the mid-side-node fix); (iii) whether our model should carry a TE closure (modelling decision for the user: yaml has none, deck has one).
+- L26 (2026-11-14, user, verbatim): "seguimos aqui hasta cerrarlo todo". Parent: open items of L25 (i) -> T10 (W7), (ii) -> T11 (W8) in parallel; (iii) TE-closure modelling decision asked to the user.
