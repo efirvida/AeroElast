@@ -34,8 +34,8 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
 - T12 | S2 | worker | done (L32) | L30 remainder (i): reconcile the S-1 EI_edge CLT number (+5.1 %, L21) with the older -0.40 % (beamdyn-arbiter-midsurface.md T8): same station, same reference axis, same deck term; name which is right and why; no band moved.
 - T13 | S2, D3 | worker | done (L33) | L30 remainder (ii): section distortion ~0.12 at z 90-92 (L24): is it a web start/end or ply-drop artefact, mesh-dependent (N15/N20/N30), and does it move GJ/twist there; classify (a)/(b)/(c).
 - T14 | S2, D4 | worker | done (L34) | L30 remainder (iii): commit a test of the v2 box mask on a real v2 mesh (L20 risk), asserting the box membership at named stations through `sectional.box_node_mask`; check.sh quick plus the test.
-- T15 | S2 | parent | pending | Close L3 in odd/tasks/thesis-validation-plan.md (T1/T2 status, Log entry with the D1-D4 declarations and T12-T14 outcomes).
-- T16 | - | parent | pending | Open the L4 feature document (BEM rigid vs AeroDyn, matched corrections, tower and wake off; Zhou rigid means).
+- T15 | S2 | parent | done (L35, c4f880e) | Close L3 in odd/tasks/thesis-validation-plan.md (T1/T2 status, Log entry with the D1-D4 declarations and T12-T14 outcomes).
+- T16 | - | parent | done (L35, c4f880e) | Open the L4 feature document (BEM rigid vs AeroDyn, matched corrections, tower and wake off; Zhou rigid means).
 
 ## Log
 - L1 (2026-11-13, user, verbatim): "deja todo bien documentado para atacarlo en otra sesion y respondeme esas diferencias vs beamdym so de modelo o pudieran ser fisicas? como lo determinamos?"
