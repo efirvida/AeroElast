@@ -2431,7 +2431,7 @@ verdicts:
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2441,10 +2441,11 @@ verdicts:
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 8 m/s, 7.56 rpm, pitch 0: thrust +0.449 %, torque -0.672 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2454,10 +2455,11 @@ verdicts:
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 9 m/s, 7.56 rpm, pitch 0: thrust +0.399 %, torque -0.067 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.2
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2467,10 +2469,11 @@ verdicts:
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 12 m/s, 7.56 rpm, pitch 0: thrust +0.363 %, torque +0.828 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2480,10 +2483,11 @@ verdicts:
       B4 K1-K5. 9 m/s, yaw 10 deg, azimuth-averaged: thrust +0.347 %, torque -0.367 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2493,6 +2497,7 @@ verdicts:
       B4 K1-K5. 9 m/s, shear exponent 0.2, azimuth-averaged: thrust +0.159 %, torque -0.258 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.0
     class: physics
     verdict: trusted
@@ -2523,7 +2528,7 @@ verdicts:
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.0
     class: regression_pin
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2531,10 +2536,11 @@ verdicts:
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 8 m/s: thrust +1.182 %, torque -1.382 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.1
     class: regression_pin
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2542,10 +2548,11 @@ verdicts:
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 9 m/s: thrust +1.397 %, torque +0.063 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.2
     class: regression_pin
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2553,10 +2560,11 @@ verdicts:
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 12 m/s: thrust +2.004 %, torque +2.153 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: openfast_parity.test_viterna_extension_matches_official.single
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: a6faa90
     files:
       - tools/b4_l4_measure.py
     arbiters:
@@ -2564,6 +2572,7 @@ verdicts:
     note: >-
       B4 K1/K3. Fed the official attached polar at 0.9R (FFA-W3-211), the Viterna extension reproduces the official post-stall table over 48-87 deg: worst dCl 0.23 %, dCd 0.13 % (source bound 1 %). No AeroDyn run involved. F4: the aspect ratio is fitted from the reference's own Cd(90 deg), so Cd near 90 deg agrees by construction; F5: the module docstring's 0.23/0.13 % now matches, the test docstring's 0.48/0.18 % is the older figure. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
   - target: rotor_v01_performance.rated_thrust
     class: physics
     verdict: trusted

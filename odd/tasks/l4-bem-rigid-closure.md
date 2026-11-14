@@ -12,10 +12,11 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   oficial de OpenFAST por lo que ese arbitro es valido" — the official OpenFAST model on the official deck settles alone (`reference_model`).
 
 ## Tasks
-- T1 | S2, S3 | parent | done (L2; baseline write awaits user) | Entry measurement at HEAD: `tools/validation_matrix.py contract --level L4 --rows`; list what changed in
+- T1 | S2, S3 | parent | done (L2-L3) | Entry measurement at HEAD: `tools/validation_matrix.py contract --level L4 --rows`; list what changed in
   `solvers/bem/` and force projection since f1a1a18; decide which B4 verdicts need re-measurement (group regression, not the suite).
-- T2 | S2, S3 | worker+SLURM | pending | Spanwise loads (B4 follow-up 1, F7): criterion written first, then AeroDyn dt 0.25 s on A1; decide
-  whether dt = 1 s is a valid spanwise reference; verdict for spanwise .0-.2.
+- T2 | S2, S3 | worker+SLURM | pending | Spanwise loads: B4 F7 was resolved on 2026-10-28 (32bd208, contract.yaml note: azimuth sampling,
+  reader now takes last-revolution means; trusted, e_alpha 4.30 -> 4.15 %, K5 passes). Re-measure e_alpha / mean|dCn| at HEAD for .0-.2
+  with the 10-28 recipe (rows are UNMAPPED, so regression cannot read them), restamp if within 0.1 pp, else report.
 - T3 | S2, S4 | worker | pending | V-01 (B4 follow-up 2): re-point at OpenFAST on the official deck at rated, or record it unarbitrated.
 - T4 | S2 | worker | pending | Zhou et al. 2025 rigid means (16.11 MW, 2.53 MN): matched operating point, our BEM vs Zhou vs AeroDyn.
 - T5 | S2, S3 | worker | pending | Matched-options audit: our BEM corrections (tip/hub loss, skew, induction, polars, Viterna) vs the AeroDyn
@@ -32,3 +33,9 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   (largest: yaw/shear .0 torque 0.3567 -> 0.3674 %; A1 .0 torque 0.6646 -> 0.6716 %; A3 .2 torque 2.1526 -> 2.1531 %); thrust moves
   -0.002 pp, torque +0.005..+0.011 pp; all rows stay far below 5 %. Groups 59 and 60: `regression` refuses, no residual patterns
   (B4 follow-up 3 = T6). Not written: the rule forbids `--write` over moved residuals; the moved baseline is reported for the user.
+- L3 (2026-11-14, user choice verbatim): "Aceptar el corrimiento y escribir la nueva base (Recomendado)". Parent: `regression --group 11
+  --write` (SLURM 11739002): wrote 18 measurements and the source digest; `check` 307 rows / 426 comparisons, 0 errors, 2 warnings
+  (groups 27 and 32 on no level, pre-existing). contract.yaml: 9 group-11 verdicts restamped at a6faa90 with a note (A1 .0-.2, yaw/shear
+  .0-.1, A3 polars .0-.2 regression_pin, Viterna like-for-like); verdicts unchanged. Spanwise .0-.2 NOT restamped: UNMAPPED, the
+  regression did not read their residuals -> T2. Contract L4 after: trusted 6, regression_pin 3, stale 14 (spanwise 3, V-01 10,
+  viterna_manual 1); over ceiling 0.
