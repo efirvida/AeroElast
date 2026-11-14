@@ -72,21 +72,50 @@ def _check_fit_nodes(fit_nodes: str) -> None:
         raise ValueError(f"fit_nodes must be 'all' or 'box', got {fit_nodes!r}")
 
 
+def _v2_box_element_sets(mesh: MeshModel) -> list:
+    """Element sets of the box on a windIO v2 mesh (SEC<n> laminates, no SPAR/_SW names), or [] if not a v2 mesh.
+
+    The v2 meshers (``windio2``, gmsh chord-scaled) name the sets ``SEC<n>`` (one per distinct layup), plus
+    ``allWebEls`` (every shear-web element) and ``mesh.numad_mesh_data`` (materials + per-set layups). The box is:
+
+    * the shear webs: the elements of ``allWebEls``;
+    * the spar caps: the elements of every ``SEC<n>`` laminate that carries the cap material, taken as the
+      material of highest fibre-direction modulus E1 in the mesh (CarbonUD on the IEA 15 MW blade; the TE
+      reinforcement is glass_uni and is outside, as in v1). The mesh keeps no per-region name, only the layup.
+    """
+    data = getattr(mesh, "numad_mesh_data", None)
+    if not data or "allWebEls" not in mesh.element_sets:
+        return []
+
+    def e1(m):
+        e = m["elastic"]["E"]
+        return float(np.atleast_1d(np.asarray(e, dtype=float))[0])
+
+    cap = max(data["materials"], key=e1)["name"]
+    sets = [mesh.element_sets["allWebEls"]]
+    for sec in data["sections"]:
+        if any(ply[0] == cap for ply in sec["layup"]) and sec["elementSet"] in mesh.element_sets:
+            sets.append(mesh.element_sets[sec["elementSet"]])
+    return sets
+
+
 def box_node_mask(mesh: MeshModel) -> np.ndarray:
     """Boolean mask (per node index) of the box nodes of a blade mesh: the caps and the webs.
 
-    A node is in the box when it belongs to an element set whose name contains ``SPAR`` (spar caps) or ends with
-    ``_SW`` (shear webs): the C3 rule of ``tools/l3_twist_integral.py box_region``
-    (``odd/tasks/core-torsion.md``). The skin, TE panels and TE reinforcement are outside; they distort in their
-    own plane under torsion, which an all-node rigid fit reads as rotation. A mesh without such sets gives an
-    all-False mask.
+    v1 meshes: a node is in the box when it belongs to an element set whose name contains ``SPAR`` (spar caps) or
+    ends with ``_SW`` (shear webs): the C3 rule of ``tools/l3_twist_integral.py box_region``
+    (``odd/tasks/core-torsion.md``). v2 meshes (no such names; ``SEC<n>`` sets): the same box from the layups, see
+    ``_v2_box_element_sets``. The skin, TE panels and TE reinforcement are outside; they distort in their own
+    plane under torsion, which an all-node rigid fit reads as rotation. A mesh with neither gives an all-False mask.
     """
     idx = mesh.node_id_to_index
     mask = np.zeros(mesh.node_count, dtype=bool)
-    for name, eset in mesh.element_sets.items():
-        if "SPAR" in name or name.endswith("_SW"):
-            for e in eset.elements:
-                mask[[idx[n] for n in e.node_ids]] = True
+    sets = [eset for name, eset in mesh.element_sets.items() if "SPAR" in name or name.endswith("_SW")]
+    if not sets:
+        sets = _v2_box_element_sets(mesh)
+    for eset in sets:
+        for e in eset.elements:
+            mask[[idx[n] for n in e.node_ids]] = True
     return mask
 
 
