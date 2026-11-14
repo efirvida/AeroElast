@@ -27,9 +27,9 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
 
 ## Tasks
 
-- T1 | S2 S3 | worker | in progress | step 1 (odd/tasks/l1-l2-closure.md)
-- T2 | S1-S3 | - | pending | step 2: list the L3 rows per torque path, decide close vs declare, sensitivity runs
-- T3 | S2 S3 | - | pending | step 3: BEM vs AeroDyn (rigid), matched options
+- T1 | S2 S3 | worker | done (L1 157/2, L2 79/4 CLOSED; l1-l2-closure.md L3) | step 1 (odd/tasks/l1-l2-closure.md)
+- T2 | S1-S3 | parent+workers | done (L4; odd/tasks/l3-closure.md, odd/tasks/l3-outboard-section-stiffness.md L30-L35) | step 2: list the L3 rows per torque path, decide close vs declare, sensitivity runs
+- T3 | S2 S3 | parent+workers | in progress (odd/tasks/l4-bem-rigid-closure.md) | step 3: BEM vs AeroDyn (rigid), matched options
 - T4 | S2 S3 | - | pending | step 4: one-way coupling
 - T5 | S2 S3 | - | pending | step 5: two-way coupling vs OpenFAST and Zhou, flexible-minus-rigid deltas
 
@@ -39,3 +39,10 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
 - L2 (2026-10-26, session 9) User: S2. Parent: tower and wake removed from this plan; OpenFAST comparisons run with tower influence off.
 
 - L3 (2026-10-26, session 9) User: "recuerda esto como un orden estricto que vamos a validar. y cierra la sesion". Parent: strict-order rule above; pointer added to AGENTS.md.
+- L4 (2026-11-14) User: "cerrar los pendientes antes de L3 Luego Cerrar L3, y comienza con L4". Parent: step 2 (L3) CLOSED with
+  declared limitations, each with its torque/power sensitivity (all below ~1 %): D1 outboard GJ, deck TE adhesive closure (a), torque/power
+  +0.54 %, thrust +0.90 %; D2 outboard EI_edge, same deck provenance (a), torque -0.006 %; D3 tip end-region compliance (b), torque/power
+  <= +0.27 %, thrust <= +0.37 %; z 90-92 distortion (b), torque/power <= +0.154 %; D4 S-7 metric fixed (c), real-mesh test committed;
+  EI_edge CLT mean +0.4 % (hoop-free), the old -0.40 % superseded. Yaml used as written (user decision, l3-outboard L27). The
+  production-twist estimator (S8) stays deferred to L5. Evidence: odd/tasks/l3-outboard-section-stiffness.md L30-L35. Step 3 (L4) opened:
+  odd/tasks/l4-bem-rigid-closure.md.
