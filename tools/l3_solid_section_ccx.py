@@ -447,6 +447,8 @@ def build_2d(sec, h_s, t_max, web_mode="bonded", te_filler=None):
                 node_sk[node_id[key]] = sk
         return node_id[key]
 
+    xy2_get = lambda i: xy2[i]  # noqa: E731
+
     col_key = lambda c: 0 if (sec.closed and c == nc - 1) else c  # noqa: E731
     quads = []  # (n0..n3, mat, tangent)
     ktot_col = {}
@@ -516,7 +518,16 @@ def build_2d(sec, h_s, t_max, web_mode="bonded", te_filler=None):
             cP = sec.cell_at(0.5 * (spl[i] + spl[i + 1]))
             kS, kP = kmax_of(sum(t for _, t in cS[2])), kmax_of(sum(t for _, t in cP[2]))
             ids = [node_id[(col_key(ci[i]), kS)], node_id[(col_key(ci[i + 1]), kS)], node_id[(col_key(cj[i + 1]), kP)], node_id[(col_key(cj[i]), kP)]]
-            quads.append((ids, te_filler["mat"], np.array([1.0, 0.0]), "te_filler"))
+            nth = int(te_filler.get("nthick", 1))  # W8: element rows through the filler thickness (SS inner node -> PS inner node)
+
+            def frow(j, m, ids=ids, nth=nth):  # row m of station j (j 0: left, 1: right); m = 0 SS node, nth PS node
+                a, b = (ids[0], ids[3]) if j == 0 else (ids[1], ids[2])
+                if m in (0, nth):
+                    return a if m == 0 else b
+                return node(("fill", ci[i + j], m), xy2_get(a) + (xy2_get(b) - xy2_get(a)) * m / nth)
+
+            for m in range(nth):
+                quads.append(([frow(0, m), frow(1, m), frow(1, m + 1), frow(0, m + 1)], te_filler["mat"], np.array([1.0, 0.0]), "te_filler"))
     # webs
     for w in sec.webs:
         cA = [int(np.argmin(np.abs(cols - sf))) for sf in w["foot"]["A"]]
@@ -570,6 +581,21 @@ def eng_const_line(m):
     ev = np.linalg.eigvalsh(S)
     assert ev.min() > 0, f"material compliance not positive definite: {m}"
     return (f"{E1:.8g}, {E2:.8g}, {E3:.8g}, {nu[0]:.8g}, {nu[1]:.8g}, {nu[2]:.8g}, {G[0]:.8g}, {G[1]:.8g}\n{G[2]:.8g}\n")
+
+
+def edge_mid(sec, m2, a, b):
+    """Mid-side node of the in-plane edge (a, b): straight midpoint, except along-wall edges between two skin-column nodes of the same depth
+    level, which follow the OML-offset curve (an along-wall edge of an open section never joins SS and PS: the TE-filler cross edges stay straight)."""
+    xy = m2["xy"]
+    m = 0.5 * (xy[a] + xy[b])
+    sa, sb = m2["node_sk"].get(a), m2["node_sk"].get(b)
+    if sa and sb and abs(sa[1] - sb[1]) < 1e-12 and (sec.closed or abs(sa[0] - sb[0]) < 0.2):
+        s_a, s_b = sa[0], sb[0]
+        if abs(s_a - s_b) > 0.5:  # closed seam: the node is shared by s=0 and s=1
+            s_a, s_b = (s_a + 1, s_b) if s_a < s_b else (s_a, s_b + 1)
+        sm = (0.5 * (s_a + s_b)) % 1.0
+        m = sec.P(sm) + sa[1] * sec.normal_in(sm)
+    return m
 
 
 def write_model(sec, m2, out_dir, n_chord, hz, nmid, planes_frac):
@@ -633,21 +659,14 @@ def write_model(sec, m2, out_dir, n_chord, hz, nmid, planes_frac):
             f.write(f"{corner(i, k)},{xy[i,0]:.10g},{xy[i,1]:.10g},{zs[k]:.10g}\n")
     for k in range(nz + 1):
         for e, (a, b) in enumerate(ekeys):
-            m = 0.5 * (xy[a] + xy[b])
-            sa, sb = m2["node_sk"].get(a), m2["node_sk"].get(b)
-            if sa and sb and abs(sa[1] - sb[1]) < 1e-12 and (sec.closed or abs(sa[0] - sb[0]) < 0.2):  # along-wall edge (open section: not a TE-filler cross edge SS<->PS)
-                s_a, s_b = sa[0], sb[0]
-                if abs(s_a - s_b) > 0.5:  # closed seam: the node is shared by s=0 and s=1
-                    s_a, s_b = (s_a + 1, s_b) if s_a < s_b else (s_a, s_b + 1)
-                sm = (0.5 * (s_a + s_b)) % 1.0
-                m = sec.P(sm) + sa[1] * sec.normal_in(sm)
+            m = edge_mid(sec, m2, a, b)
             f.write(f"{emid(e, k)},{m[0]:.10g},{m[1]:.10g},{zs[k]:.10g}\n")
     for k in range(nz):
         zm = 0.5 * (zs[k] + zs[k + 1])
         for i in range(N2):
             f.write(f"{vmid(i, k)},{xy[i,0]:.10g},{xy[i,1]:.10g},{zm:.10g}\n")
     f.write(f"{ref_id},{cx:.10g},{cy:.10g},{L:.10g}\n{rot_id},{cx:.10g},{cy:.10g},{L:.10g}\n")
-    f.write("*ELEMENT, TYPE=C3D20R\n")
+    f.write(f"*ELEMENT, TYPE={os.environ.get('L3_CCX_ELEM', 'C3D20R')}\n")  # W8: L3_CCX_ELEM=C3D20 -> full integration (diagnostic)
     for k in range(nz):
         for q, (ids, *_r) in enumerate(quads):
             eid = 1 + k * NQ + q
@@ -801,7 +820,7 @@ def analyze(out_dir):
 
 
 # ------------------------------------------------------------------------------------------------ 2D St-Venant cross-check
-def torsion_2d(sec, m2):
+def torsion_2d(sec, m2, phi_out=None):
     """Independent 2D St-Venant torsion (Prandtl warping function, bilinear quads, tangent/normal shear moduli G12/G13) on the SAME
     2D mesh and materials as the solid: checks the 3D path (rigid caps, extraction) against its own continuum limit. Returns GJ."""
     import scipy.sparse as sp
@@ -845,6 +864,8 @@ def torsion_2d(sec, m2):
     free = np.arange(1, n)
     phi = np.zeros(n)
     phi[free] = spl.spsolve(K[free][:, free].tocsc(), f[free])
+    if phi_out is not None:
+        phi_out.append(phi)
     return float(const - f @ phi)  # GJ = int g0.G.g0 - f.phi, minimum of the warping functional
 
 
@@ -885,9 +906,12 @@ def deck_metrics(D):
 def build(args):
     if args.case == "blade":
         sec = blade_section(args.eta)
+        if args.te_escale != 1.0:  # W8 diagnostic: scale the stiffness (E and G) of the filler material in both the 2D and the 3D model
+            sec.materials["adhesive"] = {**sec.materials["adhesive"], "E": sec.materials["adhesive"]["E"] * args.te_escale,
+                                         "G": sec.materials["adhesive"]["G"] * args.te_escale}
     else:
         sec = tube_section(args.case)
-    m2 = build_2d(sec, args.h, args.tmax, args.web_mode, {"mat": "adhesive", "arc": args.te_filler} if args.te_filler else None)
+    m2 = build_2d(sec, args.h, args.tmax, args.web_mode, {"mat": "adhesive", "arc": args.te_filler, "nthick": args.te_nthick} if args.te_filler else None)
     meta = write_model(sec, m2, args.out, args.nchord, args.hz, args.nmid, [0.25, 1 / 3, 0.4, 0.5, 0.6, 2 / 3, 0.75])
     if args.st2d:
         meta["GJ_st2d"] = torsion_2d(sec, m2)
@@ -925,6 +949,8 @@ def main():
                     help="bonded: web ends on the inner skin surface (cap stays whole); through: web (OML chart line) replaces the skin under its footprint")
     ap.add_argument("--te-filler", dest="te_filler", type=float, default=0.0,
                     help="W1 factor test: fill the gap between the two skin stacks near the TE with the yaml adhesive over this SS arc length from the TE, m (SONATA 2026 ~0.08)")
+    ap.add_argument("--te-escale", dest="te_escale", type=float, default=1.0, help="W8 diagnostic: scale E and G of the filler material")
+    ap.add_argument("--te-nthick", dest="te_nthick", type=int, default=1, help="W8: element rows through the TE filler thickness")
     ap.add_argument("--threads", type=int, default=int(os.environ.get("SLURM_NTASKS", "4")))
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
