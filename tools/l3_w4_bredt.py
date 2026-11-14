@@ -95,7 +95,7 @@ def make(raw, deck_path):
         ca = [ar for ar in area if ar > 1e-6]
         owner = {}
         for c, f in enumerate(cells):
-            for a, b, s in f:
+            for _a, _b, s in f:
                 owner.setdefault(s, []).append(c)
         nc = len(cells)
         M, rhs = np.zeros((nc, nc)), 2 * np.array(ca)
