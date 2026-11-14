@@ -123,3 +123,17 @@ Follow-up of `odd/tasks/gmsh-chord-scaled-mesh.md` (closed L82, reference mesh g
     (bonded: web ends on the inner skin; through: web replaces the skin under its footprint.)
   - Cross-reading, hypotheses only: (i) edge outboard is now short of the deck in three independent models of the same input (2026 SONATA 0.82/0.75, 2021 SONATA 0.81/0.73, solid 0.84/0.75 at eta 0.80/0.85) -> D2 points to the deck carrying more edgewise stiffness than this input (a, provenance) rather than a shell defect; not closed until the 2021 run's TE treatment (`ud` filler choice) is shown not to drive it. (ii) GJ outboard disagrees between solvers on the same input: solid 0.77-0.80, 2021 SONATA diag 0.86-0.88, 2026 SONATA GJ_sc 0.96. The solid is self-consistent (3D vs 2D St-Venant), so the gap is in the section description (orientation/shear-modulus mapping, TE/adhesive filler, web-skin junction), not the solver. (iii) the solid's EA +8 % at eta 0.50 (SONATA 2021 1.004) is an unexplained geometry/material-area difference and must be found before any solid number is evidence.
   - Next: per-material E*A and G*A breakdown of the solid section vs yaml (t x arc width) vs SONATA at eta 0.50 and 0.80 (finds iii and probably ii); then GJ_sc metrics for T3b.
+- L17 (2026-11-14, parent, T4 EA check; scripts and logs `logs/chord_scaled/t4/{solid_mats.py,mats2021.py,s2026.log,s2021.log}`, SONATA mesh 400). Per-material section area, m^2:
+
+  | eta | material | solid bonded | SONATA 2026 (v2 yaml) | SONATA 2021 (v1 ud-adhesive) | solid / 2026 |
+  |---|---|---|---|---|---|
+  | 0.50 | CarbonUD | 0.1611 | 0.1464 | 0.1473 | 1.100 |
+  | 0.50 | glass_uni | 0.0469 | 0.0418 | 0.0461 | 1.12 |
+  | 0.50 | glass_triax | 0.0323 | 0.0326 | 0.0327 | 0.99 |
+  | 0.50 | foam | 0.1825 | 0.1740 | 0.2074 | 1.05 |
+  | 0.50 | adhesive | 0 | 0.0033 | 0 | - |
+  | 0.50 | total | 0.4365 | 0.4124 | 0.4504 | 1.058 |
+  | 0.80 | CarbonUD | 0.0592 | 0.0571 | (run failed, IndexError in SONATA 2021 mesher) | 1.036 |
+  | 0.80 | total | 0.1151 | 0.1136 | - | 1.013 |
+
+  Shown: both SONATA versions put ~9 % less CarbonUD in the eta 0.50 section than the solid (0.147 vs 0.161), and both reproduce the deck EA (2021 1.004). Inferred (E_CarbonUD carries ~70 % of EA): the cap-area difference alone gives +7-8 % EA at 0.50 and +2-3 % at 0.80, i.e. the solid EA excess (1.083 / 1.021) is explained by spar-cap area, not by a solid-model defect. Open: which one reads the yaml faithfully (solid = layer thickness grown inward along the OML normal over the nd_arc width; SONATA loses ~10 % of the cap at thick-cap stations), i.e. whether the deck itself under-represents the yaml spar cap. Cap area barely moves GJ; the GJ gap at 0.80 (solid 0.77 vs SONATA 0.86-0.96) remains unexplained (web-skin junction / TE filler candidates).
