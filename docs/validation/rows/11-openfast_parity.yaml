@@ -20,7 +20,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.3468
@@ -39,7 +39,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.3674
@@ -67,7 +67,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.159
@@ -86,7 +86,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.2578
@@ -114,7 +114,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 1.1815
@@ -133,7 +133,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 1.3823
@@ -161,7 +161,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 1.3971
@@ -180,7 +180,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.0626
@@ -208,7 +208,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 2.0043
@@ -227,7 +227,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 2.1531
@@ -255,7 +255,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.2333
@@ -274,7 +274,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.1275
@@ -302,7 +302,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.4487
@@ -321,7 +321,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.6716
@@ -349,7 +349,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.3992
@@ -368,7 +368,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.067
@@ -396,7 +396,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.3629
@@ -415,7 +415,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a6faa90
+      run: d477400
       date: '2026-11-14'
       raw: null
       margin_pct: 0.8279
@@ -442,8 +442,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d477400
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 0.380126
+      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.380126 deg (bound: 2 deg)'
+      digest: ef7315f14a99e353
   - label: rtol at line 518
     asserted: true
     reference:
@@ -456,8 +461,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d477400
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 1.5806
+      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.5806% (bound: 2.5000%)'
+      digest: 1539bbc1f7fdc011
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_spanwise_loads_match_aerodyn.1
@@ -479,8 +489,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d477400
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 0.379981
+      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.379981 deg (bound: 2 deg)'
+      digest: 7b146287b6cd2f6d
   - label: rtol at line 518
     asserted: true
     reference:
@@ -493,8 +508,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d477400
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 1.5361
+      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.5361% (bound: 2.5000%)'
+      digest: 49931148e7b7bf37
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_spanwise_loads_match_aerodyn.2
@@ -516,8 +536,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d477400
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 0.924372
+      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.924372 deg (bound: 2 deg)'
+      digest: e0daebb1e1251701
   - label: rtol at line 518
     asserted: true
     reference:
@@ -530,7 +555,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d477400
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 1.708
+      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.7080% (bound: 2.5000%)'
+      digest: 52fdda3a62c1a779
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

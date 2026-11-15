@@ -14,7 +14,7 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 ## Tasks
 - T1 | S2, S3 | parent | done (L2-L3) | Entry measurement at HEAD: `tools/validation_matrix.py contract --level L4 --rows`; list what changed in
   `solvers/bem/` and force projection since f1a1a18; decide which B4 verdicts need re-measurement (group regression, not the suite).
-- T2 | S2, S3 | worker+SLURM | pending | Spanwise loads: B4 F7 was resolved on 2026-10-28 (32bd208, contract.yaml note: azimuth sampling,
+- T2 | S2, S3 | parent | done (L9) | Spanwise loads: B4 F7 was resolved on 2026-10-28 (32bd208, contract.yaml note: azimuth sampling,
   reader now takes last-revolution means; trusted, e_alpha 4.30 -> 4.15 %, K5 passes). Re-measure e_alpha / mean|dCn| at HEAD for .0-.2
   with the 10-28 recipe (rows are UNMAPPED, so regression cannot read them), restamp if within 0.1 pp, else report.
 - T3 | S2, S4 | worker | points added (L7); 2 pitched points red, cause partly located | V-01 (B4 follow-up 2): re-point at OpenFAST on the official deck at rated, or record it unarbitrated.
@@ -93,3 +93,11 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   thrust at 15.471 (tip-removed numbers +-0.5 pp: reference rebuilt from nodal loads). Residual dphi 0.01-0.03 deg unlocated. Sweep
   (BlSwpAC) not consistent, left out. Classification: (a) model-input difference — the parity setup gives AeroDyn the prebent blade
   and ours a straight one; not a defect in the BEM equations. Using prebend in production is a solver change -> user decision.
+- L9 (2026-11-14, parent, T2 RESULT + store; SLURM 11739029/11739057 never started (prolog requeues on dev and sequana_cpu,
+  cancelled); run locally in 12 s, `logs/check/l4/t2-e-alpha.log`). Spanwise at HEAD, e_alpha / mean|dCn|: dt 1 s 4.30/3.34/4.78 % and
+  1.58/1.54/1.71 % (8/9/12 m/s); dt 0.5 s 4.23/3.29/4.74 %; dt 0.25 s 4.15/3.19/4.60 % — identical to 2026-10-28, K5 dt-halving
+  <= 0.15 pp on e_alpha. `regression --group 11 --write`: 18 same, 6 new_baseline (spanwise alpha and Cn now read), 6 unclaimed (the new
+  V-01-vs-AeroDyn ids have no store row yet); wrote 24 measurements. 12 group-11 verdicts restamped. check 307/426, 0 errors.
+  CONTRACT L4: trusted 10, regression_pin 3 (A3 production polars), unarbitrated 10 (V-01 vs WISDEM, declared secondary); stale 0;
+  over ceiling 0. Open for L4 closure: (i) store rows/verdicts for the 6 V-01-vs-AeroDyn ids (4 pass, 2 documented red);
+  (ii) user decision on prebend/cant and polar interpolation in our BEM (L7-L8); (iii) V-01 unarbitrated rows declared.
