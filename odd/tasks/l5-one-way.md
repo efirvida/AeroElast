@@ -70,3 +70,17 @@ below is trusted against its independent reference or declared with cause and to
   * load identity: the binned rows reproduce the nodal total force and root moment (relative difference < 1e-9, exact by
     construction); a failure invalidates the run, not the gate;
   * any red: cause + measured torque/power/thrust sensitivity (T8), per S2.
+- L6 (2026-11-15) Parent:
+  * T8 done (ce50b2e): tools/l5_twist_torque_sensitivity.py, 7 unit tests; sense d theta_BEM = -omega_mesh
+    (fsi_participant.py:824,863); demo 0/-0.5/-1.0 deg at z 60/90/117 -> torque/power -0.22 %, thrust -2.48 %.
+  * T6 code (a8130d0): `deformed_twist`/`deformed_radius` were INERT in production (declared in BEMConfig, read nowhere;
+    coupled-divergence.md T6c): now read in `_compute_deformed_geometry`, false = reference twist/radius, defaults bit-identical;
+    the exp_feedback_off cases ran two-way until today. gmsh sizing keys (chord_divisions, span_aspect, h_range, min_band_*) are
+    now forwarded by the CLI and the runner (silently dropped before). check.sh quick OK. Case cases/l5_oneway_rated (a8130d0),
+    tilt -6 / precone -4 explicit; full run NOT launched (smoke first to size it: mesh + modal analysis > 3 min on login node).
+  * T7 (read-only): every existing fluid YAML is 0/0 by default (32 ch6_prepared_cases incl. S-5/S-6, convergence_b1_b2,
+    parked_v50 -> proposed -6/-4; Frontiers/Zhou yaw cases and their diagnostics -> 0/0 written explicitly). None edited.
+  * Load identity of the parity tool measured on the login node: ad 236 rows, total F (76 735, 827 942, 0) N exact, root M rel
+    diff 1e-15; bem (deck tilt/precone) total F (104 656, 849 884, 0) N, 3e-16.
+  * INCIDENT: every SLURM job of the user NODE_FAILs at start and is requeued (11739091 ~340 restarts since 11-14, on many nodes;
+    no job completed since 2026-11-14). 11739134/11739135 cancelled; T1/T3 run on the login node instead (MUMPS solve).
