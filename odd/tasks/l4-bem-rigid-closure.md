@@ -81,3 +81,15 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   (candidates: twist/tip interpolation, small outboard a/a' difference); (4) tip node r = Rtip carries load in ours, AeroDyn a = 1 there:
   ~0.1-0.3 pp. Open: locate (3) (per-station phi and twist, tip node removed), then the user decides whether production polars use
   exact table interpolation (moves rated pitch-0 torque by about +0.67 pp vs AeroDyn).
+- L8 (2026-11-14, worker mwh5oq87-b-de6e, L7 item (3) LOCATED; tools `tools/l4_t3_locate_{ad,cmp,var,detail,final}.py`, logs
+  `logs/l4_t3locate/` (final.log)). Twist, chord, node r, Rhub/Rtip, tilt, precone identical on both sides. The AeroDyn side carries the
+  deck blade prebend (BlCrvAC) and its cant angle (BlCrvAng; local cone = precone + cant, -1.5 deg at r 61 m to -5.6 deg at the tip);
+  our BEM carries neither (only precone). Effects: AeroDyn Vx falls outboard (10.56 -> 10.46 m/s, pitch 0) vs ours constant 10.575;
+  phi +0.023 deg at 61 m to ~+0.06 deg outboard; pitch-dependent twist term pitch*(1/cos(cant) - 1), 0.060 deg at the tip at 12.19 deg
+  (form inferred from outputs, not from the Fortran). Mean d_alpha 80-116 m, ours - AeroDyn: pitch 0 +0.056 -> -0.008 deg with
+  CCBlade precurve = BlCrvAC (sign -1, empirical); pitch 12.19 +0.111 -> +0.046 (prebend) -> +0.018 deg (+ twist term).
+  Thrust/torque, exact linear polars, ours - AeroDyn: 15.471/12.19 baseline +2.66 / +1.77 %, + prebend +1.23 / +0.23 %, + twist term
+  +0.81 / -0.22 %; 10.659/0 baseline +0.46 / +1.09 %, + prebend -0.53 / -0.33 %. Tip node (AeroDyn a = 1, negative Fx there) ~0.9 pp
+  thrust at 15.471 (tip-removed numbers +-0.5 pp: reference rebuilt from nodal loads). Residual dphi 0.01-0.03 deg unlocated. Sweep
+  (BlSwpAC) not consistent, left out. Classification: (a) model-input difference — the parity setup gives AeroDyn the prebent blade
+  and ours a straight one; not a defect in the BEM equations. Using prebend in production is a solver change -> user decision.
