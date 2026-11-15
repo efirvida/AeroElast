@@ -22,6 +22,9 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 - T5 | S2, S3 | worker | done (L5) | Matched-options audit: our BEM corrections (tip/hub loss, skew, induction, polars, Viterna) vs the AeroDyn
   deck used as arbiter; tower and wake off on both sides; record any mismatch and its torque/thrust effect.
 - T6 | S3 | parent | patterns done (L4); closure pending | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
+- T7 | S2, S3 | worker | pending | (L10) BEM model: blade prebend/cant (CCBlade precurve from the blade reference axis) and exact table
+  interpolation of polars (no spline smoothing), test-first; re-measure groups 11 and 59 and the V-01-vs-AeroDyn points; production default.
+- T8 | S3 | parent | pending | Store rows/verdicts for the V-01-vs-AeroDyn ids; L4 closure or declarations.
 
 ## Log
 - L1 (2026-11-14, user, verbatim): "cerrar los pendientes antes de L3 Luego Cerrar L3, y comienza con L4". Parent: L3 closed
@@ -101,3 +104,5 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   CONTRACT L4: trusted 10, regression_pin 3 (A3 production polars), unarbitrated 10 (V-01 vs WISDEM, declared secondary); stale 0;
   over ceiling 0. Open for L4 closure: (i) store rows/verdicts for the 6 V-01-vs-AeroDyn ids (4 pass, 2 documented red);
   (ii) user decision on prebend/cant and polar interpolation in our BEM (L7-L8); (iii) V-01 unarbitrated rows declared.
+- L10 (2026-11-14, user choices verbatim): "Agregar prebend + cant al BEM (Recomendado)"; "Interpolación exacta de tabla (Recomendado)".
+  Parent: T7 (solver change, production default, it moves the L5 torque baseline) and T8 (store + closure).
