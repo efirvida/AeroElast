@@ -20,12 +20,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.3468
-      text: 'thrust, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3468% (bound: 1.5000%)'
-      digest: 0a71c2af13d30dc0
+      margin_pct: 0.6638
+      text: 'thrust, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.6638% (bound: 1.5000%)'
+      digest: 0cb2ebeef766828a
   - label: rtol at line 256
     asserted: true
     reference:
@@ -39,12 +39,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.3674
-      text: 'torque, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3674% (bound: 1.5000%)'
-      digest: 8ab338690530a136
+      margin_pct: 0.6579
+      text: 'torque, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.6579% (bound: 1.5000%)'
+      digest: 64d8315027bc7d75
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_yaw_and_shear_match_aerodyn.1
@@ -67,12 +67,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.159
-      text: 'thrust, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.1590% (bound: 1.5000%)'
-      digest: 735dcae9923e4069
+      margin_pct: 0.7904
+      text: 'thrust, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.7904% (bound: 1.5000%)'
+      digest: 3e887c94c88195ba
   - label: rtol at line 256
     asserted: true
     reference:
@@ -86,12 +86,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.2578
-      text: 'torque, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.2578% (bound: 1.5000%)'
-      digest: 8d02e58f7c01b4d7
+      margin_pct: 0.2538
+      text: 'torque, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.2538% (bound: 1.5000%)'
+      digest: 6184b3afc1a46c30
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_bem_with_repo_default_polars_matche.0
@@ -114,12 +114,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 1.1815
-      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 1.1815% (bound: 3.0000%)'
-      digest: 3654a38c4c8e1184
+      margin_pct: 0.5211
+      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.5211% (bound: 3.0000%)'
+      digest: 43ea5a0f3b10411b
   - label: rtol at line 314
     asserted: true
     reference:
@@ -133,12 +133,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 1.3823
-      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 1.3823% (bound: 3.0000%)'
-      digest: 8395800ff660d748
+      margin_pct: 0.7191
+      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.7191% (bound: 3.0000%)'
+      digest: e2b7c8eac6af91f8
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_bem_with_repo_default_polars_matche.1
@@ -161,12 +161,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 1.3971
-      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 1.3971% (bound: 3.0000%)'
-      digest: d86eece239da25dc
+      margin_pct: 0.5041
+      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.5041% (bound: 3.0000%)'
+      digest: 8a115ea5f7929c54
   - label: rtol at line 314
     asserted: true
     reference:
@@ -180,12 +180,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.0626
-      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.0626% (bound: 3.0000%)'
-      digest: 846a1105760ecc8d
+      margin_pct: 0.2947
+      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.2947% (bound: 3.0000%)'
+      digest: 861adddf14601293
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_bem_with_repo_default_polars_matche.2
@@ -208,12 +208,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 2.0043
-      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 2.0043% (bound: 3.0000%)'
-      digest: a52e9e0cc5abb2eb
+      margin_pct: 0.3113
+      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3113% (bound: 3.0000%)'
+      digest: 198733b595044d62
   - label: rtol at line 314
     asserted: true
     reference:
@@ -227,12 +227,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 2.1531
-      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 2.1531% (bound: 3.0000%)'
-      digest: ebb485db028e5ffc
+      margin_pct: 0.0268
+      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.0268% (bound: 3.0000%)'
+      digest: 293fa7afa40593cf
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_viterna_extension_matches_official.single
@@ -255,8 +255,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
       margin_pct: 0.2333
       text: 'Cl, Viterna extension against the official table vs the official AeroDyn polar tables, Viterna extension like-for-like: 0.2333% (bound: 1.0000%)'
@@ -274,8 +274,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
       margin_pct: 0.1275
       text: 'Cd, Viterna extension against the official table vs the official AeroDyn polar tables, Viterna extension like-for-like: 0.1275% (bound: 1.0000%)'
@@ -302,12 +302,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.4487
-      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.4487% (bound: 1.5000%)'
-      digest: 900dc56a20bbd977
+      margin_pct: 0.6836
+      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.6836% (bound: 1.5000%)'
+      digest: 27165fb09c6899a5
   - label: rtol at line 478
     asserted: true
     reference:
@@ -321,12 +321,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.6716
-      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.6716% (bound: 1.5000%)'
-      digest: 1ecf3a67621df3a1
+      margin_pct: 0.7321
+      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.7321% (bound: 1.5000%)'
+      digest: 84645acdb424315c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_rotor_performance_matches_aerodyn.1
@@ -349,12 +349,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.3992
-      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3992% (bound: 1.5000%)'
-      digest: bbd4565a77f67d54
+      margin_pct: 0.6085
+      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.6085% (bound: 1.5000%)'
+      digest: cbcb1c66975e6f20
   - label: rtol at line 478
     asserted: true
     reference:
@@ -368,12 +368,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.067
-      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.0670% (bound: 1.5000%)'
-      digest: ce17c3682a65d45f
+      margin_pct: 0.4877
+      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.4877% (bound: 1.5000%)'
+      digest: fb12101fc814d3fc
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_rotor_performance_matches_aerodyn.2
@@ -396,12 +396,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.3629
-      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3629% (bound: 1.5000%)'
-      digest: 7c47234d756c8764
+      margin_pct: 0.4793
+      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.4793% (bound: 1.5000%)'
+      digest: e9d1a48fbe74c58c
   - label: rtol at line 478
     asserted: true
     reference:
@@ -415,12 +415,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.8279
-      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.8279% (bound: 1.5000%)'
-      digest: 98a0842ba8e85d4d
+      margin_pct: 0.2786
+      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.2786% (bound: 1.5000%)'
+      digest: 0a161fe637f134ee
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_spanwise_loads_match_aerodyn.0
@@ -443,12 +443,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.380126
-      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.380126 deg (bound: 2 deg)'
-      digest: ef7315f14a99e353
+      margin_pct: 0.317424
+      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.317424 deg (bound: 2 deg)'
+      digest: 8097451345d323cb
   - label: rtol at line 518
     asserted: true
     reference:
@@ -462,12 +462,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 1.5806
-      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.5806% (bound: 2.5000%)'
-      digest: 1539bbc1f7fdc011
+      margin_pct: 1.4576
+      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.4576% (bound: 2.5000%)'
+      digest: 67aea054add0996f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_spanwise_loads_match_aerodyn.1
@@ -490,12 +490,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.379981
-      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.379981 deg (bound: 2 deg)'
-      digest: 7b146287b6cd2f6d
+      margin_pct: 0.445183
+      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.445183 deg (bound: 2 deg)'
+      digest: 9ab24133f5b1c1f2
   - label: rtol at line 518
     asserted: true
     reference:
@@ -509,12 +509,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 1.5361
-      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.5361% (bound: 2.5000%)'
-      digest: 49931148e7b7bf37
+      margin_pct: 1.5888
+      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.5888% (bound: 2.5000%)'
+      digest: 5b444afc4ed0c31e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_spanwise_loads_match_aerodyn.2
@@ -537,12 +537,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 0.924372
-      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.924372 deg (bound: 2 deg)'
-      digest: e0daebb1e1251701
+      margin_pct: 0.954102
+      text: 'interior angle of attack vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 0.954102 deg (bound: 2 deg)'
+      digest: 4700669f3dc02e9d
   - label: rtol at line 518
     asserted: true
     reference:
@@ -556,11 +556,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: d477400
-      date: '2026-11-14'
+      run: 1fb16f8
+      date: '2026-11-15'
       raw: null
-      margin_pct: 1.708
-      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.7080% (bound: 2.5000%)'
-      digest: 52fdda3a62c1a779
+      margin_pct: 1.7293
+      text: 'interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations: 1.7293% (bound: 2.5000%)'
+      digest: 0237fff2561dff57
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

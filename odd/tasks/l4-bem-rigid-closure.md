@@ -122,3 +122,10 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   thrust 2.5274 -> 2.4940 MN (-1.32 %), torque 20.334 -> 20.047 MN m (-1.41 %), power 16.10 -> 15.87 MW (prebend -1.02 / -1.50 %,
   polars -0.32 / +0.04 %). V-01 vs WISDEM: rated thrust 2.671 -> 2.104 %, torque 3.344 -> 2.875 %. Regression (no --write): group 11
   22 changed / 2 same / 12 unclaimed; group 59 16 changed; group 60 same. check.sh quick OK.
+- L12 (2026-11-15, parent, store after T7; commits 7aa5e7c, 1fb16f8). Parity file 23 passed + 1 xfailed (NeuralFoil), prebend tests 8,
+  force-projection (5 files), deformed-geometry, blade deloading: pass (logs/check/l4/t7/units-rest.log; the run was killed on the login
+  node inside tests/validation/blade/test_blade_iea15mw_validation.py). Remaining BEM-touching blade tests (rated_twist,
+  section_torsion_stiffness, twist_anchor_beam) and test_wall_flow_activation at HEAD vs base d4fae01: SLURM 11739091.
+  Store: `regression --group 11 --write` (22 changed, 2 same, 12 unclaimed; 24 measurements) and `--group 59 --write` (16 changed),
+  the moves being the model change the user chose (L10), all below their bounds; group 60 4 same. 23 verdicts restamped. Contract L4:
+  trusted 10, regression_pin 3, unarbitrated 10, stale 0, over ceiling 0.
