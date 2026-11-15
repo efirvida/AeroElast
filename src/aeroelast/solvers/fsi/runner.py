@@ -48,6 +48,10 @@ from ...elements import ElementFamily as ElemFamily
 logger = logging.getLogger(__name__)
 
 
+# GmshBladeMesh sizing keys a case YAML may set; forwarded only when present (absent keys keep the generator default).
+_GMSH_SIZING_KEYS = ("chord_divisions", "span_aspect", "h_range", "min_band_elements", "min_band_fraction")
+
+
 def _blade_skin_reference(params: Dict[str, Any]) -> str:
     """Surface of the blade shell: the generator key ``skin_reference``, ``"mid"`` when absent.
 
@@ -763,6 +767,7 @@ class FSIRunner:
             yaml_file=yaml_file,
             element_size=params.get("element_size", 0.25),
             skin_reference=_blade_skin_reference(params),
+            **{k: params[k] for k in _GMSH_SIZING_KEYS if k in params},
         )
 
     def _generate_mesh(self) -> MeshModel:

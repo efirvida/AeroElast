@@ -96,6 +96,14 @@ formula reproduces BeamDyn's tip axial displacement (-1.339 m) to 0.3 % of
 the second-order term.  The truncation is :math:`O(\theta^4)` in the
 deflection slope.
 
+**One-way switches.**  The two feedbacks above can be cut independently from the
+``bem`` block of the case YAML: ``deformed_radius: false`` returns the reference
+radius ``_ref_r`` (no displacement term and no second-order span shortening) and
+``deformed_twist: false`` returns the reference twist ``_ref_twist`` (no elastic
+increment).  Both default to ``true``, which is the unchanged two-way behaviour;
+a one-way run (BEM loads on the structure, no deformation feedback) sets both to
+``false``.  Until this was wired they were declared in ``BEMConfig`` but never read.
+
 Elastic twist extraction
 ------------------------
 The local aerodynamic twist at strip *k* on the deformed blade is:
@@ -782,6 +790,9 @@ class BEMFSIParticipant:
         4. Deformed twist:
            :math:`\theta_k^{\mathrm{def}} = \theta_k^{\mathrm{ref}} + \Delta\theta_k`.
 
+        ``bem.deformed_radius: false`` / ``bem.deformed_twist: false`` (default ``true``)
+        return ``_ref_r`` / ``_ref_twist`` instead (one-way = both false).
+
         Parameters
         ----------
         displacements : ndarray, shape (n_nodes, 3)
@@ -799,6 +810,8 @@ class BEMFSIParticipant:
         n_strips = len(self._strip_node_indices)
         r_def = np.empty(n_strips)
         twist_def = np.empty(n_strips)
+        feed_radius = bool(self._bem_cfg.get("deformed_radius", True))
+        feed_twist = bool(self._bem_cfg.get("deformed_twist", True))
 
         s = self._span_dir
         u_mean = np.zeros((n_strips, 3))
@@ -825,7 +838,12 @@ class BEMFSIParticipant:
                 0.0 if omega is None else omega
             )
 
-        r_def -= self._span_shortening(u_mean)
+        if feed_radius:
+            r_def -= self._span_shortening(u_mean)
+        else:
+            r_def = self._ref_r.copy()  # one-way: no radial feedback (deformed_radius: false)
+        if not feed_twist:
+            twist_def = self._ref_twist.copy()  # one-way: no twist feedback (deformed_twist: false)
         return r_def, twist_def
 
     def _span_shortening(self, u_mean: np.ndarray) -> np.ndarray:

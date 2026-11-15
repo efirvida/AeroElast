@@ -513,3 +513,44 @@ def test_reversed_tangential_direction_is_refused(fsi):
             fsi["participant"]._blade_aero,
             {**BEM_CONFIG, "tangential_direction": [-1.0, 0.0, 0.0]},
         )
+
+
+# --- one-way toggles (L5 T6): `deformed_twist` / `deformed_radius`, default True --------------------------------------------
+
+def _geometry_with(participant, monkeypatch, displacements, **toggles):
+    base = getattr(participant, "_test_base_cfg", None)
+    if base is None:  # the module-scoped participant keeps its original config across tests
+        base = participant._test_base_cfg = dict(participant._bem_cfg)
+    cfg = {**base, **toggles}
+    monkeypatch.setattr(participant, "_bem_cfg", cfg)
+    return participant._compute_deformed_geometry(displacements)
+
+
+def test_toggles_false_return_the_reference_radius_and_twist(fsi, monkeypatch):
+    p = fsi["participant"]
+    r_def, twist_def = _geometry_with(p, monkeypatch, fsi["displacements"], deformed_twist=False, deformed_radius=False)
+    np.testing.assert_array_equal(r_def, p._ref_r)
+    np.testing.assert_array_equal(twist_def, p._ref_twist)
+
+
+def test_each_toggle_switches_only_its_own_feedback(fsi, monkeypatch):
+    p = fsi["participant"]
+    u = fsi["displacements"]
+    r_full, t_full = p._compute_deformed_geometry(u)
+    assert not np.array_equal(r_full, p._ref_r) and not np.array_equal(t_full, p._ref_twist)  # the loaded blade moves both
+    r_a, t_a = _geometry_with(p, monkeypatch, u, deformed_twist=False)
+    np.testing.assert_array_equal(r_a, r_full)
+    np.testing.assert_array_equal(t_a, p._ref_twist)
+    r_b, t_b = _geometry_with(p, monkeypatch, u, deformed_radius=False)
+    np.testing.assert_array_equal(r_b, p._ref_r)
+    np.testing.assert_array_equal(t_b, t_full)
+
+
+def test_toggles_default_true_leave_the_deformed_geometry_unchanged(fsi, monkeypatch):
+    p = fsi["participant"]
+    u = fsi["displacements"]
+    assert "deformed_twist" not in p._bem_cfg and "deformed_radius" not in p._bem_cfg  # absent = default
+    r0, t0 = p._compute_deformed_geometry(u)
+    r1, t1 = _geometry_with(p, monkeypatch, u, deformed_twist=True, deformed_radius=True)
+    np.testing.assert_array_equal(r1, r0)
+    np.testing.assert_array_equal(t1, t0)
