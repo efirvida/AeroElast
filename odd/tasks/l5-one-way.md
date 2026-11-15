@@ -20,6 +20,7 @@ below is trusted against its independent reference or declared with cause and to
 - T6 | S1 S3 | worker | pending | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | pending | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
+- T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
 - T8 | S2 | worker | pending | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -121,3 +122,24 @@ below is trusted against its independent reference or declared with cause and to
   (c) third reference: an in-repo section analysis of the windIO layup (CLT/PreComp-type EI_flap, EI_edge, EI_cross, principal
       angle) independent of both the shell FE and the deck.
   The model whose 2x2 compliance matches (c) within 5 % is right; the other is the finding.
+- L10 (2026-11-15) Parent, T9 RESULT (worker; tools/l5_section_coupling.py, 13 unit tests; logs/check/l5_oneway/t9/summary.md):
+  * the two models ORIENT THE SECTION OPPOSITELY about +z: BeamDyn negates the file's kp twist on read (BeamDyn_IO.f90:898) and
+    rotates the section-frame 6x6 at run time (BeamDyn.f90:2692-2710, Stif = RR0 Stif0 RR0^T); the shell mesh chord sits at
+    +twist (+15.2 deg at z 6, +1.70 at 58.5, -2.1 at 105.3). Harness validated: a uniform BD blade matches the deck compliance at
+    Rz(-tw) to 5e-4 and is off 0.8-8x at Rz(+tw);
+  * principal-axis angle: the deck in the MESH twist sense matches the independent yaml thin-wall reference (c) within 0.82 deg at
+    all six stations; the deck in BeamDyn's sense does not (up to 4.6 deg). A 1D bending prediction with the deck in BeamDyn's sense
+    reproduces the L8 BeamDyn cross terms (0.70 / 0.082 vs measured 0.591 / 0.081 m); the reference (c) gives 0.042 vs the shell's
+    0.048 m. So the L8 edge red is a mirrored section orientation between the two models, not a stiffness error;
+  * which sense is physical is NOT closed: AeroDyn BlTwist is "positive to feather, leading edge upwind"; the mesh has LE at +x and
+    +y downwind, which the worker reads as physical chord angle -tw, i.e. the shell pretwist mirrored. The repo itself disagrees:
+    tests/test_iea15mw_s5_oneway.py:38 "BlTwist, negated - the shell is built mirrored in the twist" vs tools/run_s5_oneway.py:240
+    "follow the WindIO twist sign (rotorspin fix)". A mirrored blade spinning the mirrored way is a consistent mirror world for the
+    aero loads, but then MESH_TO_BD (a proper rotation) is the wrong map to BeamDyn (needs det -1) and bend-twist coupling signs
+    of the two codes are not comparable as computed; the twist rows of L7 are suspect until this closes;
+  * secondary: (c) itself is not a 5 % reference (mid-surface cut vs OML: C_ff +1..+29 %); BD's own solve with one order-10
+    element does not reproduce its deck compliance outboard (C_ff up to 73 %, as twist_p1 C1); shell curvature fit unresolved at
+    0.9R/0.95R (window spread 30-160 %).
+  Next (T10, new session): arbitrate the twist SENSE with one sign chain from physical definitions (rotor axis and spin sense,
+  upwind, LE, AeroDyn BlTwist, windIO twist, mesh chord) -> decide mirror world vs mirrored-pretwist defect; see
+  odd/tasks/rated-twist-sign-convention.md and tools/diagnose_sign_chain.py.
