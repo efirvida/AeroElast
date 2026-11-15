@@ -100,14 +100,18 @@ def _make_table_airfoil_class():
         ``mode="spline"``: interpolating (``s=0``) cubic spline in alpha, linear in Reynolds number.
         """
 
-        def __init__(self, alpha_deg, Re, cl, cd, cm=(), x=(), y=(), AFName="DEFAULTAF", mode="linear"):
+        def __init__(
+            self, alpha_deg, Re, cl, cd, cm=(), x=(), y=(), AFName="DEFAULTAF", mode="linear"
+        ):
             super().__init__(alpha_deg, Re, cl, cd, cm=cm, x=x, y=y, AFName=AFName)
             self.interp_mode = mode
             # Re-fit through the nodes (CCAirfoil.__init__ has already padded a single Re).
             re_nodes = np.array([1e1, 1e15]) if self.one_Re else np.asarray(Re, dtype=float)
             cl = np.asarray(cl, dtype=float).reshape(len(alpha_deg), -1)
             cd = np.asarray(cd, dtype=float).reshape(len(alpha_deg), -1)
-            cm_arr = np.asarray(cm, dtype=float).reshape(len(alpha_deg), -1) if self.use_cm else None
+            cm_arr = (
+                np.asarray(cm, dtype=float).reshape(len(alpha_deg), -1) if self.use_cm else None
+            )
             if self.one_Re:
                 cl, cd = np.c_[cl, cl], np.c_[cd, cd]
                 cm_arr = np.c_[cm_arr, cm_arr] if cm_arr is not None else None

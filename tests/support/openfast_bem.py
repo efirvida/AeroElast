@@ -301,9 +301,7 @@ def write_bem_primary(
             break
     text = "\n".join(lines) + "\n"
     for label, value in defaults.items():
-        text = re.sub(
-            rf"^(\s*)\S+(\s+{label}\b)", rf"\g<1>{value}\g<2>", text, flags=re.M
-        )
+        text = re.sub(rf"^(\s*)\S+(\s+{label}\b)", rf"\g<1>{value}\g<2>", text, flags=re.M)
     dst = Path(dst)
     dst.write_text(text)
     return dst
@@ -519,9 +517,7 @@ def parse_aerodyn_out(path: str | Path) -> List[AeroDynResult]:
     steady row at the end of every case; DBEMT transients are discarded).
     """
     lines = Path(path).read_text(errors="replace").splitlines()
-    header_idx = next(
-        i for i, ln in enumerate(lines) if ln.startswith(" Time") or "\tTime" in ln
-    )
+    header_idx = next(i for i, ln in enumerate(lines) if ln.startswith(" Time") or "\tTime" in ln)
     header = lines[header_idx].split()
 
     data_lines = []

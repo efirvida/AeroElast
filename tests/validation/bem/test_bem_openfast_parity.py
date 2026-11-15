@@ -575,7 +575,7 @@ def aerodyn_v01_fine() -> list:
         return ob.parse_aerodyn_outs(ob.run_aerodyn_driver(driver, dvr, td))
 
 
-@pytest.mark.parametrize("case_index", [i for i in range(len(V01_CASES))])
+@pytest.mark.parametrize("case_index", range(len(V01_CASES)))
 def test_prebend_outboard_alpha_matches_aerodyn(bem_v01_parity, aerodyn_v01_fine, case_index):
     """The BEM carries the deck prebend (BlCrvAC) like AeroDyn: outboard mean alpha offset <= 0.07 deg.
 
@@ -587,7 +587,9 @@ def test_prebend_outboard_alpha_matches_aerodyn(bem_v01_parity, aerodyn_v01_fine
     solver = bem_v01_parity["solver"]
     # AeroDyn's output is the last-revolution mean; tilt makes alpha azimuth dependent, so average
     # the BEM over 12 azimuths (the tilt harmonic averages out exactly).
-    alpha = np.mean([solver.compute(*case, azimuth=az).alpha for az in np.arange(12) * 30.0], axis=0)
+    alpha = np.mean(
+        [solver.compute(*case, azimuth=az).alpha for az in np.arange(12) * 30.0], axis=0
+    )
     r = solver.blade_aero.r
     window = (r > PREBEND_WINDOW_M[0]) & (r < PREBEND_WINDOW_M[1])
     offset = float(np.mean(alpha[window] - ref.alpha_deg[window]))
