@@ -21,10 +21,10 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 - T4 | S2 | worker | done (L5) | Zhou et al. 2025 rigid means (16.11 MW, 2.53 MN): matched operating point, our BEM vs Zhou vs AeroDyn.
 - T5 | S2, S3 | worker | done (L5) | Matched-options audit: our BEM corrections (tip/hub loss, skew, induction, polars, Viterna) vs the AeroDyn
   deck used as arbiter; tower and wake off on both sides; record any mismatch and its torque/thrust effect.
-- T6 | S3 | parent | patterns done (L4); closure pending | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
+- T6 | S3 | parent | done (L4, L14) | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
 - T7 | S2, S3 | worker | implemented (L11), awaiting tests + store decision | (L10) BEM model: blade prebend/cant (CCBlade precurve from the blade reference axis) and exact table
   interpolation of polars (no spline smoothing), test-first; re-measure groups 11 and 59 and the V-01-vs-AeroDyn points; production default.
-- T8 | S3 | worker | rows done (L13); closure pending | Store rows/verdicts for the V-01-vs-AeroDyn ids; L4 closure or declarations.
+- T8 | S3 | worker+parent | done (L13, L14) | Store rows/verdicts for the V-01-vs-AeroDyn ids; L4 closure or declarations.
 
 ## Log
 - L1 (2026-11-14, user, verbatim): "cerrar los pendientes antes de L3 Luego Cerrar L3, y comienza con L4". Parent: L3 closed
@@ -136,3 +136,11 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   0.023/0.046 deg), audited_rev 8be86e1. K5 quoted from L7 (pre-T7; the AeroDyn reference's dt convergence does not depend on our
   model). check 319 rows / 444 comparisons, 0 errors. CONTRACT L4: trusted 16, regression_pin 9, unarbitrated 10 (V-01 vs WISDEM,
   the declared secondary of L6); stale 0; over ceiling 0.
+- L14 (2026-11-15, user choice verbatim): "1" (close L4 in the thesis plan; the contract keeps showing L4 open for the 10 V-01-vs-WISDEM
+  rows, declared secondary per L6). L4 CLOSED for the thesis: every arbitrated quantity (rotor thrust/torque at 8/9/12 m/s and the six
+  V-01 points incl. pitched, yaw/shear, spanwise alpha/Cn, Viterna) passes against official OpenFAST 5.0.0 AeroDyn within its source
+  bound (1.5 %) and the 5 % ceiling; Zhou 2025 rigid means corroborate within 2.5 % (secondary, LL-FVW). Model changes made here: blade
+  prebend + exact polar interpolation (L10-L11; production rated torque -1.41 %). Declared: cant twist term not modelled (outboard alpha
+  +0.046 deg at pitch 12.19), V-01 vs WISDEM unarbitrated. Carried to L5: production configs use tilt 0 / precone 0 vs deck -6 / -4
+  (+2.44 % torque, L5 entry). Pending verification of T7: BEM-touching blade tests (rated_twist, section_torsion_stiffness,
+  twist_anchor_beam) and test_wall_flow_activation base-vs-HEAD, SLURM 11739091 (prolog requeues, not started).

@@ -29,7 +29,7 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
 
 - T1 | S2 S3 | worker | done (L1 157/2, L2 79/4 CLOSED; l1-l2-closure.md L3) | step 1 (odd/tasks/l1-l2-closure.md)
 - T2 | S1-S3 | parent+workers | done (L4; odd/tasks/l3-closure.md, odd/tasks/l3-outboard-section-stiffness.md L30-L35) | step 2: list the L3 rows per torque path, decide close vs declare, sensitivity runs
-- T3 | S2 S3 | parent+workers | in progress (odd/tasks/l4-bem-rigid-closure.md) | step 3: BEM vs AeroDyn (rigid), matched options
+- T3 | S2 S3 | parent+workers | done (L5; odd/tasks/l4-bem-rigid-closure.md L14) | step 3: BEM vs AeroDyn (rigid), matched options
 - T4 | S2 S3 | - | pending | step 4: one-way coupling
 - T5 | S2 S3 | - | pending | step 5: two-way coupling vs OpenFAST and Zhou, flexible-minus-rigid deltas
 
@@ -46,3 +46,9 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
   EI_edge CLT mean +0.4 % (hoop-free), the old -0.40 % superseded. Yaml used as written (user decision, l3-outboard L27). The
   production-twist estimator (S8) stays deferred to L5. Evidence: odd/tasks/l3-outboard-section-stiffness.md L30-L35. Step 3 (L4) opened:
   odd/tasks/l4-bem-rigid-closure.md.
+- L5 (2026-11-15) User: "1". Parent: step 3 (L4) CLOSED: our rigid BEM matches official OpenFAST 5.0.0 AeroDyn (tower and wake off,
+  matched options) within 1.5 % on thrust and torque at every arbitrated point, including pitched V-01 points after adding blade
+  prebend and exact polar interpolation (production rated torque -1.41 %, power 16.10 -> 15.87 MW); spanwise alpha/Cn within bounds;
+  Zhou rigid means within 2.5 % (secondary). Declared: cant twist term absent, V-01 vs WISDEM unarbitrated (contract shows L4 open for
+  them). For step 4/5: production tilt/precone must match the deck (-6 / -4) or the difference be declared (+2.44 % torque). Pending:
+  T7 blade-test check (SLURM 11739091). Next: step 4 (L5 one-way) only with the user's go-ahead.
