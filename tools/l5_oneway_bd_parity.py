@@ -41,7 +41,7 @@ AXIS = np.array([0.0, 1.0, 0.0])  # rotor axis in the mesh frame (flap direction
 DECK_DIR = Path("/scratch/leahk/eduardo.donestevez/ofruns/OpenFAST/IEA-15-240-RWT")
 BEAMDYN = os.environ.get("BEAMDYN_DRIVER", "/scratch/leahk/eduardo.donestevez/conda-envs/openfast/bin/beamdyn_driver")
 AD_LOADS = REPO / "tests" / "IEA15MW" / "reference" / "s5_ad_blade1_loads.csv"
-AD_PRIMARY = REPO / "tests" / "IEA15MW" / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
+AD_PRIMARY = REPO / "tests" / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 STRIP_M = 0.5
 SPAN_FRACTIONS = (0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
 
@@ -196,14 +196,13 @@ def main():
     args = ap.parse_args()
     t0 = time.time()
 
-    from scipy.sparse.linalg import spsolve
+    from run_s5_oneway import solve_static  # PETSc LU (MUMPS) on the free DOFs
 
     mesh, props, asm = build_shell(args.chord_divisions)
     dpn = asm.dofs_per_node
     f, part = shell_loads(args.loads, asm, mesh, props, args.tilt, args.precone)
     K, free = rotating_keff(asm, mesh, OMEGA, args.hub_radius)
-    u = np.zeros(asm.dofs_count)
-    u[free] = spsolve(K[np.ix_(free, free)].tocsc(), f[free])
+    u = solve_static(asm, K, free, f)
     U = np.column_stack([u[d::dpn] for d in range(3)])
     print(f"shell solved ({mesh.node_count} nodes, {time.time() - t0:.0f} s)", flush=True)
 
