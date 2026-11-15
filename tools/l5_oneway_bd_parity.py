@@ -162,14 +162,14 @@ def shell_sections(mesh, part, U, kp_bd):
     return {"z": a[:, 0], "u": a[:, 1:4], "twist_eq": a[:, 4], "twist_skin": a[:, 5]}
 
 
-def run_beamdyn(work, rows, hub_radius, scales):
+def run_beamdyn(work, rows, hub_radius, scales, omega=OMEGA):
     import diagnose_radii_beamdyn as dmr
 
     tp.HUB_RADIUS = hub_radius
     ctx = {"work": work, "deck_dir": DECK_DIR, "beamdyn": BEAMDYN, "dmr": dmr, "hashes": {}}
 
     def state(name, r):
-        deck, names, data = tp.run_case(ctx, name, dynamic=True, omega=OMEGA, rows=r)
+        deck, names, data = tp.run_case(ctx, name, dynamic=True, omega=omega, rows=r)
         td, rd = tp.node_fields(names, tp.pick_row(data, True), len(deck.eta))
         return deck, td @ tp.MESH_TO_BD, tp.wm_z_angle(rd[:, 2])
 
@@ -192,6 +192,8 @@ def main():
     ap.add_argument("--hub-radius", type=float, default=tp.HUB_RADIUS)
     ap.add_argument("--tilt", type=float, default=-6.0, help="BEM shaft tilt [deg] (deck)")
     ap.add_argument("--precone", type=float, default=-4.0, help="BEM precone [deg] (deck)")
+    ap.add_argument("--keep", default="xyz", help="diagnostic: mesh force components kept (e.g. x = edgewise only)")
+    ap.add_argument("--rpm", type=float, default=RPM_RATED, help="structural rotor speed; 0 = parked diagnostic")
     ap.add_argument("--scales", type=float, nargs="+", default=[1.0, 0.01])
     args = ap.parse_args()
     t0 = time.time()
@@ -201,7 +203,11 @@ def main():
     mesh, props, asm = build_shell(args.chord_divisions)
     dpn = asm.dofs_per_node
     f, part = shell_loads(args.loads, asm, mesh, props, args.tilt, args.precone)
-    K, free = rotating_keff(asm, mesh, OMEGA, args.hub_radius)
+    for d, a in enumerate("xyz"):
+        if a not in args.keep:
+            f[d::dpn] = 0.0
+    omega = args.rpm * 2.0 * np.pi / 60.0
+    K, free = rotating_keff(asm, mesh, omega, args.hub_radius)
     u = solve_static(asm, K, free, f)
     U = np.column_stack([u[d::dpn] for d in range(3)])
     print(f"shell solved ({mesh.node_count} nodes, {time.time() - t0:.0f} s)", flush=True)
@@ -217,7 +223,7 @@ def main():
         "Mroot_rows": (np.cross(ref_axis_mesh(kp_bd, zs) - root, F) + M).sum(0).tolist(),
     }
     sh = shell_sections(mesh, part, U, kp_bd)
-    bd, hashes = run_beamdyn(args.work, rows, args.hub_radius, args.scales)
+    bd, hashes = run_beamdyn(args.work, rows, args.hub_radius, args.scales, omega)
     print(f"beamdyn done ({time.time() - t0:.0f} s)", flush=True)
 
     L = float(kp_bd[-1, 2])
@@ -237,7 +243,7 @@ def main():
                                     "twist_deg": np.rad2deg(at(bd["z"], b["twist"])).tolist()}
     W_shell = 0.5 * float(f @ u)
     doc = {"loads": args.loads, "chord_divisions": args.chord_divisions, "hub_radius": args.hub_radius,
-           "tilt": args.tilt, "precone": args.precone, "rpm": RPM_RATED, "n_nodes": mesh.node_count,
+           "tilt": args.tilt, "precone": args.precone, "rpm": args.rpm, "keep": args.keep, "n_nodes": mesh.node_count,
            "n_point_loads": len(rows), "W_shell": W_shell, "conservation": conservation, "table": table,
            "revision": tp.revision(REPO), "beamdyn": BEAMDYN, "generated_sha256": hashes,
            "elapsed_s": time.time() - t0}

@@ -84,3 +84,29 @@ below is trusted against its independent reference or declared with cause and to
     diff 1e-15; bem (deck tilt/precone) total F (104 656, 849 884, 0) N, 3e-16.
   * INCIDENT: every SLURM job of the user NODE_FAILs at start and is requeued (11739091 ~340 restarts since 11-14, on many nodes;
     no job completed since 2026-11-14). 11739134/11739135 cancelled; T1/T3 run on the login node instead (MUMPS solve).
+- L7 (2026-11-15) Parent, T1/T3 RESULT (HEAD a8cb874, login node, 5 min both; logs/check/l5_oneway/{ad,bem}.json, gmsh N20 AR 1
+  38 500 nodes, 236 point loads), shell vs BeamDyn lin, judged against the L5 pre-registration:
+  | quantity | ad (S-5 AeroDyn loads) | bem (production BEM, deck tilt/precone) | gate | verdict |
+  |---|---|---|---|---|
+  | flap 0.7R / 0.9R / tip | -2.9 / -3.3 / -2.2 % | -2.7 / -3.2 / -2.1 % | 5 % | PASS |
+  | edge 0.7R / 0.9R / tip | -41 / -37 / -27 % (tip 1.170 vs 1.611 m) | -45 / -43 / -34 % (0.921 vs 1.394 m) | 5 % | RED |
+  | twist tip (skin) | -4.51 vs -4.64 deg, -2.8 % | -2.24 vs -2.55 deg, -12.0 % | 5 % | ad PASS, bem RED |
+  | twist 0.9R (z 105.3, skin) | -3.93 vs -3.50, +12 % | -3.54 vs -1.80, +97 % | 5 % | RED |
+  | twist 0.5-0.8R (band 5 % of tip) | up to 0.81 deg off (band 0.23) | up to 0.70 deg off, shell sign + inboard (band 0.13) | abs | RED |
+  BD geometric nonlinearity (nl/lin, reported): tip flap -1.3 % (ad) / -1.6 % (bem); tip twist +30 % (ad -4.64 -> -6.02) and
+  +25 % (bem -2.55 -> -3.20): > 5 %, so declared as a linear-shell one-way limitation.
+  Torque sensitivity (T8, production rated BEM, twist only, % of rigid; shell - BD lin): ad skin torque +0.07 % thrust +1.64 %;
+  ad eq +0.66 % / +2.47 %; bem skin -1.60 % / -1.14 %; bem eq -0.89 % / -0.02 %. BD nl - lin twist (bem): torque -0.51 %,
+  thrust -4.23 %. Edge red: cause not yet known (S-4 1st edge reads the shell SOFTER, -5.6 % frequency, here it deflects LESS);
+  next diagnostic: the same loads parked (Omega 0, shell K only vs BD static) to separate the rotating terms from the section.
+- L8 (2026-11-15) Parent, edge-red attribution (ad loads, parked, lin; `--rpm 0`, `--keep x|y`; logs/check/l5_oneway/ad-parked*.json):
+  * parked reproduces the rotating edge red (-29 % tip, -34..-43 % inboard): NOT the rotating terms (K_G, K_SP, hub radius);
+  * edgewise (mesh x) load only: edge 0.308/0.309 m at 0.7R, 0.634/0.625 at 0.8R, 1.144/1.091 at tip (shell/BD, <= +4.9 %):
+    the direct edgewise stiffness AGREES (consistent with L3: EI_edge CLT mean +0.4 %);
+  * flapwise (mesh y) load only: edge (cross) 0.075/0.357, 0.064/0.525, 0.048/0.591 m; and reciprocally under the edge load the
+    flap cross term is 0.026 vs 0.081 m at tip: the red is the FLAP-EDGE BENDING CROSS-COUPLING, 5-12x larger in the BeamDyn deck
+    6x6 than in the shell. Flap direct agrees (-2..-3 %);
+  * twist split: edge load +1.34 vs +0.95 deg tip (+40 %), flap load -6.63 vs -6.32 (+5 %); they partly cancel in the full load.
+  Open: which side is right about the cross-coupling needs an arbiter independent of both (the deck 6x6 cross terms in the
+  principal/section frame vs the shell's recovered section compliance at the same stations; candidates: the S-1 sectional tools,
+  or the deck's PreComp/SONATA provenance). Not chased in this session.
