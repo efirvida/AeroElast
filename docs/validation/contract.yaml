@@ -2583,6 +2583,127 @@ verdicts:
       Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
       Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
       Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
+# --- L4 T8, 2026-11-15, measured at 8be86e1: V-01 operating points and the prebend pin vs OpenFAST 5.0.0 AeroDyn ---
+  - target: openfast_parity.test_v01_points_match_aerodyn.0
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 5.006 m/s, 5.0 rpm, pitch 2.893: thrust -0.378 %, torque -0.915 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.1
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 7.159 m/s, 5.10 rpm, pitch 0: thrust -0.521 %, torque -0.322 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.2
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 9.027 m/s, 6.43 rpm, pitch 0: thrust -0.521 %, torque -0.322 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.3
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 10.659 m/s, 7.518 rpm, pitch 0: thrust -0.517 %, torque -0.317 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.4
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 12.259 m/s, 7.518 rpm, pitch 6.76: thrust +0.157 %, torque -0.300 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.5
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 15.471 m/s, 7.518 rpm, pitch 12.19: thrust +1.234 %, torque +0.234 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.0
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 0: 0.0222 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.1
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 1: 0.0237 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.2
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 2: 0.0176 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.3
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 3: 0.0088 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.4
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 4: 0.0231 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.5
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 5: 0.0461 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
   - target: openfast_parity.test_viterna_extension_matches_official.single
     class: physics
     verdict: trusted

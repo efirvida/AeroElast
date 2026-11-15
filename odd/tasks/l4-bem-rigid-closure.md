@@ -24,7 +24,7 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 - T6 | S3 | parent | patterns done (L4); closure pending | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
 - T7 | S2, S3 | worker | implemented (L11), awaiting tests + store decision | (L10) BEM model: blade prebend/cant (CCBlade precurve from the blade reference axis) and exact table
   interpolation of polars (no spline smoothing), test-first; re-measure groups 11 and 59 and the V-01-vs-AeroDyn points; production default.
-- T8 | S3 | parent | pending | Store rows/verdicts for the V-01-vs-AeroDyn ids; L4 closure or declarations.
+- T8 | S3 | worker | rows done (L13); closure pending | Store rows/verdicts for the V-01-vs-AeroDyn ids; L4 closure or declarations.
 
 ## Log
 - L1 (2026-11-14, user, verbatim): "cerrar los pendientes antes de L3 Luego Cerrar L3, y comienza con L4". Parent: L3 closed
@@ -129,3 +129,10 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   Store: `regression --group 11 --write` (22 changed, 2 same, 12 unclaimed; 24 measurements) and `--group 59 --write` (16 changed),
   the moves being the model change the user chose (L10), all below their bounds; group 60 4 same. 23 verdicts restamped. Contract L4:
   trusted 10, regression_pin 3, unarbitrated 10, stale 0, over ceiling 0.
+- L13 (2026-11-15, worker mwhb5doh-e-j8ik, T8 RESULT). `extract --group 11 --write` + `regression --group 11 --write`: 24 same,
+  18 new_baseline, 0 unclaimed, 0 changed (extract also refreshed the `source: ...py:NNN` line refs of existing rows). New rows
+  `openfast_parity.test_v01_points_match_aerodyn.0..5` (physics, trusted, reference_model, rtol 0.015) and
+  `openfast_parity.test_prebend_outboard_alpha_matches_aero.0..5` (regression_pin, atol 0.07 deg; offsets 0.022/0.024/0.018/0.009/
+  0.023/0.046 deg), audited_rev 8be86e1. K5 quoted from L7 (pre-T7; the AeroDyn reference's dt convergence does not depend on our
+  model). check 319 rows / 444 comparisons, 0 errors. CONTRACT L4: trusted 16, regression_pin 9, unarbitrated 10 (V-01 vs WISDEM,
+  the declared secondary of L6); stale 0; over ceiling 0.
