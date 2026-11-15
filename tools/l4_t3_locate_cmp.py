@@ -46,7 +46,7 @@ def ours(blade, case, naz=36):
 
 
 def main():
-    for case in sp.CASES[2:]:
+    for _case in sp.CASES[2:]:
         pass
     for case in [(15.471, 7.518, 12.19), (10.659, 7.518, 0.0)]:
         key = f"{case[0]}_{case[1]}_{case[2]}"
