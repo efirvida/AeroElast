@@ -1216,6 +1216,31 @@ def test_parse_prints_reads_the_shape_pytest_actually_emits() -> None:
     assert not any("1 passed" in line for line in prints[HOOK_NODE])
 
 
+@pytest.mark.parametrize("group", ["11", "59", "60"])
+def test_l4_groups_read_percent_degree_and_unitless_residuals(group: str) -> None:
+    """The helper prints `x% (bound: y%)`, `x deg (bound: y deg)` and a unit-free `x (bound: y)`.
+
+    Group 11's spanwise test prints the degree form for alpha and the percent form for Cn, so a
+    percent-only pattern read one of its two comparisons (UNMAPPED, 1 print for 2). Groups 59 and
+    60 declare the same canonical shapes.
+    """
+    module = _load_tool_module()
+    patterns = json.loads((REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8"))
+    residual = patterns["patterns"][group]
+    lines = [
+        "interior angle of attack vs OpenFAST 5.0.0 AeroDyn, interior stations: 0.38 deg (bound: 2 deg)",
+        "interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, interior stations: 1.5800% (bound: 2.5000%)",
+        "Cp vs WISDEM: 0.0120153 (bound: 0.02)",
+        "[A1] V=8.0 m/s interior: max|d alpha|=0.380 deg, mean|d Cn|=1.58%",
+    ]
+    asserted, _ = module.extract_residuals(lines, residual)
+    expected = [("0.38", "2"), ("1.5800", "2.5000"), ("0.0120153", "0.02")]
+    # Group 11 never prints a unit-free residual, so its pattern does not claim one.
+    if group == "11":
+        expected = expected[:2]
+    assert [(item["error"], item["bound"]) for item in asserted] == expected
+
+
 def test_extract_residuals_uses_the_declared_group_patterns() -> None:
     module = _load_tool_module()
     patterns = json.loads((REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8"))
@@ -2811,7 +2836,9 @@ def test_contract_only_an_unbounded_gap_blocks_its_level(
     assert contract_report(store)["levels"][0]["closed"] is closed
 
 
-def test_head_revision_on_a_node_without_git_reads_the_submission_snapshot(tmp_path, monkeypatch) -> None:
+def test_head_revision_on_a_node_without_git_reads_the_submission_snapshot(
+    tmp_path, monkeypatch
+) -> None:
     # Compute nodes have no git (l3-closure T21, job 11627035): `regression --write` must record the
     # revision scripts/check_sbatch.sh snapshotted on the login node, not crash after the run.
     module = _load_tool_module()
@@ -2831,5 +2858,7 @@ def test_head_revision_with_git_ignores_the_snapshot(tmp_path, monkeypatch) -> N
     snap.mkdir()
     (snap / "revision").write_text("abc1234\n")
     monkeypatch.setenv("CHECK_GIT_SNAPSHOT", str(snap))
-    expected = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True).stdout.strip()
+    expected = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True
+    ).stdout.strip()
     assert module.head_revision() == expected

@@ -47,8 +47,8 @@
       "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
     },
     "11": {
-      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
-      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+?)(?:%| deg) \\(bound: (?P<bound>\\S+?)(?:%| deg)\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+?)(?:%| deg) \\(bound: (?P<bound>\\S+?)(?:%| deg)\\)"
     },
     "14": {
       "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
@@ -196,6 +196,14 @@
     },
   "54": {
       "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
+      "unasserted": "(?!)"
+    },
+  "59": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)(?:%| deg)? \\(bound: (?P<bound>\\S+?)(?:%| deg)?\\)$",
+      "unasserted": "(?!)"
+    },
+  "60": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)(?:%| deg)? \\(bound: (?P<bound>\\S+?)(?:%| deg)?\\)$",
       "unasserted": "(?!)"
     }
   }
