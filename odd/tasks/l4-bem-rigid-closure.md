@@ -22,7 +22,7 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 - T5 | S2, S3 | worker | done (L5) | Matched-options audit: our BEM corrections (tip/hub loss, skew, induction, polars, Viterna) vs the AeroDyn
   deck used as arbiter; tower and wake off on both sides; record any mismatch and its torque/thrust effect.
 - T6 | S3 | parent | patterns done (L4); closure pending | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
-- T7 | S2, S3 | worker | pending | (L10) BEM model: blade prebend/cant (CCBlade precurve from the blade reference axis) and exact table
+- T7 | S2, S3 | worker | implemented (L11), awaiting tests + store decision | (L10) BEM model: blade prebend/cant (CCBlade precurve from the blade reference axis) and exact table
   interpolation of polars (no spline smoothing), test-first; re-measure groups 11 and 59 and the V-01-vs-AeroDyn points; production default.
 - T8 | S3 | parent | pending | Store rows/verdicts for the V-01-vs-AeroDyn ids; L4 closure or declarations.
 
@@ -106,3 +106,19 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   (ii) user decision on prebend/cant and polar interpolation in our BEM (L7-L8); (iii) V-01 unarbitrated rows declared.
 - L10 (2026-11-14, user choices verbatim): "Agregar prebend + cant al BEM (Recomendado)"; "Interpolación exacta de tabla (Recomendado)".
   Parent: T7 (solver change, production default, it moves the L5 torque baseline) and T8 (store + closure).
+- L11 (2026-11-15, worker mwh64iai-c-arfd / mwh7ncr2-d-fm0i, T7 RESULT; logs `logs/check/l4/t7/`). engine.py: `BEMSolver(...,
+  use_prebend=True, polar_interp="spline")`; prebend from `blade_aero.prebend` as CCBlade `precurve = -prebend` (+ precurveTip), only
+  when the blade carries prebend; polar modes `spline` (interpolating, s = 0; AeroDyn InterpOrd default 3 = cubic), `linear`,
+  `smoothed` (old). Deck blade builder reads BlCrvAC. Sign confirmed from CCBlade Fortran (x_az = -r sin(precone) + precurve
+  cos(precone)) and numerically (Vx at r 99.5 m, 15.471/12.19: AeroDyn 15.196, straight 15.349, shipped 15.222, flipped 15.386 m/s).
+  Cant twist term NOT added: not documented in the AeroDyn theory manual available (.sources/papers/36881.pdf); residual outboard alpha
+  +0.046 deg at pitch 12.19. RED 14 -> GREEN; new tests `tests/validation/bem/test_bem_prebend_polar_interp.py` (8) and
+  `test_prebend_outboard_alpha_matches_aerodyn` (bound 0.07 deg on the 80-116 m mean offset: a presence/sign pin between the measured
+  straight 0.056/0.111 and prebent -0.008/+0.046 deg, not a physics acceptance). Strict xfail on the pitched V-01 points removed.
+  Parity after (thrust / torque vs AeroDyn): A1 8/9/12 -0.684/-0.732, -0.608/-0.488, -0.479/-0.279 %; A2 yaw -0.664/-0.658, shear
+  -0.790/-0.254 %; A3 +0.52/-0.72, +0.50/-0.29, +0.31/+0.03 % (was up to +2.15 %); V-01 points -0.378/-0.915, -0.521/-0.322 (x3 at pitch 0),
+  12.259/6.76 +0.157/-0.300 %, 15.471/12.19 +1.234/+0.234 % (was +3.708/+3.022 %); spanwise max|dalpha| 0.317/0.445/0.954 deg, mean|dCn|
+  1.46/1.59/1.73 %. All within the 1.5 % A1 bound. Production-like rated (YAML blade, tilt -6, precone -4, 10.59 m/s, 7.56 rpm, pitch 0):
+  thrust 2.5274 -> 2.4940 MN (-1.32 %), torque 20.334 -> 20.047 MN m (-1.41 %), power 16.10 -> 15.87 MW (prebend -1.02 / -1.50 %,
+  polars -0.32 / +0.04 %). V-01 vs WISDEM: rated thrust 2.671 -> 2.104 %, torque 3.344 -> 2.875 %. Regression (no --write): group 11
+  22 changed / 2 same / 12 unclaimed; group 59 16 changed; group 60 same. check.sh quick OK.

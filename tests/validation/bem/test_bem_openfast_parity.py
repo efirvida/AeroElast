@@ -525,23 +525,7 @@ def bem_v01_parity() -> dict:
     return {"solver": solver, "reference": reference}
 
 
-_V01_PITCHED_RED = pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "documented red, odd/tasks/l4-bem-rigid-closure.md L7: the BEM-AeroDyn gap grows with pitch "
-        "(CCBlade smoothed-spline polars ~1 pp, unlocated ~0.1 deg outboard alpha offset amplified by "
-        "falling thrust); above the A1 1.5 % source bound, below the 5 % ceiling"
-    ),
-)
-
-
-@pytest.mark.parametrize(
-    "case_index",
-    [
-        pytest.param(i, marks=_V01_PITCHED_RED) if V01_CASES[i][2] > 5.0 else i
-        for i in range(len(V01_CASES))
-    ],
-)
+@pytest.mark.parametrize("case_index", range(len(V01_CASES)))
 def test_v01_points_match_aerodyn(bem_v01_parity, case_index):
     """V-01 operating points: thrust and torque within 1.5% of AeroDyn (A1 setup)."""
     case = V01_CASES[case_index]
@@ -569,6 +553,52 @@ def test_v01_points_match_aerodyn(bem_v01_parity, case_index):
         kind="code",
         reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="rotor torque, V-01 point",
+    )
+
+
+#: Outboard window of the prebend check (m): where the deck cant is 1.5-5.6 deg.
+PREBEND_WINDOW_M = (80.0, 116.0)
+#: Mean outboard alpha offset, ours - AeroDyn (deg).  New bound (L10/T7): measured 0.056 / 0.111 deg
+#: WITHOUT prebend (pitch 0 / 12.19), -0.008 / +0.046 deg with it (L8); AeroDyn prebends its blade.
+TOL_PREBEND_ALPHA_DEG = 0.07
+
+
+@pytest.fixture(scope="module")
+def aerodyn_v01_fine() -> list:
+    """AeroDyn at the V-01 points with dt 0.25 s: the azimuth mean of alpha needs the resolution
+    (dt 1 s leaves ~0.04 deg of sampling noise in the outboard mean; A2 does the same)."""
+    driver = _openfast_driver_or_skip()
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        primary = ob.write_bem_primary(PRIMARY, td / "AD_clean.dat")
+        dvr = ob.write_aerodyn_dvr(td / "v01f.dvr", primary, V01_CASES, dt=0.25, tmax=40.0)
+        return ob.parse_aerodyn_outs(ob.run_aerodyn_driver(driver, dvr, td))
+
+
+@pytest.mark.parametrize("case_index", [i for i in range(len(V01_CASES))])
+def test_prebend_outboard_alpha_matches_aerodyn(bem_v01_parity, aerodyn_v01_fine, case_index):
+    """The BEM carries the deck prebend (BlCrvAC) like AeroDyn: outboard mean alpha offset <= 0.07 deg.
+
+    Independent confirmation of the precurve sign (``precurve = -prebend``): a wrong sign or a
+    straight blade moves the pitched outboard alpha by 0.11 deg or more.
+    """
+    case = V01_CASES[case_index]
+    ref = aerodyn_v01_fine[case_index]
+    solver = bem_v01_parity["solver"]
+    # AeroDyn's output is the last-revolution mean; tilt makes alpha azimuth dependent, so average
+    # the BEM over 12 azimuths (the tilt harmonic averages out exactly).
+    alpha = np.mean([solver.compute(*case, azimuth=az).alpha for az in np.arange(12) * 30.0], axis=0)
+    r = solver.blade_aero.r
+    window = (r > PREBEND_WINDOW_M[0]) & (r < PREBEND_WINDOW_M[1])
+    offset = float(np.mean(alpha[window] - ref.alpha_deg[window]))
+    print(f"[PB] V={case[0]:.3f} pitch={case[2]:.3f}: mean outboard d_alpha {offset:+.3f} deg")
+    assert_residual_below(
+        abs(offset),
+        atol=TOL_PREBEND_ALPHA_DEG,
+        unit="deg",
+        kind="code",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, outboard 80-116 m",
+        what="mean outboard angle-of-attack offset (prebend)",
     )
 
 

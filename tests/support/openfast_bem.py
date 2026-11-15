@@ -141,6 +141,7 @@ class AeroDynBlade:
     chord: np.ndarray  # [m]
     twist_deg: np.ndarray  # [deg]
     af_id: np.ndarray  # 1-based airfoil table id
+    crv_ac: np.ndarray | None = None  # BlCrvAC out-of-plane prebend [m], negative = upwind
 
 
 def parse_aerodyn_blade(path: str | Path) -> AeroDynBlade:
@@ -183,6 +184,7 @@ def parse_aerodyn_blade(path: str | Path) -> AeroDynBlade:
         chord=data[:, 5],
         twist_deg=data[:, 4],
         af_id=data[:, 6].astype(int),
+        crv_ac=data[:, 1],
     )
 
 
@@ -332,6 +334,7 @@ def build_blade_aero_from_aerodyn(
                 twist=float(np.deg2rad(blade.twist_deg[i])),
                 pitch_axis=0.25,
                 airfoil=af,
+                prebend=float(blade.crv_ac[i]) if blade.crv_ac is not None else 0.0,
             )
         )
 
