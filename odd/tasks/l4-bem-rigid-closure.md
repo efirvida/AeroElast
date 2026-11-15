@@ -17,7 +17,7 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 - T2 | S2, S3 | worker+SLURM | pending | Spanwise loads: B4 F7 was resolved on 2026-10-28 (32bd208, contract.yaml note: azimuth sampling,
   reader now takes last-revolution means; trusted, e_alpha 4.30 -> 4.15 %, K5 passes). Re-measure e_alpha / mean|dCn| at HEAD for .0-.2
   with the 10-28 recipe (rows are UNMAPPED, so regression cannot read them), restamp if within 0.1 pp, else report.
-- T3 | S2, S4 | worker | pending | V-01 (B4 follow-up 2): re-point at OpenFAST on the official deck at rated, or record it unarbitrated.
+- T3 | S2, S4 | worker | points added (L7); 2 pitched points red, cause partly located | V-01 (B4 follow-up 2): re-point at OpenFAST on the official deck at rated, or record it unarbitrated.
 - T4 | S2 | worker | done (L5) | Zhou et al. 2025 rigid means (16.11 MW, 2.53 MN): matched operating point, our BEM vs Zhou vs AeroDyn.
 - T5 | S2, S3 | worker | done (L5) | Matched-options audit: our BEM corrections (tip/hub loss, skew, induction, polars, Viterna) vs the AeroDyn
   deck used as arbiter; tower and wake off on both sides; record any mismatch and its torque/thrust effect.
@@ -68,3 +68,16 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   precone 0 (engine.py:132-141); `_ROTOR_RADIUS` 120.675 vs YAML 121.119 vs deck 120.97 (Cp/Ct normalisation); mu 1.81206e-5.
   Decision (parent, per S4 and explorer): both — add the V-01 points to group 11 against official AeroDyn (arbiter), keep V-01 vs WISDEM
   as a declared unarbitrated secondary record.
+- L7 (2026-11-14, workers mwh5fgte-9-swsa (test) and mwh5j1ad-a-r4c8 (diagnosis), T3 RESULT; test `test_v01_points_match_aerodyn`
+  in tests/validation/bem/test_bem_openfast_parity.py, logs `logs/check/l4/t3/`, `logs/l4_t3diag/`, tools `tools/l4_t3_{span,polar,pitchshift}.py`).
+  V-01 points vs official AeroDyn, A1 setup and A1 source bound 1.5 % (ceiling 5 %), thrust / torque: 5.006/5.0/2.893 +1.370 / +0.426 %;
+  7.159/5.10/0 +0.283 / +0.403 %; 9.027/6.43/0 +0.283 / +0.403 %; 10.659/7.518/0 +0.278 / +0.422 %; 12.259/7.518/6.76 +1.864 / +1.007 %
+  (RED, thrust); 15.471/7.518/12.19 +3.708 / +3.022 % (RED). K5 dt 1 -> 0.5 s <= 0.005 pp. The two pitched reds are committed as
+  strict xfail citing this entry (no bound moved). Diagnosis: (1) pitch sign/axis identical on both sides (alpha agrees <= 0.15 deg);
+  (2) CCBlade CCAirfoil smoothed spline (s 0.1) vs AeroDyn table: Cl +0.007..+0.013 outboard in pitched cases; exact/linear
+  interpolation moves 15.471 m/s to +2.66 / +1.78 % and rated pitch 0 to +0.47 / +1.09 % (the pitch-0 pass is partly a cancellation);
+  (3) residual ~+0.08..+0.15 deg effective alpha offset outboard of r ~80 m (pitch shift that zeroes thrust: 0.076/0.075/0.106/0.149 deg
+  at pitch 0/2.9/6.8/12.2), amplified by dT/T per deg falling from -6 %/deg (pitch 0) to -17.8 %/deg (pitch 12.2); origin unlocated
+  (candidates: twist/tip interpolation, small outboard a/a' difference); (4) tip node r = Rtip carries load in ours, AeroDyn a = 1 there:
+  ~0.1-0.3 pp. Open: locate (3) (per-station phi and twist, tip node removed), then the user decides whether production polars use
+  exact table interpolation (moves rated pitch-0 torque by about +0.67 pp vs AeroDyn).
