@@ -19,6 +19,7 @@ below is trusted against its independent reference or declared with cause and to
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
 - T6 | S1 S3 | worker | pending | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | pending | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
+- T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T8 | S2 | worker | pending | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -110,3 +111,13 @@ below is trusted against its independent reference or declared with cause and to
   Open: which side is right about the cross-coupling needs an arbiter independent of both (the deck 6x6 cross terms in the
   principal/section frame vs the shell's recovered section compliance at the same stations; candidates: the S-1 sectional tools,
   or the deck's PreComp/SONATA provenance). Not chased in this session.
+- L9 (2026-11-15) User: "claro que 1, vamos a diagnositicar primero para entender lo que pasa" (option 1: section arbiter for the
+  flap-edge cross-coupling before any declaration). Parent: T9 opened. Plan, three independent views at z = 0.5-0.95R:
+  (a) model-level: from the existing --keep x / --keep y parked runs, the bending curvatures kappa_flap, kappa_edge per station of
+      both models (shell rings: rotations about x and y from the affine fit of u_z; BD: RDx/RDy) against the statically exact
+      internal moments M_flap, M_edge of the applied rows -> the 2x2 bending compliance per station, cross term included;
+  (b) deck: the BD 6x6 bending block per station, its frame (BeamDyn convention: which frame the 6x6 is expressed in, how the
+      key-point twist enters), principal-axis angle vs the chord/twist angle;
+  (c) third reference: an in-repo section analysis of the windIO layup (CLT/PreComp-type EI_flap, EI_edge, EI_cross, principal
+      angle) independent of both the shell FE and the deck.
+  The model whose 2x2 compliance matches (c) within 5 % is right; the other is the finding.
