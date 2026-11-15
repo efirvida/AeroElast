@@ -21,7 +21,7 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
 - T4 | S2 | worker | pending | Zhou et al. 2025 rigid means (16.11 MW, 2.53 MN): matched operating point, our BEM vs Zhou vs AeroDyn.
 - T5 | S2, S3 | worker | pending | Matched-options audit: our BEM corrections (tip/hub loss, skew, induction, polars, Viterna) vs the AeroDyn
   deck used as arbiter; tower and wake off on both sides; record any mismatch and its torque/thrust effect.
-- T6 | S3 | parent | pending | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
+- T6 | S3 | parent | patterns done (L4); closure pending | Residual patterns for groups 59/60 and the spanwise two-quantity print (B4 follow-up 3); L4 closure or declarations.
 
 ## Log
 - L1 (2026-11-14, user, verbatim): "cerrar los pendientes antes de L3 Luego Cerrar L3, y comienza con L4". Parent: L3 closed
@@ -39,3 +39,11 @@ Step 3 of `odd/tasks/thesis-validation-plan.md`, opened after L3 closed (plan L4
   .0-.1, A3 polars .0-.2 regression_pin, Viterna like-for-like); verdicts unchanged. Spanwise .0-.2 NOT restamped: UNMAPPED, the
   regression did not read their residuals -> T2. Contract L4 after: trusted 6, regression_pin 3, stale 14 (spanwise 3, V-01 10,
   viterna_manual 1); over ceiling 0.
+- L4 (2026-11-14, parent + worker mwh2dzlq-4-pn8i (patterns) + worker mwh4tymc-6-byy5 (test prints; died on quota, edits
+  reviewed and finished inline), T6 RESULT, commit 1f0adaf). residual-patterns.json: group 11 reads `%` and ` deg` (spanwise alpha
+  and Cn are two printed lines, no print change); groups 59/60 declared. V-01 and Viterna-manual tests now print through
+  `assert_residual_below` (same bounds, same strict `<`; Viterna loop: worst residual over 20/30/45/60/90 deg). Local runs: 31 passed;
+  `regression --group 59 --scope tests/test_iea15mw_v01_rotor_performance.py` 16 new_baseline then same (rated thrust 2.6708 %, torque
+  3.3442 %, equal to B4); `--group 60` 4 new_baseline then same; both written; check 307/426, 0 errors. contract.yaml: 11 verdicts
+  restamped at 1f0adaf. Contract L4: trusted 7, regression_pin 3, stale 3 (spanwise, T2), unarbitrated 10 (V-01, T3); over ceiling 0.
+  T2 spanwise job 11739029 died in prolog requeues (cancelled), resubmitted as 11739057. Workers for T3-T5 failed on quota.

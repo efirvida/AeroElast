@@ -20,7 +20,7 @@ rows:
       justification: Source-stated absolute CL bound at every angle in the loop; retained without measurement.
     measured:
       status: measured
-      run: 919bfdf
+      run: 1f0adaf
       date: '2026-11-14'
       raw: null
       margin_pct: 0.0
@@ -40,7 +40,7 @@ rows:
       justification: Source-stated absolute CD bound at every angle in the loop; retained without measurement.
     measured:
       status: measured
-      run: 919bfdf
+      run: 1f0adaf
       date: '2026-11-14'
       raw: null
       margin_pct: 0.0
@@ -60,7 +60,7 @@ rows:
       justification: Source-stated absolute bound for the manual's zero-lift limit; retained without measurement.
     measured:
       status: measured
-      run: 919bfdf
+      run: 1f0adaf
       date: '2026-11-14'
       raw: null
       margin_pct: 8.6705e-17
@@ -80,7 +80,7 @@ rows:
       justification: Source-stated absolute bound for the manual's maximum-drag limit; retained without measurement.
     measured:
       status: measured
-      run: 919bfdf
+      run: 1f0adaf
       date: '2026-11-14'
       raw: null
       margin_pct: 0.0
