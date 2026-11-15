@@ -24,20 +24,20 @@ def e(x, ref):
 
 
 def row(d):
-    return dict(
-        P_MW=d["power"] / 1e6,
-        T_MN=d["thrust"] / 1e6,
-        Q_MNm=d["torque"] / 1e6,
-        eP_vs_Zhou=e(d["power"], ZHOU_P),
-        eT_vs_Zhou=e(d["thrust"], ZHOU_T),
-    )
+    return {
+        "P_MW": d["power"] / 1e6,
+        "T_MN": d["thrust"] / 1e6,
+        "Q_MNm": d["torque"] / 1e6,
+        "eP_vs_Zhou": e(d["power"], ZHOU_P),
+        "eT_vs_Zhou": e(d["thrust"], ZHOU_T),
+    }
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", type=Path, required=True)
     a = ap.parse_args()
-    out = {"zhou": dict(P_W=ZHOU_P, T_N=ZHOU_T, V=V, rpm=RPM, cone=0, tilt=0)}
+    out = {"zhou": {"P_W": ZHOU_P, "T_N": ZHOU_T, "V": V, "rpm": RPM, "cone": 0, "tilt": 0}}
     yb = p.load_blade_aero(str(p.YAML_BLADE))
     deck_tilt, deck_cone = ob.IEA15MW_SHAFT_TILT_DEG, ob.IEA15MW_PRECONE_DEG
     for tag, rpm, tilt, cone in (
@@ -48,16 +48,16 @@ def main():
         case = (V, rpm, 0.0)
         om = rpm * 2 * np.pi / 60
         blade, ref = ad_run(case, tilt=tilt, precone=cone)
-        ad = dict(thrust=ref.thrust, torque=ref.torque, power=ref.torque * om)
+        ad = {"thrust": ref.thrust, "torque": ref.torque, "power": ref.torque * om}
         o_deck = ours(blade, case, tilt=tilt, precone=cone)
         o_yaml = ours(yb, case, tilt=tilt, precone=cone)
-        out[tag] = dict(
-            AeroDyn=row(ad),
-            ours_deck_polars=row(o_deck),
-            ours_yaml_production=row(o_yaml),
-            ours_deck_vs_AeroDyn={k: e(o_deck[k], ad[k]) for k in ad},
-            ours_yaml_vs_AeroDyn={k: e(o_yaml[k], ad[k]) for k in ad},
-        )
+        out[tag] = {
+            "AeroDyn": row(ad),
+            "ours_deck_polars": row(o_deck),
+            "ours_yaml_production": row(o_yaml),
+            "ours_deck_vs_AeroDyn": {k: e(o_deck[k], ad[k]) for k in ad},
+            "ours_yaml_vs_AeroDyn": {k: e(o_yaml[k], ad[k]) for k in ad},
+        }
     # pitch is not stated by Zhou: sensitivity of ours (yaml, zero geometry)
     out["pitch_sensitivity_ours_yaml"] = {
         f"{pt:+.1f}": row(ours(yb, (V, RPM, pt), tilt=0.0, precone=0.0))

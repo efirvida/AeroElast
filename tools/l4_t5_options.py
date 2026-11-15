@@ -59,7 +59,12 @@ def ours(blade, case, *, tilt, precone, mu=MU_AD, nsector=None, linear_polars=Fa
         _patch_linear(s, blade)
     r = s.compute(case[0], case[1], case[2])
     om = case[1] * 2 * np.pi / 60
-    return dict(thrust=r.thrust, torque=r.torque, power=r.torque * om, ccblade_power=r.power)
+    return {
+        "thrust": r.thrust,
+        "torque": r.torque,
+        "power": r.torque * om,
+        "ccblade_power": r.power,
+    }
 
 
 def _patch_linear(solver, blade):
@@ -68,7 +73,7 @@ def _patch_linear(solver, blade):
     for st in blade.stations:
         seen[st.airfoil.name] = st.airfoil.polars[0]
     by_id = {a.name: a for a in blade.airfoils}
-    for af, st in zip(solver.rotor.af, blade.stations):
+    for af, st in zip(solver.rotor.af, blade.stations, strict=False):
         pol = by_id[st.airfoil.name].polars[0]
         a, cl, cd = pol.alpha, pol.cl, pol.cd
 
@@ -92,7 +97,7 @@ def main():
     out = {"case": case, "tilt": tilt, "precone": cone}
 
     def adpack(ref):
-        return dict(thrust=ref.thrust, torque=ref.torque, power=ref.torque * om)
+        return {"thrust": ref.thrust, "torque": ref.torque, "power": ref.torque * om}
 
     blade, ref_deck = ad_run(
         case, tilt=tilt, precone=cone
@@ -106,9 +111,9 @@ def main():
     out["ours_vs_AD_skew1"] = rel(base, adpack(ref_deck))
     out["ours_vs_AD_skew0"] = rel(base, adpack(ref_noskew))
     var = {
-        "mu_1.81206e-5_(production default)": dict(mu=MU_DEFAULT),
-        "nSector_24": dict(nsector=24),
-        "linear_polar_interp": dict(linear_polars=True),
+        "mu_1.81206e-5_(production default)": {"mu": MU_DEFAULT},
+        "nSector_24": {"nsector": 24},
+        "linear_polar_interp": {"linear_polars": True},
     }
     for k, kw in var.items():
         r = ours(blade, case, tilt=tilt, precone=cone, **kw)
@@ -120,9 +125,11 @@ def main():
     out["ours[tilt0_precone0]_vs_ours_base"] = rel(r0, base)
     # YAML (production) blade: Rtip inconsistency and polars
     yb = p.load_blade_aero(str(p.YAML_BLADE))
-    out["yaml_blade"] = dict(
-        Rhub=yb.hub_radius, Rtip=yb.rotor_radius, r_tip_station=float(yb.r[-1])
-    )
+    out["yaml_blade"] = {
+        "Rhub": yb.hub_radius,
+        "Rtip": yb.rotor_radius,
+        "r_tip_station": float(yb.r[-1]),
+    }
     ry = ours(yb, case, tilt=tilt, precone=cone)
     out["ours[yaml_blade]"] = ry
     out["ours[yaml_blade]_vs_AD_skew1"] = rel(ry, adpack(ref_deck))
