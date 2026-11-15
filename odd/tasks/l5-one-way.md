@@ -143,3 +143,25 @@ below is trusted against its independent reference or declared with cause and to
   Next (T10, new session): arbitrate the twist SENSE with one sign chain from physical definitions (rotor axis and spin sense,
   upwind, LE, AeroDyn BlTwist, windIO twist, mesh chord) -> decide mirror world vs mirrored-pretwist defect; see
   odd/tasks/rated-twist-sign-convention.md and tools/diagnose_sign_chain.py.
+- L11 (2026-11-15) User: "vamos a ahcer todo lo que se pueda hacer sin el hpc". Parent: continue on the login node: T10 now,
+  S-6 test (T2) on the login node (background, 50 min cap); T6 needs hours of coupled run, stays for SLURM. Existing case YAMLs
+  are not edited (tilt/precone, T7) until the user decides: they are the provenance of past campaign results.
+- L12 (2026-11-15) Parent:
+  * T2: `tests/test_iea15mw_s6_oneway_dynamic.py` on HEAD f7f3c35+ (login node, numad mid-surface 0.25): 3 passed in 300 s, no
+    NaN. The recorded divergence was on the default OML skin (L2); the mid-surface S-6 anchor runs clean.
+  * T10 RESULT (worker; tools/l5_twist_sense_chain.py, 13 unit tests; logs/check/l5_oneway/t10/summary.md): verdict (a), the
+    windIO-v2 shell blade carries a MIRRORED PRETWIST; not a mirror world (mesh frame proper: LE +x, suction +y downwind, span +z,
+    det +1, prebend upwind, spin +y drives LE-first, production BEM torque drives the rotor). Evidence: the mesh chord sits at
+    psi = +BlTwist (0.37 deg); with the BEM inflow the +twist chord sees an AoA off alpha_BEM by up to 39.6 deg, the -twist chord
+    within 0.046 deg. Defect line: src/aeroelast/models/blade/numad/objects/geometry.py:538 `angle = deg2rad(twist) + correction`
+    then Rz(+angle) (:539-541); windIO twist is positive to feather, i.e. Rz(-twist) in the windIO frame (parent re-derived: LE at
+    -y must move to -x upwind -> negative rotation about +z). The v1 NuMAD path places it at -twist (geometry.py:577-579).
+    Falsifier: a negated-twist scratch deck (no code change) gives tip edge-under-flap 0.831 m (stock 0.048, BD 0.591) and
+    flap-under-edge 0.108 (stock 0.026, BD 0.081): sign and magnitude of the cross-coupling now follow BeamDyn; direct flap/edge
+    barely move (-4.1 % / +4.7 %); cross terms still 33-41 % above BD (not closed).
+  * Blast radius: every windIO-v2 mesh (gmsh_skin / windio2_mesh / build_v2_blade): the reference gmsh N20 mesh, the v2 S-1, S-2,
+    S-4, S-7, V-02, V-03, V-05 tests, the L3 closure rows measured on it, L7 T1/T3, cases/l5_oneway_rated;
+    tests/software/mesh/test_windio2_frames.py encodes the + sign. Stale comments: tools/run_s5_oneway.py:239-244 (+theta frame),
+    tests/test_iea15mw_s5_oneway.py:38. The correction term's sign under the flipped twist is unverified (0 for a straight axis).
+  * Consequence for the strict order: L3 was closed on this mesh; a mesher fix re-opens the L3 rows that depend on the section
+    orientation (bend-twist, flap-edge coupling, modal 1E/1F) -> user decision.
