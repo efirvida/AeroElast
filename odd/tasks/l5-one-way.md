@@ -430,6 +430,11 @@ below is trusted against its independent reference or declared with cause and to
   87 passed 6 skipped; test_iea15mw_s0_omega_zero_consistency 5 passed; test_rotor_centrifugal_branch/inertial_factorization/inertial_fixes 110 passed 1 skipped;
   `scripts/check.sh quick` OK (75 passed, 1 xfailed). Not run: full suite (SLURM, parent), tools/l5_t6_settled.py (parent). Pending: T6 rerun,
   acceptance `static_t6_kgrust` == `static_t6` within 1e-6 relative, and a dynamic mean within 1 % of the T3 static solve.
+- L35 (2026-11-16) Parent, T17 acceptance (tools/l5_t6_settled.py on the 11741636 dumps, logs/check/l5_oneway/t6/settled_t17.json):
+  ||K_G||_F free DOFs production Rust path 8.53293996901178e7 = Python 8.53293996901182e7; static_t6_kgrust tip flap 17.3063 /
+  edge 1.6281 / twist -3.424 deg = static_t6 (identical to 4 decimals). Submitted: full suite SLURM 11743282 (sequana_cpu_bigmem,
+  snapshot f8a1639) and the T6 rerun SLURM 11743283 (sequana_cpu_long, 8 h; criterion: dyn mean within 1 % of static_t6
+  17.306 m flap, 1.628 m edge, twist -3.42 deg).
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
