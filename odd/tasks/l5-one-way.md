@@ -366,7 +366,7 @@ below is trusted against its independent reference or declared with cause and to
 
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
-State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix (ad1aecf,
+State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
 pre-fix baseline, can be removed with `git worktree remove ../fem-shell-prefix` once T13 is no longer needed).
 Login node: ulimit -t 1800 CPU-s per process; run single-threaded (OMP/OPENBLAS=1), split long pytest per node.
 Next, in order:
@@ -379,3 +379,8 @@ Next, in order:
  3. L3 re-closure decision (user): S-7 8.3 %, EI_edge -9 % (shell), GJ -12 % (deck D1), EA +7 % with the T16 torque
     sensitivities (twist difference -2..-2.7 % torque vs BD linear, -0.4..-0.8 % vs BD nonlinear).
  4. Then T4 (twist estimator), T5 (store rows), close step 4. Step-5 OpenFAST reference ready (flex-rigid -2.47 % power).
+Cleanup (user: "elimina todo lo que se pueda eliminar"): removed worktree ../fem-shell-prefix and its pyshim; session TMPDIRs
+under $SCRATCH/tmp (t11-*, t12-t16, t9b-*, v2cache-*, v2_blade_cache_prefix, cancelled T6 11741547); $SCRATCH/t9b ccx run dirs
+(results kept in logs/check/l5_oneway/t9b/<case>/solid.json); OpenFAST diag variants and smoke leftovers; T6 smoke results
+(logs kept: $SCRATCH/l5_oneway/smoke-11741409/*.log); failed/meaningless t9b dirs (z60_*, z95_A_n1, smoke/s80*). Kept: running
+T6 ($SCRATCH/l5_oneway/full-11741636 and its TMPDIR), post-fix mesh caches, OpenFAST flex/rigid reference decks and outputs.
