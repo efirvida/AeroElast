@@ -316,3 +316,15 @@ below is trusted against its independent reference or declared with cause and to
     Reading: with the physical pretwist the shell is 2-3 % stiffer in global flap (every flap row moves toward -5 %),
     consistent with T1/T3 (flap -2..-3 % -> -4..-6.5 %): bending about the global axis now engages the stiff edge axis at
     the correct angles. The global flap rows now sit at the 5 % edge; S-7 moved away (5.9 -> 8.3 %).
+- L27 (2026-11-16) Worker T14b (login): S-1 EA/GJ on gmsh.
+  * EA(CLT): the v1 CLT loop (tools/run_s1_sectional.py:287-300, all-nodes-in-strip) aliases on gmsh (0.67-1.33x at z 72-92;
+    moves with strip width; 0.125 m leaves empty stations). Fix: plane-cut EA (`ea_clt_plane_cut`, tests/support/v2_sectional.py,
+    unstructured meshes only). Independent cut (EA = sum A11_eff L over the z = const cut, own CLT): +6.9 % on BOTH meshers vs
+    deck K33 -> S-1 EA(CLT) gmsh 14.48 -> 7.00 % (windio2 7.12 %): a genuine +7 % red.
+  * GJ: windio2 12.13 % = gmsh 12.10 %; closed-form multi-cell Bredt on the same cut (tools/l3_bredt_mesh.py graph_bredt,
+    G t = A66) already -9.3..-9.9 % vs K66 (D1 family), the FE shell adds ~-2.5 %: physics, not extraction.
+  * EI_edge 8.8-9.0 % on both meshers (genuine). tests/support/test_v2_sectional.py 11 passed after the change (parent).
+  * S-1 file on gmsh: 3 failed (EI_edge, GJ, EA), 2 passed (m, EI_flap).
+  T13 S-4 BEFORE (login, per node, single thread; t13/s4-login.out) vs AFTER (11741380), BeamDyn p20, 5 % bound:
+    parked 1F +1.31 -> +2.19 %, 1E -1.37 -> -1.29 %, 2F -0.79 -> -0.02 %; rated 1F +1.02 -> +1.72 %, 1E -1.55 -> -1.38 %,
+    2F -0.87 -> -0.13 %. All pass on both; the fix stiffens 1F by ~0.7-0.9 % (same direction as the S-2 flap rows).
