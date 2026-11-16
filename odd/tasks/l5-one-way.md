@@ -294,3 +294,6 @@ below is trusted against its independent reference or declared with cause and to
   T13: worker stalled (never applied the shim steer); 11741508/9 cancelled; parent re-ran provenance (pyshim -> prefix src,
   `angle = deg2rad(twist) + correction`, CACHE_VERSION 3, _aeroelast from the venv) and runs the static set + S-4 on the
   LOGIN node (user L21), separate cache dir; logs/check/l5_oneway/t13/{static,s4}-login.out.
+- L25 (2026-11-16) User: "si, todo lo que puedas correr en el login tienes permiso para hacerlo". Parent: login runs started:
+  step-5 OpenFAST flex/rigid 60 s (logs/check/l5_twoway/openfast-login.out; reference data only, step 4 still open), T14b
+  worker (S-1 GJ/EA on gmsh: windio2 comparison, strip-width scan, independent EA/GJ), T13 baseline continues on login.
