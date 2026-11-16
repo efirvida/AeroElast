@@ -29,7 +29,7 @@ below is trusted against its independent reference or declared with cause and to
 - T14 | S1 | worker | done for mass/EI (L23); EA/GJ extraction on gmsh open | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
 - T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
-- T17 | S5 S1 | parent | in progress (L32) | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
+- T17 | S5 S1 | parent | implemented (L34), T6 rerun pending | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -409,6 +409,27 @@ below is trusted against its independent reference or declared with cause and to
   the reference) entrywise on the composite plate of tests/test_kg_prestress_coupling.py and on an isotropic clamped plate with
   a hub offset; a Rust test that the rotor rebuild K_G equals the helper's at X0. Acceptance: T6 tool `static_t6_kgrust` row
   (now through the production path) == `static_t6` within 1e-6 relative.
+- L34 (2026-11-16) Worker, T17 implemented per L33 (S5). Commits: 2da4bc1 (Rust: core `mass_per_area_per_elem`, `assemble_centrifugal_k`
+  deleted, solvers `petsc/elasticity/prestress.rs` `CentrifugalPrestress`, RotorFsi + InertialRotorFsi rebuilds, PyO3
+  `assemble_centrifugal_geometric_k` + `mass_per_area`, Rust tests), 8fe1260 (Python `assemble_geometric_stiffness` -> binding, `_rho_per_elem`
+  from `mass_per_area()`, Python tests, tools/l5_t6_settled.py `Kg_rs` from the new binding), d2d70ac (docs/formulations/solvers.md).
+  Deviations/notes: (1) RotorFsi builds the helper lazily at the first K_G rebuild (`new` returns Self, PETSc errors become FsiError);
+  (2) InertialRotorFsi refreshes the reduced K at X_rotated(theta) on every K_G rebuild (its geometry rotates; a K factorized once at X0 would be
+  inconsistent with f_cf(theta)); frame-invariance K(theta)=R K R^T, f_cf(theta)=R f_cf; (3) the old Rust feed used volumetric rho for isotropic
+  elements (rho, not rho*t) - gone with the kernel; (4) `rho_per_elem()` (volumetric) binding kept, docs point to `mass_per_area()`.
+  RED (observed before the port): Python `pytest tests/test_kg_prestress_coupling.py` -> 3 failed / 7 passed (AttributeError
+  `assemble_centrifugal_geometric_k` / `mass_per_area`; the reference orchestration itself ran, ||K_G||>0). Rust: tests added to a scratch copy of
+  HEAD (old rotor_fsi.rs + helper) `cargo test -p aeroelast-solvers --lib rotor_kg_rebuild -- --test-threads=1` -> 2 failed, e.g.
+  "31109.43 vs 134756.99" (old local-sigma K_G entry vs helper) and "31144.10 vs 134717.93" (deformed variant).
+  GREEN: same two tests pass on the new tree; Python 10 passed incl. binding == Python orchestration rtol 1e-10 on the composite plate and an isotropic clamped hub-offset plate.
+  Checks (OMP_NUM_THREADS=1, TMPDIR $SCRATCH/tmp/t17): `cargo test -p aeroelast-core -q` 170 passed; `cargo test -p aeroelast-solvers -- --test-threads=1`
+  lib 119 passed, fsi_mock_loop 10 passed 2 ignored (the 2 doctests of dynamic_newmark.rs fail identically on HEAD, untouched); PETSc tests need
+  `--test-threads=1` and `RUSTFLAGS="-C link-arg=-L<openmpi lib> -C link-arg=-lmpi"` (parallel threads race MPI_Init; no libmpi on the link line);
+  `maturin develop --release` Installed aeroelast-py-0.1.0 (56 s); pytest test_kg_prestress_coupling + test_centrifugal_load_density + test_s6_newmark +
+  test_inertial_rotor_rust_parity + element/test_prestress_centrifugal_analytic + test_plate_buckling_analytic + test_stress_stiffened_solver
+  87 passed 6 skipped; test_iea15mw_s0_omega_zero_consistency 5 passed; test_rotor_centrifugal_branch/inertial_factorization/inertial_fixes 110 passed 1 skipped;
+  `scripts/check.sh quick` OK (75 passed, 1 xfailed). Not run: full suite (SLURM, parent), tools/l5_t6_settled.py (parent). Pending: T6 rerun,
+  acceptance `static_t6_kgrust` == `static_t6` within 1e-6 relative, and a dynamic mean within 1 % of the T3 static solve.
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
