@@ -250,13 +250,20 @@ translation includes the root coordinates; it is applied after section rotation.
 
 In windIO axes, solve `(My @ Mx) ez = t` on the forward-axis branch with
 `ax = -asin(t_y)` and `ay = atan2(t_x, t_z)`. Form `Mxy = My @ Mx`, add
-`atan2(Mxy[0,1], Mxy[0,0])` to the input twist, then apply `Mxy @ Mz`.
+`atan2(Mxy[0,1], Mxy[0,0])` (the in-plane rotation that `Mxy` introduces; it fixes the
+zero-twist reference and keeps its sign) to the NEGATED input twist, then apply `Mxy @ Mz`,
+i.e. `Mz = Rz(correction - twist)`.
 All rotations here are standard right-handed active rotations. The basis map is
 `(x, y, z)_NuMAD = (-y, x, z)_windIO`: windIO x points toward suction and y toward
 the trailing edge. Thus a local airfoil point in windIO is
 `(airfoil_y * chord, (airfoil_x - offset_ratio) * chord, 0)`.
-The v2 twist follows the guide's positive rotation, not the legacy NuMAD negative
-twist recipe. The v1 frame path retains that original recipe exactly.
+windIO/AeroDyn twist is positive to feather (leading edge toward upwind), which in the
+windIO frame (x suction/downwind, y TE) is a negative rotation about the section normal;
+in the mesh frame (LE +x, suction +y, span +z) the chord angle (TE -> LE about +z) is
+`-twist`, the same physical result as the legacy v1 NuMAD recipe (`-twist`). Until
+2026-11-15 the v2 path applied `Rz(+twist)`, a mirrored pretwist (odd/tasks/l5-one-way.md
+T11); `tests/software/mesh/test_windio2_frames.py` pins `psi = -twist`. The v1 frame path
+is unchanged.
 
 The native v2 reference curves are retained explicitly on the definition rather
 than enabling a global geometry switch. V1 retains its original geometry path.

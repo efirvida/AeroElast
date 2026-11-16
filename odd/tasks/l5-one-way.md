@@ -21,6 +21,7 @@ below is trusted against its independent reference or declared with cause and to
 - T7 | S3 | worker (with T6) | pending | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
+- T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
 - T8 | S2 | worker | pending | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -165,3 +166,11 @@ below is trusted against its independent reference or declared with cause and to
     tests/test_iea15mw_s5_oneway.py:38. The correction term's sign under the flipped twist is unverified (0 for a straight axis).
   * Consequence for the strict order: L3 was closed on this mesh; a mesher fix re-opens the L3 rows that depend on the section
     orientation (bend-twist, flap-edge coupling, modal 1E/1F) -> user decision.
+- L13 (2026-11-15) User: "q hacemos?" -> parent recommended: fix the mesher sign, re-measure the orientation-dependent L3 rows
+  on the login node, rerun T1/T3, SLURM-only items later. User: "arreglalo aqui". Parent: T11 opened.
+- L14 (2026-11-16) Parent: T11 fix verified. geometry.py `angle = correction - twist` (chord at psi = -twist), v2_blade
+  CACHE_VERSION 4 with geometry.py in the digest, apply_ad_loads frame at psi = -BlTwist, docs/windio2-input.md updated.
+  tests/software/mesh/test_windio2_frames.py: GREEN 17 passed; against HEAD geometry.py RED 8 failed / 9 passed
+  (logs/check/l5_oneway/t11/frames_{green,red}.log). check.sh quick OK (75 passed, 1 xfailed); the one ruff F541 in the
+  touched files is pre-existing. Every pre-fix v2/gmsh cache entry is now unreachable; L3 orientation rows re-open until
+  re-measured. Status (user question): T2 passed (L12), T8 harness committed (ce50b2e), both await the T5 store rows.

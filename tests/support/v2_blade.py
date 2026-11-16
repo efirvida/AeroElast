@@ -50,7 +50,7 @@ Cache
 -----
 Generation takes ~10 min at element size 0.25, so the RAW arrays (never live objects) are cached as an ``.npz`` under
 ``$SCRATCH/tmp/v2_blade_cache/`` (override: ``V2_BLADE_CACHE_DIR``), keyed by sha256(YAML) + a digest of
-``src/aeroelast/models/blade/numad/mesh_gen/windio2_*.py`` + this module's ``CACHE_VERSION`` + element size, collapse
+``src/aeroelast/models/blade/numad/mesh_gen/windio2_*.py`` + ``objects/geometry.py`` + this module's ``CACHE_VERSION`` + element size, collapse
 ratio, eta bounds and ``min_strip_m`` (``skin_reference`` is applied after the cache). A process-level memo sits on top. Produce the
 cache with an sbatch job (never on a login node): ``python tests/support/v2_blade.py <es> [collapse_ratio]``.
 """
@@ -69,7 +69,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_YAML = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 MESH_GEN_DIR = REPO_ROOT / "src/aeroelast/models/blade/numad/mesh_gen"
 GMSH_BLADE = REPO_ROOT / "src/aeroelast/core/mesh/gmsh_blade.py"
-CACHE_VERSION = 3  # 3: chord-scaled gmsh sizing (N, AR, min band in the key; gmsh_blade.py in the gmsh digest)
+GEOMETRY = REPO_ROOT / "src/aeroelast/models/blade/numad/objects/geometry.py"
+# 4: windIO-v2 pretwist sign fixed (chord at -twist; geometry.py, which builds the section frames, joins the digest)
+CACHE_VERSION = 4  # 3: chord-scaled gmsh sizing (N, AR, min band in the key; gmsh_blade.py in the gmsh digest)
 MESHERS = ("windio2", "gmsh")
 ES_RANGE = (0.15, 0.25)
 # Resolution guard of the public v2 adapter (core/mesh/windio2.py::geometry_mesh): stations closer than 1 micrometre of
@@ -87,10 +89,11 @@ def _sha256_file(path) -> str:
 
 
 def source_digest(mesher="windio2") -> str:
-    """Digest of the mesher sources, names and bytes, sorted: ``windio2_*.py`` + ``collapse_opt.py`` for the windio2 mesher,
+    """Digest of the mesher sources, names and bytes, sorted: ``windio2_*.py`` + ``collapse_opt.py`` + ``objects/geometry.py``
+    (the section frames/twist) for the windio2 mesher,
     plus ``gmsh_skin.py`` and ``core/mesh/gmsh_blade.py`` for the gmsh one (which also runs ``windio2_*`` code)."""
     h = hashlib.sha256()
-    files = [*MESH_GEN_DIR.glob("windio2_*.py"), MESH_GEN_DIR / "collapse_opt.py"]
+    files = [*MESH_GEN_DIR.glob("windio2_*.py"), MESH_GEN_DIR / "collapse_opt.py", GEOMETRY]  # geometry.py: section frames
     if mesher == "gmsh":
         files.extend([MESH_GEN_DIR / "gmsh_skin.py", GMSH_BLADE])
     for p in sorted(files):

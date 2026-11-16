@@ -211,10 +211,15 @@ def apply_ad_loads(assembler, mesh, r_m, fn, ft, twist_deg=None):
     """Map AD distributed loads onto shell nodes -> nodal force vector.
 
     The shell spans +z with the sections in the x-y plane rotated by the
-    geometric twist.  The AD local frame shares the SAME twist (the IEA
-    geometry), so the exact section frame is rebuilt from the interpolated
-    BlTwist: t_hat = (cos θ, sin θ, 0) (chord), n_hat = (−sin θ, cos θ, 0)
-    (flap normal).  Fn/Ft are applied in that frame.
+    geometric twist.  AeroDyn BlTwist is positive to feather (leading edge
+    toward upwind); in the mesh frame (LE +x, suction/downwind +y, span +z)
+    the chord angle (TE -> LE about +z) is therefore psi = -BlTwist, for the
+    numad v1 mesh (always) and for the windIO-v2 / gmsh mesh (since the
+    2026-11-15 pretwist fix, odd/tasks/l5-one-way.md T11).  The exact section
+    frame is rebuilt from the interpolated BlTwist: with psi = -BlTwist,
+    t_hat = (cos psi, sin psi, 0) (chord), n_hat = (-sin psi, cos psi, 0)
+    (flap normal).  Fn/Ft are applied in that frame.  (Until T11 this built
+    the frame at +BlTwist, 2*|BlTwist| off the physical airfoil frame.)
     """
     n_dof = assembler.dofs_count
     dpn = assembler.dofs_per_node
@@ -237,11 +242,11 @@ def apply_ad_loads(assembler, mesh, r_m, fn, ft, twist_deg=None):
     ft_i = np.interp(z, r_m, ft)
 
     if twist_deg is not None:
-        # The shell sections now follow the WindIO twist sign (rotorspin fix,
-        # 2026-09-15): chord angle ≈ +BlTwist, same convention as AeroDyn.
-        theta = np.deg2rad(np.interp(z, r_m, twist_deg))
-        t_hat = np.column_stack([np.cos(theta), np.sin(theta), np.zeros_like(theta)])
-        n_hat = np.column_stack([-np.sin(theta), np.cos(theta), np.zeros_like(theta)])
+        # Physical airfoil frame in the mesh: chord angle psi = -BlTwist (positive twist = LE upwind = -y),
+        # for both meshers (numad v1 and gmsh/windIO-v2 after the T11 pretwist fix).
+        psi = -np.deg2rad(np.interp(z, r_m, twist_deg))
+        t_hat = np.column_stack([np.cos(psi), np.sin(psi), np.zeros_like(psi)])
+        n_hat = np.column_stack([-np.sin(psi), np.cos(psi), np.zeros_like(psi)])
     else:
         # fallback: PCA of the section slice (sign-ambiguous, less accurate)
         half_w = 0.75
