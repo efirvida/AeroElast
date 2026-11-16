@@ -17,7 +17,7 @@ below is trusted against its independent reference or declared with cause and to
 - T3 | S1 S3 | parent | pending | our rigid BEM loads (deck tilt -6 / precone -4, T7 model) through the production load mapping onto the shell, the same loads onto BeamDyn; load conservation check; 5 % on deflection and twist
 - T4 | S4 | parent | pending | twist metric for the one-way deliverable: equal-weight vs skin-weighted estimator on T1/T3, decide or carry to two-way
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
-- T6 | S1 S3 | worker | in progress (full 100 s, SLURM 11741547 sequana_cpu_long 96 h, L20) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
+- T6 | S1 S3 | worker | in progress (full 100 s, SLURM 11741636 sequana_cpu_long, stress every 50 windows, L24) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
@@ -25,7 +25,7 @@ below is trusted against its independent reference or declared with cause and to
 - T12 | S1 S2 | parent | done (L17) | measured orientation audit (tools/l5_orientation_audit.py): physical frame, mesh rings vs yaml vs BeamDyn deck (LE, suction side, chord angle, prebend, sweep, chord), physics-only AoA, response-angle reading of the T1/T3 differences
 - T13 | S1 S2 | worker | in progress (L18-L19) | pre-fix baseline of the v2 L3 rows (worktree ../fem-shell-prefix at ad1aecf, same commands, gmsh N20), for the before/after table
 - T14 | S1 | worker | done for mass/EI (L23); EA/GJ extraction on gmsh open | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
-- T15 | S1 | worker | in progress (L21) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
+- T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
@@ -283,3 +283,14 @@ below is trusted against its independent reference or declared with cause and to
   Parent check: tests/support/test_v2_sectional.py 11 passed (windio2 default); under the gmsh env 5 passed / 6 errors both
   with and without the fix (fixtures pass a collapse ratio the gmsh mesher rejects: pre-existing, not a regression). RED/GREEN
   evidence for the fix is the S-1 gmsh m(r) row (71.97 % -> 4.35 %); no synthetic unit test for the unstructured branch yet.
+- L24 (2026-11-16) Worker T15 (login profile; logs/check/l5_oneway/t15/summary.md): ~8 s per window = ~6-7 s Python stress
+  recovery in the step callback every window (_compute_stress_fields 6.9 s/call; stress_output_interval default 1,
+  rotor.py:577, :2132-2141, against its own docstring :2503) + ~2 s BEM wait (4 IQN-ILS sub-iterations/window) + newmark 50 ms;
+  cached KSP works; refactorization only after a K_G rebuild (~+15 s per event, 2 in 50 windows). The YAML key was silently
+  dropped (SolverConfig/_build_model_config whitelist): worker 2 plumbed it, RED 4 failed -> GREEN 4 passed
+  (tests/software/test_stress_output_interval_option.py), quick OK; L5 cases set 50 (93beb2d). Estimated full T6 ~5.6 h + setup.
+  T6 11741547 (15 min in, every-window stress) cancelled, resubmitted as 11741636. Fix-2 (fewer sub-iterations) not taken:
+  changes coupling semantics.
+  T13: worker stalled (never applied the shim steer); 11741508/9 cancelled; parent re-ran provenance (pyshim -> prefix src,
+  `angle = deg2rad(twist) + correction`, CACHE_VERSION 3, _aeroelast from the venv) and runs the static set + S-4 on the
+  LOGIN node (user L21), separate cache dir; logs/check/l5_oneway/t13/{static,s4}-login.out.
