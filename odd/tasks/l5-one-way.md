@@ -224,3 +224,13 @@ below is trusted against its independent reference or declared with cause and to
   * response direction (T11 jsons): shell deflection vector rotated toward +edge vs BeamDyn by 0.5-1.3 deg (ad, bem), 0.1-1.1
     deg parked pure flap; the pretwist placement (<= 0.12 deg outboard) cannot produce it -> the remaining edge difference is
     stiffness coupling (principal axes / 6x6 cross terms, T9), not orientation.
+- L18 (2026-11-16) Parent, T11 v2 L3 rerun on the fixed mesh (SLURM 11741381, gmsh N20 AR 1 via V2_BLADE_MESHER=gmsh
+  V2_BLADE_CHORD_DIVISIONS=20, 17 min; logs/check/l5_oneway/t11/static-11741381.out): 16 passed, 7 failed, 1 xfailed.
+  * PASS: S-2 all (LC1-LC4 dominant component, LC3 edge tip ux, interior station LC1-LC4 -> D2 station now inside 5 %),
+    S-1 EI_flap, V-03 (mass, gravity), V-05.
+  * FAIL: S-1 EI_edge 9.0 %, S-7 torsion ratio 8.30 % (pre-fix gmsh N20 +5.90 %, blade_mesh_size_rule.md:31-33),
+    V-02 1F +7.2 %, 1E +6.8 % (5 % bound, vs NREL/TP-5000-75698 Table 5-2).
+  * S-1 m(r) 72 %, GJ 20 %, EA 1.99e10 %: orientation-independent quantities -> extraction artifact of the S-1 sectional
+    slicer on the gmsh mesh, not physics; no gmsh pre-fix value recorded.
+  * None of these v2 ids are in scripts/known-red-full.txt; no pre-fix run of this file set on gmsh N20 exists except S-7,
+    so the before/after needs a same-command pre-fix run.
