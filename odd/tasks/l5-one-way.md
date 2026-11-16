@@ -24,7 +24,7 @@ below is trusted against its independent reference or declared with cause and to
 - T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
 - T12 | S1 S2 | parent | done (L17) | measured orientation audit (tools/l5_orientation_audit.py): physical frame, mesh rings vs yaml vs BeamDyn deck (LE, suction side, chord angle, prebend, sweep, chord), physics-only AoA, response-angle reading of the T1/T3 differences
 - T13 | S1 S2 | worker | in progress (L18-L19) | pre-fix baseline of the v2 L3 rows (worktree ../fem-shell-prefix at ad1aecf, same commands, gmsh N20), for the before/after table
-- T14 | S1 | worker | in progress (L21) | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
+- T14 | S1 | worker | done for mass/EI (L23); EA/GJ extraction on gmsh open | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
 - T15 | S1 | worker | in progress (L21) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
@@ -270,3 +270,16 @@ below is trusted against its independent reference or declared with cause and to
   is within 0.4-0.8 %. Flap/edge deflection: no harness path; first-order radial foreshortening estimate dR ~ -0.11 m ->
   dP <~ -0.2 % (indicative only). Open question for T4/T9: why a LINEAR shell tracks NONLINEAR BeamDyn twist (coincidence
   of compensating errors vs the shell capturing a coupling BD-linear misses) -> needs the T9 arbiter before any claim.
+- L23 (2026-11-16) Worker T14 (login): S-1 v2 extractor defect on gmsh. tests/support/v2_sectional.py ring_ids_for_v2_mesh
+  (np.unique(eta), assumes the structured windio2 shared eta row) produced 27 621 one-to-64-node "rings" on gmsh -> 815
+  arbitrary stations, 99.6 % centroid fallback, mass / tiny dz. Fix: unstructured meshes (element without exactly 2 eta
+  values) use uniform 0.25 m z strips (GMSH_STRIP_M); windio2 unchanged; no tolerance or src touched. Independent strip-mass
+  cross-check (rho t A per element, no extractor): total 68 191 kg gmsh / 68 193 kg windio2 vs BeamDyn 66 912 kg (+1.9 %);
+  strip m / BD 0.94-1.09 z 1-102, tip 1.63 on both meshers. S-1 gmsh N20 after the fix (mid-span mean |rel err|, 5 % bound;
+  logs/check/l5_oneway/t14/s1_gmsh_fixed.log): m 71.97 -> 4.35 % PASS, EI_flap 4.14 % PASS, EI_edge 9.00 -> 8.83 % FAIL
+  (genuine, T9 family), GJ 20.16 -> 12.10 % FAIL, EA(CLT) 1.99e10 -> 14.48 % FAIL (not verified as physics: strip-width /
+  edge effect suspected, windio2 EA/GJ pipeline not compared). The T13 pre-fix baseline runs the OLD extractor, so its S-1
+  gmsh values are artifacts; only S-2/S-4/S-7/V-02 are comparable before/after.
+  Parent check: tests/support/test_v2_sectional.py 11 passed (windio2 default); under the gmsh env 5 passed / 6 errors both
+  with and without the fix (fixtures pass a collapse ratio the gmsh mesher rejects: pre-existing, not a regression). RED/GREEN
+  evidence for the fix is the S-1 gmsh m(r) row (71.97 % -> 4.35 %); no synthetic unit test for the unstructured branch yet.

@@ -44,6 +44,8 @@ import numpy as np
 
 from tests.support.paths import REPO_ROOT
 
+#: z strip width [m] of the stations of an unstructured (gmsh) v2 mesh (= the windio2 es 0.25 ring pitch).
+GMSH_STRIP_M = 0.25
 V2_YAML = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 
 
@@ -79,6 +81,12 @@ def ring_ids_for_v2_mesh(mesh) -> np.ndarray:
     for k, e in enumerate(el):
         for j, i in enumerate(e[e >= 0]):
             eta[i] = params[k, j, 0]
+    if any(len(np.unique(params[k, : len(e[e >= 0]), 0])) != 2 for k, e in enumerate(el)):
+        # unstructured mesh (gmsh): ``params`` eta is a per-node parameter, not a row index, so np.unique(eta) gives
+        # ~27 600 one-node "rings" and the stations are meaningless (T14).  Use uniform z strips of GMSH_STRIP_M instead;
+        # elements spanning other than two strips take the centroid branch of ``station_membership``.
+        coords = np.ascontiguousarray(mesh.coords_array, dtype=float)
+        return np.floor((coords[:, 2] - coords[:, 2].min()) / GMSH_STRIP_M).astype(np.int64)
     _, raw_ring = np.unique(eta, return_inverse=True)
     lookup = {}
     for i, p in enumerate(x):
