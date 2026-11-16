@@ -23,6 +23,10 @@ below is trusted against its independent reference or declared with cause and to
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
 - T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
 - T12 | S1 S2 | parent | done (L17) | measured orientation audit (tools/l5_orientation_audit.py): physical frame, mesh rings vs yaml vs BeamDyn deck (LE, suction side, chord angle, prebend, sweep, chord), physics-only AoA, response-angle reading of the T1/T3 differences
+- T13 | S1 S2 | worker | in progress (L18-L19) | pre-fix baseline of the v2 L3 rows (worktree ../fem-shell-prefix at ad1aecf, same commands, gmsh N20), for the before/after table
+- T14 | S1 | worker | in progress (L21) | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
+- T15 | S1 | worker | in progress (L21) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
+- T16 | S2 | worker | in progress (L21) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -247,3 +251,8 @@ below is trusted against its independent reference or declared with cause and to
 - L20 (2026-11-16) User: "creo que podemos usar las colas que permiten jobs de hasta 96h". Parent: T6 full 100 s submitted
   as-is (dt 0.01, 10 000 windows, est. 20-32 h): `sbatch -p sequana_cpu_long --time=96:00:00 logs/check/l5_oneway/run-t6.sh
   full` -> SLURM 11741547 (PENDING Priority). Output $SCRATCH/l5_oneway/full-11741547/.
+- L21 (2026-11-16) User: "y no hay nada que podamos hacer mientras tanto 30h+tiempo de espera en cola" -> parent listed T9,
+  S-1 extractor, T6 cost, T8 on the reds, step-5 prep. User: "arranca todo lo que puedas arrancar en el nodo login que nuestra
+  cola en el HPC ya tiene 45 trabajos y no estoy seguro siquiera que pueda manejar tantos jobs". Parent: login-only workers
+  for T14, T15, T16 and the step-5 two-way preparation (thesis-validation-plan.md T5, no numbers claimed); T9 (CalculiX,
+  SLURM) waits for the queue; no new SLURM submissions.
