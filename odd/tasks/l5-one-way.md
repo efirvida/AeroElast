@@ -26,7 +26,7 @@ below is trusted against its independent reference or declared with cause and to
 - T13 | S1 S2 | worker | in progress (L18-L19) | pre-fix baseline of the v2 L3 rows (worktree ../fem-shell-prefix at ad1aecf, same commands, gmsh N20), for the before/after table
 - T14 | S1 | worker | in progress (L21) | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
 - T15 | S1 | worker | in progress (L21) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
-- T16 | S2 | worker | in progress (L21) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
+- T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -256,3 +256,17 @@ below is trusted against its independent reference or declared with cause and to
   cola en el HPC ya tiene 45 trabajos y no estoy seguro siquiera que pueda manejar tantos jobs". Parent: login-only workers
   for T14, T15, T16 and the step-5 two-way preparation (thesis-validation-plan.md T5, no numbers claimed); T9 (CalculiX,
   SLURM) waits for the queue; no new SLURM submissions.
+- L22 (2026-11-16) Worker T16 (login; T8 harness on the t11 fixed-mesh tables, rated, tilt -6/precone -4; logs/check/l5_oneway/t16/
+  summary.{json,md}, run_t16.py). Delta in % of rigid, power == torque (fixed rpm):
+  | case | ad thrust | ad torque | bem thrust | bem torque |
+  |---|---|---|---|---|
+  | shell skin - BD lin | -2.34 | -2.57 | -3.85 | -2.71 |
+  | shell eq - BD lin | -1.67 | -1.96 | -2.80 | -1.94 |
+  | shell skin - BD nl (x1) | +0.77 | -0.41 | +0.71 | -0.80 |
+  | shell skin vs rigid | -16.95 | -8.42 | -9.62 | -3.85 |
+  | BD lin vs rigid | -14.60 | -5.84 | -5.78 | -1.14 |
+  | BD nl vs rigid | -17.71 | -8.01 | -10.33 | -3.05 |
+  The linear twist difference moves torque 2-2.7 % (> 1 %: cannot be declared negligible); against nonlinear BeamDyn the shell
+  is within 0.4-0.8 %. Flap/edge deflection: no harness path; first-order radial foreshortening estimate dR ~ -0.11 m ->
+  dP <~ -0.2 % (indicative only). Open question for T4/T9: why a LINEAR shell tracks NONLINEAR BeamDyn twist (coincidence
+  of compensating errors vs the shell capturing a coupling BD-linear misses) -> needs the T9 arbiter before any claim.
