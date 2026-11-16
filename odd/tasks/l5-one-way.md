@@ -30,6 +30,7 @@ below is trusted against its independent reference or declared with cause and to
 - T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T17 | S5 S1 | parent | implemented (L34), T6 rerun pending | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
+- T18 | S1 S2 | worker | in progress (L36) | aero torsional load: T6 time-mean F_AERO vs T3 `_compute_forces(zeros)` give the same flap but twist -3.20 vs -2.25 deg on the same K_eff (L31); per-strip force and torsional moment about the reference axis, cause (Cm/arm projection, azimuth mean with tilt, BEM config fluid.yaml vs bem_config), fix or declare
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -435,6 +436,7 @@ below is trusted against its independent reference or declared with cause and to
   edge 1.6281 / twist -3.424 deg = static_t6 (identical to 4 decimals). Submitted: full suite SLURM 11743282 (sequana_cpu_bigmem,
   snapshot f8a1639) and the T6 rerun SLURM 11743283 (sequana_cpu_long, 8 h; criterion: dyn mean within 1 % of static_t6
   17.306 m flap, 1.628 m edge, twist -3.42 deg).
+- L36 (2026-11-16) User: "arranca con los dos" (T18 aero twist load difference and T9) and "no preguntes mas sobre el estado del git mezclalo todo a main". Parent: main fast-forwarded to acefb5f locally; T18 and T9 to two workers while SLURM 11743282/11743283 run.
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
