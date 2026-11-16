@@ -100,7 +100,8 @@ def main():
     calc = InertialForcesCalculator(rotation_axis=par.AXIS, rotation_center=center)
     f_cf = calc.compute_centrifugal_force(X, nodal_m, omega)  # the rotor solver's fallback path, X0
 
-    # K_G the production Rust loop rebuilds every step (rotor_fsi.rs -> assemble_centrifugal_k, local sigma estimate)
+    # K_G the production Rust loop rebuilds every step (rotor_fsi.rs -> CentrifugalPrestress, T17/L33): the same
+    # code is exposed by the PyO3 binding below, so static_t6_kgrust is the acceptance row (== static_t6, 1e-6 rel)
     from scipy.sparse import coo_matrix
 
     n_dof = asm.dofs_count
@@ -112,8 +113,9 @@ def main():
                       (np.concatenate([idx + a for a in range(3) for b in range(3)]),
                        np.concatenate([idx + b for a in range(3) for b in range(3)]))), shape=(n_dof, n_dof)).tocsr()
     Kg_py = (K - K0 - Ksp).tocsr()
-    r, c, v = asm._rust.assemble_centrifugal_k(omega, list(par.AXIS), list(center),
-                                               np.asarray(asm._rust.rho_per_elem(), float))
+    r, c, v = asm._rust.assemble_centrifugal_geometric_k(
+        float(omega), [float(x) for x in par.AXIS], [float(x) for x in center],
+        np.asarray(free, dtype=np.int64))
     Kg_rs = coo_matrix((np.asarray(v), (np.asarray(r), np.asarray(c))), shape=(n_dof, n_dof)).tocsr()
     K_rust = (K0 + Ksp + Kg_rs).tocsr()
 
