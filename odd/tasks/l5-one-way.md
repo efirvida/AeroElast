@@ -297,3 +297,22 @@ below is trusted against its independent reference or declared with cause and to
 - L25 (2026-11-16) User: "si, todo lo que puedas correr en el login tienes permiso para hacerlo". Parent: login runs started:
   step-5 OpenFAST flex/rigid 60 s (logs/check/l5_twoway/openfast-login.out; reference data only, step 4 still open), T14b
   worker (S-1 GJ/EA on gmsh: windio2 comparison, strip-width scan, independent EA/GJ), T13 baseline continues on login.
+- L26 (2026-11-16) Parent:
+  * Login node limit: `ulimit -t` = 1800 CPU-s per process. OpenFAST flex 60 s was killed at t = 22.75 s (rc 137, threaded
+    BLAS); rerun single-threaded (OMP/OPENBLAS = 1). Rigid twin 60 s finished normally. Long pytest runs on login must be split
+    per test node and single-threaded (S-4 rerun per node).
+  * T13 BEFORE/AFTER, static set, same command, gmsh N20 AR 1, BeamDyn p60 / NREL report references (before = ad1aecf via the
+    pyshim, logs/check/l5_oneway/t13/static-login.out; after = 0c04c36, t11/static-11741381.out). Both 16 passed / 7 failed.
+    | row | before (mirrored) | after (fixed) | bound |
+    |---|---|---|---|
+    | S-2 LC2 tip flap uy | +6.32 % FAIL | +4.75 % | 5 % |
+    | S-2 LC4 distributed uy | -2.93 % | -4.97 % | 5 % |
+    | S-2 LC1 gravity station | -1.48 % | -4.57 % | 5 % |
+    | S-2 LC2 / LC4 station | -0.50 / -2.52 % | -1.81 / -4.59 % | 5 % |
+    | S-2 LC3 tip edge ux | +12.14 % | +11.78 % | (diagnostic tip; station test passes) |
+    | S-7 torsion ratio | 5.9 % FAIL | 8.30 % FAIL | 5 % |
+    | V-02 1F / 1E (NREL report) | 8.02 / 6.76 % | 7.22 / 6.84 % | 5 % |
+    | S-1 EI_edge (old extractor both) | 8.72 % | 9.00 % | 5 % |
+    Reading: with the physical pretwist the shell is 2-3 % stiffer in global flap (every flap row moves toward -5 %),
+    consistent with T1/T3 (flap -2..-3 % -> -4..-6.5 %): bending about the global axis now engages the stiff edge axis at
+    the correct angles. The global flap rows now sit at the 5 % edge; S-7 moved away (5.9 -> 8.3 %).
