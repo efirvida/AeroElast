@@ -331,3 +331,17 @@ below is trusted against its independent reference or declared with cause and to
 - L28 (2026-11-16) User: "metele" (prepare the T9 arbiter on the login node). Parent: worker prepares the CalculiX solid
   segment arbiter (z ~60/80/95: flap moment, edge moment, torque -> section compliance incl. flap-edge cross term, principal
   angle, torsion) for shell, BeamDyn deck 6x6 and solid on the same cut; login smoke only if < 1800 CPU-s per process.
+- L29 (2026-11-16) Worker T9 prep (tools/l5_t9_arbiter.py, 13 unit tests RED->GREEN; reuses tools/l3_solid_section_ccx.py and
+  l5_section_coupling.deck_at). One fit (fit_section_kinematics) -> 3x3 compliance [k_flap, k_edge, twist rate] per [M_flap,
+  M_edge, T] in the mesh frame for shell (6-chord segment of the N20 mesh), deck 6x6 and layered solid (ccx). SMOKE (coarse,
+  not evidence; logs/check/l5_oneway/t9b/smoke/table.md):
+  | z | model | psi deg | C_fe/C_ff | GJ/deck | EI_flap/deck | EI_edge/deck |
+  |---|---|---|---|---|---|---|
+  | 60 | shell | -2.56 (deck -1.49) | -0.029 (deck -0.017) | 0.90 | 1.04 | 1.05 |
+  | 80 | shell | 0.52 (deck 1.23) | -0.003 (deck +0.010) | 0.82 | 1.00 | 0.94 |
+  | 95 | shell | -0.68 (deck 2.91) | -0.032 (deck +0.026) | 0.84 | 0.99 | 0.86 |
+  | 95 | solid A | 2.52 | +0.022 | 0.80 | 0.99 | 0.94 |
+  First sign (z 95 only, coarse): the solid sides with the deck on the principal angle / cross term and with the shell on GJ
+  (deck TE filler, D1). Risks: shell psi moves +-1 deg with segment length and +-2 deg along span (window decision needed);
+  shell GJ depends on fit weights; the deck carries a TE filler the shell/solid lack (fill job); level B settings unvalidated.
+  Login runtimes: solid A 4.5 min wall (3 ccx x ~230 CPU-s). sbatch prepared, not submitted (logs/check/l5_oneway/t9b/).
