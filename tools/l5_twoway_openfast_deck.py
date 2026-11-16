@@ -16,7 +16,7 @@ applied; see Engram ``config/openfast-5-0-0-corriendo-iea-15-mw-deck-v4-2-v5-0-c
 
 Options (all matched to the L4 closure, odd/tasks/l4-bem-rigid-closure.md L5 "T5 matched options", and to the
 production two-way case cases/l5_twoway_rated): rated 10.59 m/s uniform (PLexp 0), 7.56 rpm fixed (GenDOF/DrTrDOF
-off, ElastoDyn RotSpeed), pitch 0, tilt -6, precone -4 (deck ElastoDyn), tower influence/shadow/aero off, UA_Mod 0,
+off, ElastoDyn RotSpeed), pitch 0, tilt -6, precone -4 (deck ElastoDyn), tower influence/shadow/aero off, UA_Mod 3 (L8),
 DBEMT_Mod 0, Wake_Mod 1, BEM_Mod 1, Skew_Mod 1 (deck), tip/hub loss on, gravity off, CompServo 0.
 
 No numbers are produced here: the smoke (``--smoke``) only proves the decks run.  Usage::
@@ -63,7 +63,10 @@ COMMON_FILES = [
 ]
 
 AD_OVERRIDES = {  # same switches as tests/support/openfast_bem.py write_bem_primary (L4 harness) + explicit pins
-    "UA_Mod": "0",
+    # UA_Mod 3 (B-L Minnema/Pierce), not the L4 quasi-steady 0: with quasi-steady aero the converted flex deck has a
+    # self-excited ~3.6 Hz torsion-flap mode (P 7.4 +/- 6.0 MW, thesis-validation-plan.md L7-L8). In steady state UA
+    # converges to the static polars (rigid twin unchanged); mu x10 with UA 0 gives the same flex means within 0.05 %.
+    "UA_Mod": "3",
     "TwrPotent": "0",
     "TwrShadow": "0",
     "TwrAero": "False",

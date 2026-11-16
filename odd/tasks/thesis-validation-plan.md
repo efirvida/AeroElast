@@ -67,3 +67,12 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
   converted deck with quasi-steady aero (UA 0, DBEMT 0) and the deck's light stiffness-proportional damping (mu 0.003/0.002/
   0.0008) -- quasi-steady lift has no lag and pumps the ~3.6 Hz torsion-flap mode. Next: 60 s with UA 3 / DBEMT 0 (steady
   state converges to the static polars, as our quasi-steady BEM) and with mu x10, to check that the reference MEANS agree.
+- L9 (2026-11-16) Parent: 60 s robustness check: flex UA_Mod 3 / DBEMT 0 vs UA 0 with BeamDyn mu x10, last revolution:
+  P 15.351 vs 15.344 MW (0.05 %), thrust 2.1857 vs 2.1860 MN, torque 19.391 vs 19.380 MN m, tip flap 14.582 vs 14.583 m,
+  tip WM rz -0.06478 vs -0.06479 -> the reference means do not depend on the cure. Generator switched to UA_Mod 3 for both
+  decks (tools/l5_twoway_openfast_deck.py AD_OVERRIDES, comment cites L7-L8); decks regenerated and rerun (login, 60 s, flex
+  ~100 CPU-s once stable): flex P 15.351 MW, thrust 2.18573 MN, torque 19.3908 MN m, tip flap 14.58 m, edge -1.324 m, tip
+  rotation -3.711 deg (WM -0.06478), drift last/prev rev <= 0.007 %; rigid P 15.74 MW (UA 0: 15.73; 4-digit output),
+  thrust 2.476 MN, torque 19.88 MN m, tip 0.020 m. OpenFAST flexible-minus-rigid: power -2.47 %, torque -2.46 %, thrust
+  -11.72 % (the step-5 thesis quantity, OpenFAST side; reference data only, step 4 not closed).
+  logs/check/l5_twoway/openfast_means.json.
