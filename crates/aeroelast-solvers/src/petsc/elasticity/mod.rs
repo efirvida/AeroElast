@@ -8,6 +8,7 @@
 /// | `static_nonlinear`  | SNES (Newton-LS)    | R(u) = 0 (geometric/material NL) |
 /// | `dynamic_newmark`   | Newmark-β           | Mü + Ku = F(t) (linear dynamic)  |
 /// | `modal`             | SLEPc EPS           | K·x = λM·x (modal analysis)      |
+/// | `prestress`         | LU (preonly)        | K·u = f_cf → centrifugal K_G     |
 ///
 /// All solvers are single-process (PETSC_COMM_SELF) and accept assembled
 /// COO triplets or `MeshAssembler` references as input.
@@ -15,3 +16,4 @@ pub mod static_linear;
 pub mod static_nonlinear;
 pub mod dynamic_newmark;
 pub mod modal;
+pub mod prestress;

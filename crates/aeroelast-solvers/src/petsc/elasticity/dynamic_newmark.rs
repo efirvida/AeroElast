@@ -1425,6 +1425,12 @@ impl NewmarkStepper {
         &self.k_vals
     }
 
+    /// Borrow the base (centrifugal prestress) geometric stiffness COO values set by
+    /// `set_initial_geometric_stiffness`, aligned to the K sparsity pattern.
+    pub fn kg_base_vals(&self) -> &[f64] {
+        &self.kg_base_vals
+    }
+
     /// Borrow the current geometric stiffness COO values aligned to the K sparsity pattern.
     ///
     /// Returns the runtime K_G contribution (not the base `kg_base_vals`). Zero until

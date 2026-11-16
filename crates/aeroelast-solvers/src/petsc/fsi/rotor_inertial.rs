@@ -36,7 +36,8 @@
 
 use std::time::Instant;
 
-use aeroelast_core::assembly::assembler::{MaterialSpec, MeshAssembler};
+use aeroelast_core::assembly::assembler::MeshAssembler;
+use crate::petsc::elasticity::prestress::CentrifugalPrestress;
 
 use crate::petsc::elasticity::dynamic_newmark::{NewmarkCheckpoint, NewmarkStepper};
 use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
@@ -328,9 +329,10 @@ pub struct InertialRotorFsiSolver {
     k_red_cols: Vec<i32>,
     /// Maps full reassembled K_G COO entries into the reference reduced K COO.
     kg_coo_map: Vec<i32>,
-    /// Per-element density (or mass-per-area for composites) used to build the
-    /// centrifugal prestress K_G(θ, ω).
-    rho_per_elem: Vec<f64>,
+    /// Centrifugal static-solve prestress helper (the one K_G implementation).
+    /// Its reduced linear K is refreshed at X_rotated(θ) on every K_G rebuild,
+    /// because the inertial solver's geometry rotates with θ.
+    prestress: Option<CentrifugalPrestress>,
 
     // ── Stiffness update tracking ─────────────────────────────────────────────
     /// ω² at the last K(θ) rebuild (for relative change check).
@@ -452,16 +454,6 @@ impl InertialRotorFsiSolver {
 
         let transforms = RotorTransforms::new(axis_normalized, config.rotation_center);
 
-        let rho_per_elem: Vec<f64> = assembler
-            .materials
-            .iter()
-            .map(|m| match m {
-                MaterialSpec::Isotropic { rho, .. } => *rho,
-                MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
-                MaterialSpec::PlaneStress { rho, .. } => *rho,
-            })
-            .collect();
-
         let kg_coo_map = if config.include_geometric_stiffness {
             let dummy_sigma = vec![[0.0f64; 3]; assembler.topology.n_elems];
             let (kg_rows_full, kg_cols_full, _) = assembler.assemble_geometric_k(&dummy_sigma);
@@ -492,7 +484,7 @@ impl InertialRotorFsiSolver {
             k_red_rows,
             k_red_cols,
             kg_coo_map,
-            rho_per_elem,
+            prestress: None,
             n_iface,
             iface_dofs,
             iface_nodes,
@@ -762,33 +754,39 @@ impl InertialRotorFsiSolver {
         // we restore X_rotated so later assembly paths see canonical geometry.
         let kg_vals_red = if rebuild_kg {
             if self.config.include_geometric_stiffness {
-                let kg_vals_full = if self.config.kg_use_deformed_coords {
+                // Prestress at X_rotated(θ) with the linear K (K(θ) = R K R^T and
+                // f_cf(θ) = R f_cf, so the stress state is frame-invariant); only the
+                // final assembly uses X_rotated + u when deformed coords are enabled.
+                self.assembler.update_node_coordinates(&self.coords_rotated);
+                let free_usize: Vec<usize> = free_dofs.iter().map(|&d| d as usize).collect();
+                match self.prestress.as_mut() {
+                    Some(cp) => cp.refresh_operator(&self.assembler)?,
+                    None => {
+                        self.prestress =
+                            Some(CentrifugalPrestress::new(&self.assembler, &free_usize)?);
+                    }
+                }
+                let coords_def = if self.config.kg_use_deformed_coords {
                     let u_full = self.expand_to_full(u_red, free_dofs);
-                    let coords_def = compose_deformed_coords(
+                    Some(compose_deformed_coords(
                         &self.coords_rotated,
                         &u_full,
                         self.config.dofs_per_node,
-                    );
-                    self.assembler.update_node_coordinates(&coords_def);
-                    let (_, _, vals) = self.assembler.assemble_centrifugal_k(
-                        omega,
-                        self.transforms.axis,
-                        self.transforms.center,
-                        &self.rho_per_elem,
-                    );
-                    // Restore X_rotated as the canonical assembler geometry.
-                    let coords_rotated_snapshot = self.coords_rotated.clone();
-                    self.assembler.update_node_coordinates(&coords_rotated_snapshot);
-                    vals
+                    ))
                 } else {
-                    let (_, _, vals) = self.assembler.assemble_centrifugal_k(
+                    None
+                };
+                let (_, _, kg_vals_full) = self
+                    .prestress
+                    .as_ref()
+                    .expect("prestress built above")
+                    .geometric_k(
+                        &mut self.assembler,
                         omega,
                         self.transforms.axis,
                         self.transforms.center,
-                        &self.rho_per_elem,
-                    );
-                    vals
-                };
+                        coords_def.as_deref(),
+                    )?;
                 apply_kg_coo_map(&self.kg_coo_map, &kg_vals_full, self.k_red_nnz)
             } else {
                 // include_geometric_stiffness=false → K_G = 0 (never changes).

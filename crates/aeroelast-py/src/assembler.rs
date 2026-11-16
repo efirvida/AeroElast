@@ -673,8 +673,8 @@ impl PyMeshAssembler {
     /// Return mass-per-area (kg/m²) for each element.
     ///
     /// For composite elements this is Σ(ρ_k · t_k) over all plies.
-    /// For isotropic shell elements this is ρ (kg/m³) — the caller is
-    /// responsible for multiplying by thickness when needed.
+    /// For isotropic shell elements this is ρ (kg/m³), volumetric; for a
+    /// mass per area use `mass_per_area()`.
     ///
     /// Returns
     /// -------
@@ -688,51 +688,64 @@ impl PyMeshAssembler {
         Array1::from(rho).into_pyarray(py)
     }
 
-    /// Assemble the geometric stiffness matrix K_σ from centrifugal loading.
+    /// Mass per unit area (kg/m²) of every element: ρ·t for isotropic shell and
+    /// plane-stress elements, the laminate mass per area for composites.  This is
+    /// the density the centrifugal load kernel integrates over the element area.
+    pub fn mass_per_area<'py>(&self, py: Python<'py>) -> pyo3::Bound<'py, PyArray1<f64>> {
+        Array1::from(self.inner.mass_per_area_per_elem()).into_pyarray(py)
+    }
+
+    /// Centrifugal geometric stiffness K_G from the static-solve prestress.
     ///
-    /// Computes centrifugal prestress per element from first principles and
-    /// assembles the geometric stiffness matrix in a single Rust pass.
+    /// The one implementation shared with the Rust rotor solvers
+    /// (``aeroelast-solvers`` ``CentrifugalPrestress``): centrifugal nodal load at
+    /// the current coordinates, static solve ``K u = f_cf`` on ``free_dofs`` (linear
+    /// K, preonly + LU), membrane resultants ``(A eps + B kappa)/h`` at the element
+    /// centroids, then ``assemble_geometric_k``.  There is no local-sigma fallback.
     ///
     /// Parameters
     /// ----------
     /// omega : float
-    ///     Angular velocity magnitude (rad/s).
-    /// rotation_axis : list[float] of length 3
-    ///     Unit vector of the rotation axis [ax, ay, az].
-    /// rotation_center : list[float] of length 3
-    ///     A point on the rotation axis [cx, cy, cz] (m).
-    /// rho_per_elem : np.ndarray shape (n_elems,)
-    ///     Density (kg/m³) or mass-per-area (kg/m²) per element.
-    ///     For isotropic shell elements use ρ (kg/m³);
-    ///     for composite laminates use mass_per_area (kg/m²).
+    ///     Angular velocity (rad/s).
+    /// rotation_axis, rotation_center : list[float] of length 3
+    ///     Axis direction (normalised internally) and a point on it (m).
+    /// free_dofs : np.ndarray[int64]
+    ///     Free global DOFs (clamped-root elimination of the static solve).
     ///
-    /// Returns (rows, cols, vals) as numpy int64/float64 arrays.
-    pub fn assemble_centrifugal_k<'py>(
-        &self,
+    /// Returns (rows, cols, vals) COO triplets of K_G in full DOF numbering.
+    pub fn assemble_centrifugal_geometric_k<'py>(
+        &mut self,
         py: Python<'py>,
         omega: f64,
         rotation_axis: [f64; 3],
         rotation_center: [f64; 3],
-        rho_per_elem: PyReadonlyArray1<f64>,
+        free_dofs: PyReadonlyArray1<i64>,
     ) -> PyResult<(
         pyo3::Bound<'py, PyArray1<i64>>,
         pyo3::Bound<'py, PyArray1<i64>>,
         pyo3::Bound<'py, PyArray1<f64>>,
     )> {
-        let rho_slice = rho_per_elem.as_slice()?;
-        if rho_slice.len() != self.inner.topology.n_elems {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "rho_per_elem must have length n_elems={}; got {}",
-                self.inner.topology.n_elems,
-                rho_slice.len()
-            )));
+        use aeroelast_solvers::petsc::elasticity::prestress::CentrifugalPrestress;
+
+        let n_full = self.inner.dofs_count;
+        let mut free: Vec<usize> = Vec::with_capacity(free_dofs.len()?);
+        for &d in free_dofs.as_slice()? {
+            if d < 0 || d as usize >= n_full {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "free_dofs entry {d} outside 0..{n_full}"
+                )));
+            }
+            free.push(d as usize);
         }
-        let (rows, cols, vals) = self.inner.assemble_centrifugal_k(
-            omega,
-            rotation_axis,
-            rotation_center,
-            rho_slice,
-        );
+        let to_py_err = |e: aeroelast_solvers::petsc::infra::mat::PetscError| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "centrifugal prestress K_G failed: {e}"
+            ))
+        };
+        let cp = CentrifugalPrestress::new(&self.inner, &free).map_err(to_py_err)?;
+        let (rows, cols, vals) = cp
+            .geometric_k(&mut self.inner, omega, rotation_axis, rotation_center, None)
+            .map_err(to_py_err)?;
         Ok((
             Array1::from(rows).into_pyarray(py),
             Array1::from(cols).into_pyarray(py),
@@ -874,10 +887,9 @@ impl PyMeshAssembler {
     ///
     /// This is the right-hand side of `K u = f_cf`, the static pre-stress
     /// problem whose displacement solution feeds
-    /// `assemble_geometric_k_from_disp`.  There is no point in
-    /// `assemble_centrifugal_k` alone: on a rotating blade the old local
-    /// approximation `sigma = rho*omega^2*r*l_char` was two to three orders of
-    /// magnitude too small, so rotating modes came out parked.
+    /// `assemble_geometric_k_from_disp`.  `rho_per_elem` is `mass_per_area()`.
+    /// The local `sigma = rho*omega^2*r*l_char` K_G estimate was deleted (T17);
+    /// use `assemble_centrifugal_geometric_k`.
     pub fn centrifugal_load<'py>(
         &self,
         py: Python<'py>,

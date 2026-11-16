@@ -21,6 +21,7 @@ use std::time::Instant;
 use aeroelast_core::assembly::assembler::MeshAssembler;
 
 use crate::petsc::elasticity::dynamic_newmark::{NewmarkCheckpoint, NewmarkStepper};
+use crate::petsc::elasticity::prestress::CentrifugalPrestress;
 use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
 use crate::petsc::fsi::linear_elastic::{FsiConfig, FsiError, FsiInitialState, FsiResult};
 use crate::petsc::fsi::profiling::WindowProfiler;
@@ -226,6 +227,9 @@ pub struct RotorFsiSolver {
     // ── Matrix updates ────────────────────────────────────────────────────────
     /// Optional mesh assembler for K_G computation.
     assembler: Option<MeshAssembler>,
+    /// Centrifugal static-solve prestress helper (reduced linear K factorized once at
+    /// X0). Built lazily on the first K_G rebuild; the only centrifugal K_G in the crate.
+    prestress: Option<CentrifugalPrestress>,
     /// Lumped mass diagonal in the FULL (unreduced) DOF space, length `n_full_dofs`.
     m_lumped_full: Vec<f64>,
     /// Free global DOF indices (ascending), length `n_reduced_dofs`.
@@ -365,6 +369,7 @@ impl RotorFsiSolver {
             all_node_coords,
             all_node_masses,
             assembler,
+            prestress: None,
             m_lumped_full,
             free_dofs_i32,
             full_to_red,
@@ -600,47 +605,31 @@ impl RotorFsiSolver {
 
         // Compose deformed coords / snapshot original coords up-front so the
         // mut-borrow scope below stays contained.
-        let (coords_def, coords_orig) = if kg_use_deformed {
+        let coords_def = if kg_use_deformed {
             let u_full = self.expand_to_full(u_red);
-            let coords_def =
-                compose_deformed_coords(&self.all_node_coords, &u_full, dofs_per_node);
-            let coords_orig = self.all_node_coords.clone();
-            (coords_def, coords_orig)
+            compose_deformed_coords(&self.all_node_coords, &u_full, dofs_per_node)
         } else {
-            (Vec::new(), Vec::new())
+            Vec::new()
         };
 
-        // ── K_G assembly under a scoped &mut assembler borrow ─────────────────
+        // ── K_G: static-solve prestress at X0 (linear K), one implementation ──
+        // `CentrifugalPrestress` solves K u = f_cf on the free DOFs, recovers the
+        // membrane resultants and assembles K_G; with `kg_use_deformed_coords` only
+        // the final assembly uses X0 + u (X0 is restored inside the helper).
+        if self.prestress.is_none() {
+            let free: Vec<usize> = self.free_dofs_i32.iter().map(|&d| d as usize).collect();
+            let asm = self.assembler.as_ref().expect("assembler presence checked above");
+            self.prestress = Some(CentrifugalPrestress::new(asm, &free)?);
+        }
         let kg_vals_full = {
-            use aeroelast_core::assembly::assembler::MaterialSpec;
             let asm = self
                 .assembler
                 .as_mut()
                 .expect("assembler presence checked above");
-
-            let rho_per_elem: Vec<f64> = asm
-                .materials
-                .iter()
-                .map(|m| match m {
-                    MaterialSpec::Isotropic { rho, .. } => *rho,
-                    MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
-                    MaterialSpec::PlaneStress { rho, .. } => *rho,
-                })
-                .collect();
-
-            if kg_use_deformed {
-                asm.update_node_coordinates(&coords_def);
-                let (_, _, vals) =
-                    asm.assemble_centrifugal_k(omega, axis, center, &rho_per_elem);
-                // Restore X_ref so any later assembly path sees the canonical
-                // reference geometry.
-                asm.update_node_coordinates(&coords_orig);
-                vals
-            } else {
-                let (_, _, vals) =
-                    asm.assemble_centrifugal_k(omega, axis, center, &rho_per_elem);
-                vals
-            }
+            let prestress = self.prestress.as_ref().expect("prestress built above");
+            let deformed = if kg_use_deformed { Some(coords_def.as_slice()) } else { None };
+            let (_, _, vals) = prestress.geometric_k(asm, omega, axis, center, deformed)?;
+            vals
         };
 
         let kg_red = crate::petsc::fsi::setup::apply_kg_coo_map(
@@ -1421,5 +1410,118 @@ mod tests {
         assert!(coords_rotated[0].abs() < 1e-12, "x={}", coords_rotated[0]);
         assert!((coords_rotated[1] - 1.0).abs() < 1e-12, "y={}", coords_rotated[1]);
         assert!(coords_rotated[2].abs() < 1e-12, "z={}", coords_rotated[2]);
+    }
+
+    // ── T17 (L33): the rotor rebuild path is the CentrifugalPrestress helper ──
+
+    /// Build a RotorFsiSolver on the clamped hub plate (3 x 2 MITC4, hub offset 1 m).
+    fn plate_solver(deformed: bool) -> (RotorFsiSolver, MeshAssembler, Vec<usize>) {
+        use crate::petsc::elasticity::prestress::test_support::hub_plate;
+        use std::collections::BTreeMap;
+
+        let (asm, free) = hub_plate(3, 2, 1.0);
+        let free_i32: Vec<i32> = free.iter().map(|&d| d as i32).collect();
+        let (r, c, v) = asm.assemble_k();
+        let (rf, cf, vf): (Vec<i32>, Vec<i32>, Vec<f64>) = (
+            r.iter().map(|&x| x as i32).collect(),
+            c.iter().map(|&x| x as i32).collect(),
+            v,
+        );
+        let (rr, cr, vr) = crate::petsc::fsi::setup::reduce_coo(&rf, &cf, &vf, &free_i32);
+        let mut uniq: BTreeMap<(i32, i32), f64> = BTreeMap::new();
+        for ((&i, &j), &x) in rr.iter().zip(&cr).zip(&vr) {
+            *uniq.entry((i, j)).or_insert(0.0) += x;
+        }
+        let k_rows: Vec<i32> = uniq.keys().map(|k| k.0).collect();
+        let k_cols: Vec<i32> = uniq.keys().map(|k| k.1).collect();
+        let k_vals: Vec<f64> = uniq.values().cloned().collect();
+        let m_vals: Vec<f64> =
+            uniq.keys().map(|k| if k.0 == k.1 { 1.0 } else { 0.0 }).collect();
+        let c_vals = vec![0.0; k_vals.len()];
+        let n_red = free.len();
+        let stepper = NewmarkStepper::new(
+            &k_rows, &k_cols, &k_vals, &k_rows, &k_cols, &m_vals, &k_rows, &k_cols, &c_vals,
+            n_red, 0.25, 0.5, 0.01,
+        )
+        .unwrap();
+        let mut cfg = dummy_config(1);
+        cfg.kg_use_deformed_coords = deformed;
+        let n_full = asm.dofs_count;
+        let coords = asm.topology.node_coords.clone();
+        let solver = RotorFsiSolver::new(
+            stepper,
+            cfg,
+            Vec::new(),
+            Vec::new(),
+            3,
+            OmegaProvider::Constant { omega: 12.0 },
+            coords,
+            vec![1.0; n_full / 6],
+            vec![1.0; n_full],
+            k_rows,
+            k_cols,
+            free_i32,
+            n_full,
+            Some(asm.clone()),
+        );
+        (solver, asm, free)
+    }
+
+    #[test]
+    fn rotor_kg_rebuild_equals_prestress_helper_at_x0() {
+        use crate::petsc::elasticity::prestress::CentrifugalPrestress;
+        let (mut solver, mut asm, free) = plate_solver(false);
+        let n_red = free.len();
+        solver.update_kg_if_needed(12.0, &vec![0.0; n_red], 1).unwrap();
+        let got = solver.stepper.kg_base_vals().to_vec();
+
+        let cp = CentrifugalPrestress::new(&asm, &free).unwrap();
+        let (_, _, vals) = cp
+            .geometric_k(&mut asm, 12.0, [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], None)
+            .unwrap();
+        let want = crate::petsc::fsi::setup::apply_kg_coo_map(
+            &solver.kg_coo_map,
+            &vals,
+            solver.k_rows.len(),
+        );
+        let norm = want.iter().map(|x| x * x).sum::<f64>().sqrt();
+        assert!(norm > 1.0, "K_G must be the static-solve one, not ~0 (norm {norm})");
+        assert_eq!(got.len(), want.len());
+        for (g, w) in got.iter().zip(&want) {
+            assert!((g - w).abs() <= 1e-12 * (w.abs() + norm * 1e-3), "{g} vs {w}");
+        }
+    }
+
+    #[test]
+    fn rotor_kg_rebuild_deformed_coords_prestress_at_x0_final_assembly_at_xu() {
+        use crate::petsc::elasticity::prestress::CentrifugalPrestress;
+        let (mut solver, mut asm, free) = plate_solver(true);
+        let n_red = free.len();
+        let u_red: Vec<f64> =
+            (0..n_red).map(|i| if free[i] % 6 == 1 { 2e-3 } else { 0.0 }).collect();
+        solver.update_kg_if_needed(12.0, &u_red, 1).unwrap();
+        let got = solver.stepper.kg_base_vals().to_vec();
+        // Reference built by hand: X0 + u from the same reduced u.
+        let mut u_full = vec![0.0; asm.dofs_count];
+        for (i, &d) in free.iter().enumerate() {
+            u_full[d] = u_red[i];
+        }
+        let x0 = asm.topology.node_coords.clone();
+        let xd = compose_deformed_coords(&x0, &u_full, 6);
+        let cp = CentrifugalPrestress::new(&asm, &free).unwrap();
+        let (_, _, vals) = cp
+            .geometric_k(&mut asm, 12.0, [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], Some(&xd))
+            .unwrap();
+        let want = crate::petsc::fsi::setup::apply_kg_coo_map(
+            &solver.kg_coo_map,
+            &vals,
+            solver.k_rows.len(),
+        );
+        let norm = want.iter().map(|x| x * x).sum::<f64>().sqrt();
+        for (g, w) in got.iter().zip(&want) {
+            assert!((g - w).abs() <= 1e-12 * (w.abs() + norm * 1e-3), "{g} vs {w}");
+        }
+        // The assembler inside the solver was restored to X0.
+        assert_eq!(solver.assembler.as_ref().unwrap().topology.node_coords, x0);
     }
 }
