@@ -52,3 +52,11 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
   Zhou rigid means within 2.5 % (secondary). Declared: cant twist term absent, V-01 vs WISDEM unarbitrated (contract shows L4 open for
   them). For step 4/5: production tilt/precone must match the deck (-6 / -4) or the difference be declared (+2.44 % torque). Pending:
   T7 blade-test check (SLURM 11739091). Next: step 4 (L5 one-way) only with the user's go-ahead.
+- L7 (2026-11-16) Parent: step-5 OpenFAST reference decks run on the login node (60 s, $SCRATCH/l5_twoway/openfast/{flex,rigid}/run.out).
+  Rigid twin: steady, P 15.73 MW, thrust 2.476 MN, torque 19.87 MN m, tip TDxr 0.020 m (x1e3 stiffness is rigid enough;
+  consistent with the L4 closure, production 15.87 MW). Flex: NOT a usable reference. Power 7.4 +/- 6.0 MW (5 s window std),
+  thrust -23 %, power -53 % vs rigid, tip flap 11.7 +/- 0.9 m, tip WM rotation z -0.05 +/- 0.30 (about +/-17 deg) sustained
+  from t = 10 s to 60 s, 1.6 %/rev drift: a sustained torsional/limit-cycle oscillation (numerical instability at DT 0.01 with
+  BeamDyn after the v4.2->v5 conversion, or a deck defect) -> diagnose before any step-5 number (DT/DTBeam, rhoinf, damping,
+  the converted BeamDyn blocks). Login limit: 1800 CPU-s per process; the flex 60 s took 1436 CPU-s single-threaded, so a
+  smaller DT needs SLURM or a restart split.
