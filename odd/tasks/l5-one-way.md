@@ -13,16 +13,16 @@ below is trusted against its independent reference or declared with cause and to
 ## Tasks
 
 - T1 | S1 S2 | parent | pending | BeamDyn under the S-5 AeroDyn loads: deflection OoP/IP and tip twist vs our shell (replaces the ElastoDyn IP apples-to-oranges bound)
-- T2 | S1 | parent | pending | S-6 NaN: reproduce on HEAD (mid-surface vs default OML skin), root cause, close or declare
+- T2 | S1 | parent | done (L12: S-6 3 passed on HEAD, no NaN) | S-6 NaN: reproduce on HEAD (mid-surface vs default OML skin), root cause, close or declare
 - T3 | S1 S3 | parent | pending | our rigid BEM loads (deck tilt -6 / precone -4, T7 model) through the production load mapping onto the shell, the same loads onto BeamDyn; load conservation check; 5 % on deflection and twist
 - T4 | S4 | parent | pending | twist metric for the one-way deliverable: equal-weight vs skin-weighted estimator on T1/T3, decide or carry to two-way
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
-- T6 | S1 S3 | worker | pending | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
-- T7 | S3 | worker (with T6) | pending | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
+- T6 | S1 S3 | worker | in progress (smoke 11741409 on dev, L15) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
+- T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
 - T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
-- T8 | S2 | worker | pending | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
+- T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
 
@@ -174,3 +174,33 @@ below is trusted against its independent reference or declared with cause and to
   (logs/check/l5_oneway/t11/frames_{green,red}.log). check.sh quick OK (75 passed, 1 xfailed); the one ruff F541 in the
   touched files is pre-existing. Every pre-fix v2/gmsh cache entry is now unreachable; L3 orientation rows re-open until
   re-measured. Status (user question): T2 passed (L12), T8 harness committed (ce50b2e), both await the T5 store rows.
+- L15 (2026-11-16) User: "que podemos ir haciendo mientras esperamos?" -> parent proposed D1-D4 triage, doc status, T6 launch,
+  T7 with new case files instead of editing legacy ones. User: "si". Parent:
+  * T7 closed: the only L5 case (cases/l5_oneway_rated) already writes tilt -6 / precone -4; legacy cases stay as written
+    (provenance); step-5 two-way cases are created with explicit, labelled values.
+  * T6: smoke (0.5 s) submitted, SLURM 11741409 on sequana_cpu_dev, on the fixed mesh (GmshBladeMesh -> geometry.py); full run
+    after the smoke sizes it. run-t6.sh: stale "uncommitted edits" banner replaced by HEAD + dirty count.
+  * D1-D4 orientation triage (l3-outboard-section-stiffness.md:9-12): D1 Bredt GJ and D4 (S-7 metric) are section-intrinsic,
+    invariant under an in-plane rotation of the section -> unaffected; D2 (LC3 edge station ux under a global-x load) depends on
+    the section angle -> re-measured by the v2 S-2 rerun (SLURM 11741381); D3 (tip FE local GJ) can move through the twist-rate
+    sign, weakly -> re-check with T5 of l3-outboard if S-7 moves.
+  * T11 T1/T3 RERUN (HEAD 0c04c36, login node, gmsh N20 AR 1, same tool and BeamDyn lin x0.01 reference as L7;
+    logs/check/l5_oneway/t11/{ad,bem,ad-parked-x,ad-parked-y}.json; z = 35.1 58.5 70.2 81.9 93.6 105.3 111.2 117.0):
+    | row | before (L7/L8) | after | gate | verdict |
+    |---|---|---|---|---|
+    | ad flap | -1.5..-3.4 % | -6.4 -5.4 -5.6 -5.6 -5.1 -4.4 -4.1 -3.6 % | 5 % | RED inboard z<=93.6 (was PASS) |
+    | ad edge | -27..-41 % | -1.6 +8.6 +11.3 +13.3 +15.2 +16.9 +17.3 +18.8 % | 5 % | RED, sign flipped, halved |
+    | ad twist tip (skin) | -2.8 % | +10.5 % (-5.63 vs -5.09 deg) | 5 % | RED (was PASS) |
+    | bem flap | -1.3..-3.3 % | -6.5..-3.6 % (same shape as ad) | 5 % | RED inboard |
+    | bem edge | -34..-45 % | -1.8 +8.0 .. +17.0 % | 5 % | RED |
+    | bem twist tip / 0.9R | -12 % / +97 % | -11.2 % / +140 % | 5 % | RED |
+    | parked flap load: edge-under-flap (cross) | tip 0.048 vs 0.591 m (-92 %) | 0.834 vs 0.591 m (+41 %) | - | sign now BeamDyn's, magnitude +41 % |
+    | parked flap load: flap (direct) | -0.3..-3.0 % | -4.1..-6.8 % | 5 % | RED inboard |
+    | parked edge load: flap-under-edge (cross) | -68..-90 % | +6..+26 % | - | sign right, +25 % tip |
+    | parked edge load: edge (direct) | -4.1..+4.9 % | +2.7..+4.5 % | 5 % | PASS |
+    Load totals: ad F_x 76 735 -> 97 486 N (the AD Fn/Ft frame now at -BlTwist, so the AD loads themselves were mis-rotated
+    before); bem identical (104 656, 849 884 N). Reading: the mirror was the dominant edge error (edge -35 % -> +15 %), and
+    the remaining edge excess tracks the cross-term excess (+25..+41 %), i.e. the shell's flap-edge coupling is stronger
+    than the deck's; T9 (cross-coupling arbiter) is the open question now. New: the direct flap compliance moved from
+    -2..-3 % to -4..-7 % (shell stiffer), red inboard; the L3 S-2/S-4 reruns (11741380/1) will say whether this is
+    blade-intrinsic or load-path.
