@@ -345,3 +345,37 @@ below is trusted against its independent reference or declared with cause and to
   (deck TE filler, D1). Risks: shell psi moves +-1 deg with segment length and +-2 deg along span (window decision needed);
   shell GJ depends on fit weights; the deck carries a TE filler the shell/solid lack (fill job); level B settings unvalidated.
   Login runtimes: solid A 4.5 min wall (3 ccx x ~230 CPU-s). sbatch prepared, not submitted (logs/check/l5_oneway/t9b/).
+- L30 (2026-11-16) Parent, T9 solid runs on the LOGIN node (logs/check/l5_oneway/t9b/{z80_A_n4,z80_B_n4,z95_B_n4,
+  z95_A_n4_fill0.10}, smoke/solid_z95_A; z95_A_n1 is the worker's 1-chord script test, meaningless, ignore its table row).
+  Solid converged A -> B: z 80 psi 0.391 -> 0.390 deg, GJ 6.790 -> 6.794e7, EI_edge 3.043 -> 3.043e9; z 95 psi 2.52 -> 2.516,
+  GJ 2.64 -> 2.6465e7, EI_edge 7.87 -> 7.872e8 (< 0.3 %). z 60 fails at 4, 3 and 2 chords: "tip spans two stacks" (a layup
+  stack boundary near z 60; the solid builder needs one stack) -> pick another inboard z next session.
+  | z | model | psi deg | GJ | EI_flap | EI_edge |
+  |---|---|---|---|---|---|
+  | 80 | deck | 1.23 | 7.77e7 | 1.53e9 | 2.93e9 |
+  | 80 | solid B | 0.39 | 6.79e7 | 1.55e9 | 3.04e9 |
+  | 80 | shell (smoke, 6 chords) | 0.52 | 6.38e7 | 1.52e9 | 2.74e9 |
+  | 95 | deck | 2.91 | 3.32e7 | 4.06e8 | 8.42e8 |
+  | 95 | solid B | 2.52 | 2.65e7 | 4.01e8 | 7.87e8 |
+  | 95 | shell (smoke, 6 chords) | -0.68 | 2.77e7 | 4.02e8 | 7.21e8 |
+  Reading: EI_flap agrees in all three (<= 2 %). EI_edge: shell/solid 0.90 (z 80), 0.92 (z 95), solid/deck 1.04 / 0.93 -> the
+  S-1 EI_edge -9 % is a SHELL deficit. GJ: solid/deck 0.87 / 0.80, shell/solid 0.94 / 1.05 -> the DECK is stiff in torsion
+  (D1); the TE filler 0.10 m adds +12.6 % solid GJ (2.98e7) without moving psi, still -10 % vs deck. Principal angle: z 80
+  shell ~ solid (deck +0.8 deg off), z 95 deck ~ solid (shell -3.2 deg off); the shell psi moves +-1-2 deg with segment
+  length/window -> NOT decided until the shell measurement window is fixed.
+
+## Handoff (2026-11-16, end of session)
+Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
+State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix (ad1aecf,
+pre-fix baseline, can be removed with `git worktree remove ../fem-shell-prefix` once T13 is no longer needed).
+Login node: ulimit -t 1800 CPU-s per process; run single-threaded (OMP/OPENBLAS=1), split long pytest per node.
+Next, in order:
+ 1. T6: SLURM 11741636 (sequana_cpu_long, started ~13:00, ~1.6 s/window, expected end ~17:30-18:00). Output
+    $SCRATCH/l5_oneway/full-11741636/ (results/ every 0.5 s). Criterion: settled mean tip deflection and twist vs the T3
+    static solve (same loads, same K_eff; t11/bem.json is the fixed-mesh T3) within 1 %.
+ 2. T9: fix the shell measurement (segment length / window convergence of psi and GJ, tools/l5_t9_arbiter.py
+    fit_section_kinematics), add an inboard station that does not cross a layup stack (not z 60), then verdict on the
+    flap-edge coupling; EI_edge shell deficit (~10 %) and deck GJ excess (D1) are already measured.
+ 3. L3 re-closure decision (user): S-7 8.3 %, EI_edge -9 % (shell), GJ -12 % (deck D1), EA +7 % with the T16 torque
+    sensitivities (twist difference -2..-2.7 % torque vs BD linear, -0.4..-0.8 % vs BD nonlinear).
+ 4. Then T4 (twist estimator), T5 (store rows), close step 4. Step-5 OpenFAST reference ready (flex-rigid -2.47 % power).
