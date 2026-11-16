@@ -10,6 +10,8 @@ below is trusted against its independent reference or declared with cause and to
 - S3 (handed over by L4, odd/tasks/l4-bem-rigid-closure.md:60,144, verbatim): "production tilt/precone must match the deck (-6 / -4) or the difference be declared (+2.44 % torque)".
 - S4 (handed over by L3, plan L4 / AGENTS.md): the production-twist estimator (S8, `BEMFSIParticipant._section_rotation`, equal nodal weights) "stays deferred to L5".
 
+- S5 (user L32, verbatim): "Claro que B, si vamos por A el codigo sera cada vez mas inmanejable" -- B = the Rust RotorFsi K_G rebuild uses static-solve centrifugal membrane stresses (K u = f_cf on the free DOFs, stress recovery, K_G(u) on deformed coords), the same physics as the Python `assemble_geometric_stiffness`; the local sigma = rho w^2 r l_char estimate is removed, not kept as a fallback.
+
 ## Tasks
 
 - T1 | S1 S2 | parent | pending | BeamDyn under the S-5 AeroDyn loads: deflection OoP/IP and tip twist vs our shell (replaces the ElastoDyn IP apples-to-oranges bound)
@@ -27,6 +29,7 @@ below is trusted against its independent reference or declared with cause and to
 - T14 | S1 | worker | done for mass/EI (L23); EA/GJ extraction on gmsh open | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
 - T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
+- T17 | S5 S1 | parent | in progress (L32) | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -385,6 +388,27 @@ below is trusted against its independent reference or declared with cause and to
   kg_use_deformed_coords (both branches call the same kernel), incl. L5 two-way. Not exposed: Python-side statics/modal (S-4,
   T1/T3 parity tool). Second finding, open: same K_eff, T6 mean aero load vs T3 _compute_forces(zeros) agree in flap (0.05 %)
   but not in twist (-3.20 vs -2.25 deg; F_x 100.3 vs 104.7 kN) -> production torsional load path / azimuth mean differs.
+- L32 (2026-11-16) User, on the T6 fix (A: keep the Python K_G scaled by w^2; B: port the static-solve stress recovery to Rust): "Claro que B, si vamos por A el codigo sera cada vez mas inmanejable". -> S5, T17.
+- L33 (2026-11-16) Parent, T17 design (option B, one implementation). Map: the element kernels already exist in aeroelast-core
+  (`centrifugal_load` assembler.rs:645, lumped, kg/m2 per element; `compute_prestress_field` :746, centroid (A eps+B kappa)/h in
+  Pa; `assemble_geometric_k` :762, Pa, x h inside). The Python `assemble_geometric_stiffness` (core/assembler.py:811-863) does
+  load -> PETSc MUMPS solve of K_red on free_dofs -> `assemble_geometric_k_from_disp`; the Rust RotorFsi rebuild
+  (rotor_fsi.rs ~:590-665) and rotor_inertial.rs (:765-790) instead call `assemble_centrifugal_k` (local sigma, also fed
+  volumetric rho for isotropic materials). Design:
+  1. core: `MeshAssembler::mass_per_area_per_elem()` (isotropic/plane-stress rho*thickness, composite mass_per_area); DELETE
+     `assemble_centrifugal_k` (core and its PyO3 binding); no fallback.
+  2. solvers: new `petsc/elasticity/prestress.rs`, `CentrifugalPrestress`: reduced linear K from `assemble_k` on the free DOFs,
+     factorized once (preonly LU, cached like `setup_ksp`); `geometric_k(asm, omega, axis, center, deformed_coords: Option)`:
+     f_cf at X0 -> solve -> u_full -> sigma = compute_prestress_field(u) at X0 -> assemble_geometric_k(sigma), on X0+u only when
+     deformed coords are requested (K stays linear, "Option A discipline"; prestress always at X0, = the Python reference).
+  3. RotorFsi and InertialRotorFsi rebuilds use it (build it once in `new`, keep it in the struct).
+  4. PyO3: `PyMeshAssembler.assemble_centrifugal_geometric_k(omega, axis, center, free_dofs)` and `mass_per_area()` call the same
+     code; Python `assemble_geometric_stiffness` centrifugal branch calls the binding (its PETSc orchestration deleted);
+     `_rho_per_elem` from `mass_per_area()` (the isotropic rescale loop deleted).
+  RED first: K_G of the new binding == the current Python orchestration (load -> MUMPS -> from_disp, written inside the test as
+  the reference) entrywise on the composite plate of tests/test_kg_prestress_coupling.py and on an isotropic clamped plate with
+  a hub offset; a Rust test that the rotor rebuild K_G equals the helper's at X0. Acceptance: T6 tool `static_t6_kgrust` row
+  (now through the production path) == `static_t6` within 1e-6 relative.
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
