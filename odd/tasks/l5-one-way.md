@@ -234,3 +234,13 @@ below is trusted against its independent reference or declared with cause and to
     slicer on the gmsh mesh, not physics; no gmsh pre-fix value recorded.
   * None of these v2 ids are in scripts/known-red-full.txt; no pre-fix run of this file set on gmsh N20 exists except S-7,
     so the before/after needs a same-command pre-fix run.
+- L19 (2026-11-16) Parent:
+  * S-4 v2 on the fixed mesh (SLURM 11741380, gmsh N20, 36 min): 4 passed. Parked 1F +2.19 %, 1E -1.29 %, 2F -0.02 %; rated
+    7.56 rpm 1F +1.72 %, 1E -1.38 %, 2F -0.13 % vs OpenFAST v5 BeamDyn p20 (5 % bound). Pre-fix gmsh N20 1E -1.55 %
+    (blade_mesh_size_rule.md:30). V-02's 1F +7.2 % / 1E +6.8 % are against the NREL report table (ElastoDyn-type values; the
+    same S-4 output puts ElastoDyn 4.7-7.4 % above BeamDyn), not against BeamDyn.
+  * T6 smoke (SLURM 11741409, 14 min, both participants exit 0): mesh 163 s, 50 windows (0.5 s) + solver setup 583 s ->
+    <= 11.7 s per window; the full 100 s (10 000 windows at dt 0.01) is ~20-32 h, beyond run-t6.sh's 4 h -> user decision on
+    duration / restart chaining.
+  * Pre-fix baseline worker: first cache job 11741507 failed (worktree src/_aeroelast stub shadows the built extension);
+    worker steered to a shim PYTHONPATH.
