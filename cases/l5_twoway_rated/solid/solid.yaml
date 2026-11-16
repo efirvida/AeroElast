@@ -1,0 +1,68 @@
+# L5 TWO-WAY rated run, shell participant (thesis plan step 5, T5). Same shell model as the one-way case.
+# Production rotor solver: K + K_G + K_SP rotating at 7.56 rpm, gravity off, dt = 1e-2 s (the precice time window), 100 s.
+mesh:
+  source: generator
+  generator:
+    type: GmshBladeMesh
+    params:
+      yaml_file: ../../../tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
+      skin_reference: mid
+      chord_divisions: 20
+      span_aspect: 1.0
+      h_range: [0.05, 0.25]
+    coupling_node_set: allOuterShellNods
+  renumber: rcm
+elements:
+  family: SHELL
+  span_direction: [0.0, 0.0, 1.0]
+solver:
+  type: LinearDynamicFSIRotor
+  solver_type: direct
+  newmark:
+    beta: 0.25
+    gamma: 0.5
+  damping:
+    enabled: true
+    zeta: 0.03
+    mode_i: 1
+    mode_j: 2
+    num_modes: 10
+  rotor:
+    omega: 0.7916813487046279     # 7.56 rpm, fixed
+    omega_ramp_time: 0
+    force_ramp_time: 0
+    rotation_axis: [0.0, 1.0, 0.0]
+    gravity: [0.0, 0.0, 0.0]      # gravity off
+    rotation_center: [0.0, 0.0, -3.97]   # hub radius 3.97 m below the blade root
+    include_geometric_stiffness: true
+    include_spin_softening: true
+    include_centrifugal: true
+    include_coriolis: true
+    include_euler: true
+    moment_of_inertia: null
+    send_omega_to_precice: true
+    kg_update_interval: 0
+    kg_use_deformed_coords: true
+    use_corotational_kt: false
+    kt_coro_update_freq: 1
+boundary_conditions:
+  dirichlet:
+  - nodeset: RootNodes
+    value: 0.0
+coupling:
+  participant: Solid
+  config_file: ../precice-config.xml
+  coupling_mesh: Solid-Mesh
+  write_data: Displacement
+  read_data: Force
+  boundaries:
+  - allOuterShellNods
+output:
+  folder: results
+  write_interval: 0.5             # nodal displacement fields every 0.5 s (tip deflection and ring twist post hoc)
+  start_from: startTime
+  save_deformed_mesh: false
+  write_vtk: true
+performance:
+  fluid_density: 1.225
+  flow_velocity: 10.59

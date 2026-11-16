@@ -39,7 +39,7 @@ export PETSC_OPTIONS="-pc_factor_mat_solver_type mumps"
 ulimit -n 65535 >/dev/null 2>&1 || true
 
 echo "job ${SLURM_JOB_ID:-local} mode $MODE run dir $RUN  start $(date)"
-echo "HEAD $(git -C "$REPO" rev-parse --short HEAD) + working tree (uncommitted forwarding + toggle edits)"
+echo "HEAD $(git -C "$REPO" rev-parse --short HEAD), dirty files: $(git -C "$REPO" status --porcelain -uno | wc -l)"
 
 # Solid is the preCICE acceptor: start it first, then the BEM connector.
 "$REPO/scripts/aeroenv.sh" aeroelast "$SOLID_YAML" --workdir "$RUN" > "$RUN/solid.log" 2>&1 &

@@ -1,0 +1,48 @@
+# L5 TWO-WAY rated run, BEM participant (thesis plan step 5, T5; odd/tasks/thesis-validation-plan.md).
+# Rated: 10.59 m/s uniform, 7.56 rpm, pitch 0.  Deformation feedback ON (deformed_twist, deformed_radius).
+participant: Fluid
+config_file: ../precice-config.xml
+coupling_mesh: Fluid-Mesh
+displacement_data: Displacement
+blade_file: ../../../tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
+mesh:
+  source: generator
+  generator:
+    type: GmshBladeMesh
+    params:
+      yaml_file: ../../../tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
+      skin_reference: mid         # explicit: the CLI default is oml
+      chord_divisions: 20         # reference mesh: gmsh chord-scaled N20, span AR 1
+      span_aspect: 1.0
+      h_range: [0.05, 0.25]
+    coupling_node_set: allOuterShellNods
+bem:
+  wind_speed: 10.59               # m/s, rated, uniform
+  shear_exp: 0.0                  # uniform inflow (as the L5 T3 loads: tools/l5_oneway_bd_parity.py)
+  pitch: 0.0
+  yaw: 0.0
+  omega:
+    initial: 0.7916813487046279   # 7.56 rpm in rad/s; replaced each window by the Solid's AngularVelocity
+    mesh: GlobalFluidMesh
+    data: AngularVelocity
+    vertex: [0.0, 0.0, 0.0]
+  air_density: 1.225
+  dynamic_viscosity: 1.81206e-05
+  hub_height: 150.0
+  n_blades: 3
+  hub_radius: 3.97                # ElastoDyn HubRad (the shell rotates about (0, 0, -3.97))
+  default_re: 1.0e7
+  neuralfoil_model: large
+  viterna_ar: 17.0
+  viterna_confidence_threshold: 0.5
+  tilt: -6.0                      # deck value (OpenFAST comparison, L5 S3). Zhou-secondary cases would be 0/0, labelled, never mixed
+  precone: -4.0                   # deck value (OpenFAST comparison, L5 S3). Zhou-secondary cases would be 0/0, labelled
+  span_direction: [0.0, 0.0, 1.0]
+  normal_direction: [0.0, 1.0, 0.0]
+  deformed_twist: true            # two-way: BEM twist = reference twist + shell section rotation (production estimator, equal nodal weights)
+  deformed_radius: true           # two-way: BEM radii follow the deformed node positions
+  include_pitching_moment: true   # production behaviour (the projector always applies Cm)
+output:
+  folder: bem_fsi_results
+  log_interval: 100
+  write_vtu: false
