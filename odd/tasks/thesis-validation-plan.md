@@ -60,3 +60,10 @@ sensitivity). Work outside the current step needs the user's explicit go-ahead.
   BeamDyn after the v4.2->v5 conversion, or a deck defect) -> diagnose before any step-5 number (DT/DTBeam, rhoinf, damping,
   the converted BeamDyn blocks). Login limit: 1800 CPU-s per process; the flex 60 s took 1436 CPU-s single-threaded, so a
   smaller DT needs SLURM or a restart split.
+- L8 (2026-11-16) User: "si" (diagnose the flex deck on the login node). Parent, 12 s variants ($SCRATCH/l5_twoway/openfast/diag/):
+  oscillation 3.62 Hz (power, tip flap, tip torsion; blades in phase; 1P 0.126 Hz) independent of DT 0.01/0.005/0.0025 and of
+  NumCrctn 1 (not numerical). No aero (CompAero 0): steady (tip flap 1.134 m, WM rz -0.0086, std ~1e-16). UA_Mod 3 + DBEMT 2:
+  P 14.58 +/- 0.21 MW. Structural damping mu x10: P 15.34 +/- 0.04 MW. Verdict: an aeroelastic torsional instability of the
+  converted deck with quasi-steady aero (UA 0, DBEMT 0) and the deck's light stiffness-proportional damping (mu 0.003/0.002/
+  0.0008) -- quasi-steady lift has no lag and pumps the ~3.6 Hz torsion-flap mode. Next: 60 s with UA 3 / DBEMT 0 (steady
+  state converges to the static polars, as our quasi-steady BEM) and with mu x10, to check that the reference MEANS agree.
