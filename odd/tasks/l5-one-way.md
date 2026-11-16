@@ -17,7 +17,7 @@ below is trusted against its independent reference or declared with cause and to
 - T3 | S1 S3 | parent | pending | our rigid BEM loads (deck tilt -6 / precone -4, T7 model) through the production load mapping onto the shell, the same loads onto BeamDyn; load conservation check; 5 % on deflection and twist
 - T4 | S4 | parent | pending | twist metric for the one-way deliverable: equal-weight vs skin-weighted estimator on T1/T3, decide or carry to two-way
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
-- T6 | S1 S3 | worker | in progress (smoke 11741409 on dev, L15) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
+- T6 | S1 S3 | worker | in progress (full 100 s, SLURM 11741547 sequana_cpu_long 96 h, L20) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
@@ -244,3 +244,6 @@ below is trusted against its independent reference or declared with cause and to
     duration / restart chaining.
   * Pre-fix baseline worker: first cache job 11741507 failed (worktree src/_aeroelast stub shadows the built extension);
     worker steered to a shim PYTHONPATH.
+- L20 (2026-11-16) User: "creo que podemos usar las colas que permiten jobs de hasta 96h". Parent: T6 full 100 s submitted
+  as-is (dt 0.01, 10 000 windows, est. 20-32 h): `sbatch -p sequana_cpu_long --time=96:00:00 logs/check/l5_oneway/run-t6.sh
+  full` -> SLURM 11741547 (PENDING Priority). Output $SCRATCH/l5_oneway/full-11741547/.
