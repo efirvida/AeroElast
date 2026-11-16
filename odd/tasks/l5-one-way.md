@@ -19,7 +19,7 @@ below is trusted against its independent reference or declared with cause and to
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
 - T6 | S1 S3 | worker | in progress (full 100 s, SLURM 11741636 sequana_cpu_long, stress every 50 windows, L24) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
-- T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
+- T9 | S1 S2 | worker | in progress (prep on login, L28) | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
 - T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
 - T12 | S1 S2 | parent | done (L17) | measured orientation audit (tools/l5_orientation_audit.py): physical frame, mesh rings vs yaml vs BeamDyn deck (LE, suction side, chord angle, prebend, sweep, chord), physics-only AoA, response-angle reading of the T1/T3 differences
@@ -328,3 +328,6 @@ below is trusted against its independent reference or declared with cause and to
   T13 S-4 BEFORE (login, per node, single thread; t13/s4-login.out) vs AFTER (11741380), BeamDyn p20, 5 % bound:
     parked 1F +1.31 -> +2.19 %, 1E -1.37 -> -1.29 %, 2F -0.79 -> -0.02 %; rated 1F +1.02 -> +1.72 %, 1E -1.55 -> -1.38 %,
     2F -0.87 -> -0.13 %. All pass on both; the fix stiffens 1F by ~0.7-0.9 % (same direction as the S-2 flap rows).
+- L28 (2026-11-16) User: "metele" (prepare the T9 arbiter on the login node). Parent: worker prepares the CalculiX solid
+  segment arbiter (z ~60/80/95: flap moment, edge moment, torque -> section compliance incl. flap-edge cross term, principal
+  angle, torsion) for shell, BeamDyn deck 6x6 and solid on the same cut; login smoke only if < 1800 CPU-s per process.
