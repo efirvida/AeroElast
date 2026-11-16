@@ -18,6 +18,8 @@ elements:
 solver:
   type: LinearDynamicFSIRotor
   solver_type: direct
+  # T15 (odd/tasks/l5-one-way.md): stress recovery was ~6-7 s of ~8 s per window; recover every 50 windows
+  stress_output_interval: 50
   newmark:
     beta: 0.25
     gamma: 0.5

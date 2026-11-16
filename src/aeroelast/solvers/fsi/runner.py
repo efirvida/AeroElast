@@ -1240,6 +1240,12 @@ class FSIRunner:
         if self.config.elements.thickness:
             model_config["elements"]["thickness"] = self.config.elements.thickness
 
+        # Rotor stress-recovery cadence; absent keeps the solver default (1)
+        if self.config.solver.stress_output_interval is not None:
+            model_config["solver"]["stress_output_interval"] = (
+                self.config.solver.stress_output_interval
+            )
+
         # Add Newmark parameters (average acceleration defaults — unconditionally stable)
         if self.config.solver.newmark:
             model_config["solver"]["beta"] = self.config.solver.newmark.beta

@@ -321,6 +321,7 @@ solver:
   use_critical_dt: false    # (O) Auto-calculate critical ∆t from mesh
   safety_factor: 0.8        # (O) Multiplier for critical ∆t
   debug_interface: false    # (O) Verbose preCICE data exchange logging
+  stress_output_interval: 1 # (O) Rotor FSI: recover stresses every N preCICE windows (default 1; checkpoints still force it)
 ```
 
 > **Note:** If `total_time` and `time_step` are omitted for FSI solvers, they are

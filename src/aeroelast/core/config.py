@@ -757,6 +757,8 @@ class SolverConfig:
     continuation_max_steps: Optional[int] = None
     diagnostics: Optional[bool] = None
     diagnostics_every: Optional[int] = None
+    # Rotor FSI: stress recovery every N preCICE windows (None -> solver default 1)
+    stress_output_interval: Optional[int] = None
     # CCX nonlinear static step controls (for export parity/stability)
     nl_initial_increment: Optional[float] = None
     nl_min_increment: Optional[float] = None
@@ -773,6 +775,14 @@ class SolverConfig:
             raise ValueError(f"total_time must be positive: {self.total_time}")
         if self.time_step is not None and self.time_step <= 0:
             raise ValueError(f"time_step must be positive: {self.time_step}")
+        if self.stress_output_interval is not None and (
+            isinstance(self.stress_output_interval, bool)
+            or not isinstance(self.stress_output_interval, int)
+            or self.stress_output_interval < 1
+        ):
+            raise ValueError(
+                f"stress_output_interval must be a positive integer: {self.stress_output_interval}"
+            )
 
     def update_from_precice(self, precice_info: "PreciceConfigInfo") -> None:
         """Update time parameters from preCICE configuration.
@@ -1176,6 +1186,7 @@ class FSISimulationConfig:
             continuation_max_steps=solver_data.get("continuation_max_steps"),
             diagnostics=solver_data.get("diagnostics"),
             diagnostics_every=solver_data.get("diagnostics_every"),
+            stress_output_interval=solver_data.get("stress_output_interval"),
             nl_initial_increment=solver_data.get("nl_initial_increment"),
             nl_min_increment=solver_data.get("nl_min_increment"),
             nl_max_increment=solver_data.get("nl_max_increment"),
