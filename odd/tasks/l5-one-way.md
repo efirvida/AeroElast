@@ -17,7 +17,7 @@ below is trusted against its independent reference or declared with cause and to
 - T3 | S1 S3 | parent | pending | our rigid BEM loads (deck tilt -6 / precone -4, T7 model) through the production load mapping onto the shell, the same loads onto BeamDyn; load conservation check; 5 % on deflection and twist
 - T4 | S4 | parent | pending | twist metric for the one-way deliverable: equal-weight vs skin-weighted estimator on T1/T3, decide or carry to two-way
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
-- T6 | S1 S3 | worker | in progress (full 100 s, SLURM 11741636 sequana_cpu_long, stress every 50 windows, L24) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
+- T6 | S1 S3 | worker | RED (L31: dyn mean = static with the Rust K_G to 1e-5; production loses centrifugal stiffening, +10 % flap; fix decision pending) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | in progress (prep on login, L28) | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
@@ -364,6 +364,27 @@ below is trusted against its independent reference or declared with cause and to
   shell ~ solid (deck +0.8 deg off), z 95 deck ~ solid (shell -3.2 deg off); the shell psi moves +-1-2 deg with segment
   length/window -> NOT decided until the shell measurement window is fixed.
 
+- L31 (2026-11-16) Parent, T6 verdict (tools/l5_t6_settled.py, logs/check/l5_oneway/t6/settled.json; SLURM 11741636 done,
+  exit 0, 4 h 24 min). Mean over 8 whole revolutions (t 36.5-100 s, 128 dumps, forces rotated to the rotating frame with each
+  dump's theta; VTU points are X0+U, same node order). Tip z 116.95, ring-axis metric of the parity tool:
+  | solve | flap m | edge m | twist eq deg |
+  |---|---|---|---|
+  | T3 aero only (t11/bem.json) | 16.911 | 1.630 | -2.25 |
+  | T6 mean F_AERO, static, Python K_G | 16.919 | 1.610 | -3.20 |
+  | centrifugal only (T6 F_INERTIAL = calc f_cf) | 0.388 | 0.019 | -0.22 |
+  | static like-for-like (Python K_G) | 17.306 | 1.628 | -3.42 |
+  | static with the Rust K_G | 19.041 | 1.808 | -4.29 |
+  | static with no K_G | 19.042 | 1.809 | -4.29 |
+  | T6 dynamic mean | 19.041 | 1.808 | -4.29 |
+  Criterion (1 %) FAILS: +10.0 % flap, +11 % edge, -0.87 deg twist. Root cause measured: after step 1 the Rust loop rebuilds K_G
+  (rotor_fsi.rs ~:590-665, kg_update_interval 0 -> every step, rebuilds logged at steps 1 and 4) with
+  assemble_centrifugal_k (aeroelast-core assembler.rs:1170, local sigma = rho w^2 r l_char, the estimate AGENTS.md records as
+  2-3 orders too small) and replaces the Python static-solve K_G: ||K_G||_F free DOFs Python 8.53e7 vs Rust 1.21e4 (x7000).
+  Production rotor FSI therefore runs WITHOUT centrifugal stiffening (K_SP and f_cf still on). The Newmark integration itself is
+  consistent (dyn mean = its own static to 1e-5). Exposed: every RotorFsi run with omega != 0 regardless of
+  kg_use_deformed_coords (both branches call the same kernel), incl. L5 two-way. Not exposed: Python-side statics/modal (S-4,
+  T1/T3 parity tool). Second finding, open: same K_eff, T6 mean aero load vs T3 _compute_forces(zeros) agree in flap (0.05 %)
+  but not in twist (-3.20 vs -2.25 deg; F_x 100.3 vs 104.7 kN) -> production torsional load path / azimuth mean differs.
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
