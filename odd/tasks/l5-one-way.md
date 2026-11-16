@@ -22,6 +22,7 @@ below is trusted against its independent reference or declared with cause and to
 - T9 | S1 S2 | worker | pending | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
 - T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
+- T12 | S1 S2 | parent | done (L17) | measured orientation audit (tools/l5_orientation_audit.py): physical frame, mesh rings vs yaml vs BeamDyn deck (LE, suction side, chord angle, prebend, sweep, chord), physics-only AoA, response-angle reading of the T1/T3 differences
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -204,3 +205,22 @@ below is trusted against its independent reference or declared with cause and to
     than the deck's; T9 (cross-coupling arbiter) is the open question now. New: the direct flap compliance moved from
     -2..-3 % to -4..-7 % (shell stiffer), red inboard; the L3 S-2/S-4 reruns (11741380/1) will say whether this is
     blade-intrinsic or load-path.
+- L16 (2026-11-16) User: "lo de la pala espejada lo deduciste a partir de un comentario viejo escrito, que tal si en vez de
+  leer mides todo en la malla y en la geometria para asegurarse que este todas las orientaciones y los prebend bien
+  orientados. Ademas de esto no entiendo porque las diferencias tan grandes". Parent: T12 opened, every orientation measured
+  from coordinates (mesh rings, yaml, BeamDyn key points), AoA from kinematics only (no BEM), and the T1/T3 edge differences
+  read as a rotation of the deflection vector (edge is ~1/12 of flap, so 1 deg of response direction = ~20 % of edge).
+- L17 (2026-11-16) Parent, T12 RESULT (HEAD 0c04c36 + tool, login node 100 s; logs/check/l5_oneway/t12/audit.json; 32 airfoil
+  rings z 10-115 of 50, gmsh N20 AR 1 mid):
+  * frame measured: rotor axis +y, Omega > 0 -> blade velocity +x at +z; production BEM thrust +849 884 N along +y -> wind +y,
+    upwind -y.
+  * mesh vs physics: LE advances with the blade velocity on every ring; suction (cambered) side faces downwind on every ring.
+  * pretwist: |psi_mesh + twist_yaml| <= 0.35 deg (max at z 26, transition; <= 0.12 deg from z 45 out), |psi - twist| up to
+    16 deg -> chord at -twist; BeamDyn deck initial_twist == yaml twist (3e-5 deg) and the deck section maps to the same psi.
+  * prebend: tip ring reference point mesh y -3.988 m, yaml x -3.995 m, deck kp_xr -> mesh y -3.995 m (all upwind);
+    max |mesh - yaml| 0.012 m, |mesh - deck| 0.012 m along span; sweep |x| <= 0.004 m (yaml 0); chord within 0.47 %.
+  * physics-only AoA (V(1-a), a = 1/3, Omega r, no BEM): measured chord 5.8-8.2 deg along the span (near-uniform, as a designed
+    rotor); mirrored chord 2.6-24.6 deg. Independent of any twist-sign convention: the fixed mesh is the physical blade.
+  * response direction (T11 jsons): shell deflection vector rotated toward +edge vs BeamDyn by 0.5-1.3 deg (ad, bem), 0.1-1.1
+    deg parked pure flap; the pretwist placement (<= 0.12 deg outboard) cannot produce it -> the remaining edge difference is
+    stiffness coupling (principal axes / 6x6 cross terms, T9), not orientation.
