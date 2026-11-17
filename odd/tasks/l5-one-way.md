@@ -30,7 +30,7 @@ below is trusted against its independent reference or declared with cause and to
 - T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T17 | S5 S1 | parent | implemented (L34), T6 rerun pending | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
-- T18 | S1 S2 | worker | done (L37, 77d7257; prebend-drop fix pending) | aero torsional load: T6 time-mean F_AERO vs T3 `_compute_forces(zeros)` give the same flap but twist -3.20 vs -2.25 deg on the same K_eff (L31); per-strip force and torsional moment about the reference axis, cause (Cm/arm projection, azimuth mean with tilt, BEM config fluid.yaml vs bem_config), fix or declare
+- T18 | S1 S2 | worker | done (L37, 77d7257); prebend-drop fixed (L39) | aero torsional load: T6 time-mean F_AERO vs T3 `_compute_forces(zeros)` give the same flap but twist -3.20 vs -2.25 deg on the same K_eff (L31); per-strip force and torsional moment about the reference axis, cause (Cm/arm projection, azimuth mean with tilt, BEM config fluid.yaml vs bem_config), fix or declare
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -459,6 +459,12 @@ below is trusted against its independent reference or declared with cause and to
   Reading: no single winner on flap-edge coupling (inboard shell ~ solid, deck 4 deg off; outboard deck ~ solid, shell 2.6 deg off
   with the wrong cross-term sign at z95). EI_edge shell deficit -11/-7.5 % outboard, +6 % at z45 (not uniform). Deck GJ excess D1
   confirmed outboard (+14/+25 %). Open: z45 solid torsion convergence; cause of the shell psi oscillation; band 1 deg set after data.
+- L39 (2026-11-16) Parent, T18 fix: `_rebuild_bem_solver` now carries `prebend` and `sweep` of every station
+  (fsi_participant.py). RED first: tests/validation/rotor/test_bem_rebuild_keeps_prebend.py (rebuild at the reference geometry
+  must keep station prebend/sweep and reproduce the construction-time Np/Tp at rtol 1e-12) failed 2/2, then GREEN. Callers of
+  the rebuild (test_bem_fsi_deformed_geometry, test_blade_deloading_vs_reference, test_torque_sense_vs_openfast, nan inputs)
+  24 passed; check.sh quick OK. RDD push left for later (user: "si no puedes dejamos el rdd para despues y cerramos la fisica
+  primero"); the earlier SLURM 11743282/11743283 were cancelled while pending and are resubmitted on this tree (L40).
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,

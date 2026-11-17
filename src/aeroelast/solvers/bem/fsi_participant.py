@@ -996,7 +996,7 @@ class BEMFSIParticipant:
 
         * :math:`r_k \leftarrow r_k^{\mathrm{def}}`
         * :math:`\theta_k \leftarrow \theta_k^{\mathrm{def}}`
-        * ``chord``, ``pitch_axis``, ``airfoil`` — unchanged from reference.
+        * ``chord``, ``pitch_axis``, ``airfoil``, ``prebend``, ``sweep`` — unchanged from reference.
 
         A new ``BladeAero`` is assembled from these stations and passed to
         ``BEMSolver``, which internally rebuilds the ``CCBlade`` rotor object
@@ -1034,6 +1034,10 @@ class BEMFSIParticipant:
                 twist=float(twist_def[k]),
                 pitch_axis=st.pitch_axis,
                 airfoil=st.airfoil,
+                # The reference axis curvature is part of the reference geometry: dropping it
+                # ran every coupled step on a straight blade (L5 T18: thrust -1.1 %, torque -1.9 %).
+                prebend=st.prebend,
+                sweep=st.sweep,
             )
             for k, st in enumerate(ba.stations)
         ]
