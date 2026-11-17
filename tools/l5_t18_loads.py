@@ -25,7 +25,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -35,15 +34,9 @@ import l5_oneway_bd_parity as par  # noqa: E402
 import l5_t6_settled as t6s  # noqa: E402
 import twist_p1 as tp  # noqa: E402
 
-FLUID_YAML = REPO / "cases/l5_oneway_rated/fluid/fluid.yaml"
-N_AZ = 36
-
-
-def production_cfg():
-    cfg = yaml.safe_load(FLUID_YAML.read_text())
-    for k in ("blade_file", "config_file"):
-        cfg[k] = str((FLUID_YAML.parent / cfg[k]).resolve())
-    return cfg
+FLUID_YAML = par.FLUID_YAML
+N_AZ = par.N_AZ
+production_cfg = par.production_cfg
 
 
 def participants(mesh, props):

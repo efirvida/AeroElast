@@ -1,7 +1,9 @@
 """L5 one-way parity: the shell and BeamDyn under the same aerodynamic station resultants.
 
 ``odd/tasks/l5-one-way.md`` T1 (``--loads ad``: the S-5 AeroDyn azimuth-mean blade-1 loads) and T3
-(``--loads bem``: the production BEM on the rigid blade, deck tilt/precone).  Design: L3 of that document.
+(``--loads prod``: the production BEM participant, built as ``run_bem_fsi.main`` builds it from
+``cases/l5_oneway_rated/fluid/fluid.yaml``, on the rigid blade; ``--loads bem``: the pre-T18 T3 load, kept
+for the earlier records).  Design: L3 of that document; the T3 load definition: L37 and L39.
 
 1. Shell: reference gmsh chord-scaled N20 AR 1 mid-surface mesh; rotating linear stiffness
    K + K_G + K_SP at 7.56 rpm about mesh +y through (0, 0, -hub_radius); u = K_eff^-1 f.
@@ -43,6 +45,8 @@ BEAMDYN = os.environ.get("BEAMDYN_DRIVER", "/scratch/leahk/eduardo.donestevez/co
 AD_LOADS = REPO / "tests" / "IEA15MW" / "reference" / "s5_ad_blade1_loads.csv"
 AD_PRIMARY = REPO / "tests" / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 STRIP_M = 0.5
+FLUID_YAML = REPO / "cases/l5_oneway_rated/fluid/fluid.yaml"
+N_AZ = 36
 SPAN_FRACTIONS = (0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
 
 
@@ -91,14 +95,70 @@ def rotating_keff(asm, mesh, omega, hub_radius):
     return (K + Kg + Ksp).tocsr(), free
 
 
+def production_cfg():
+    """The L5 rated Fluid config with its blade and BEM files resolved to absolute paths."""
+    import yaml
+
+    cfg = yaml.safe_load(FLUID_YAML.read_text())
+    for k in ("blade_file", "config_file"):
+        cfg[k] = str((FLUID_YAML.parent / cfg[k]).resolve())
+    return cfg
+
+
+def production_loads(mesh, tilt, precone):
+    """(n_nodes, 3) production aero load on the full shell mesh: the T6 load (L37), from the config alone.
+
+    The Fluid participant is built exactly as ``run_bem_fsi.main`` builds it (node-set filtered coupling mesh,
+    windIO polars, the runner's own wall-flow decision), evaluated on the rebuilt branch (max|u| > 1e-12, the branch
+    production always takes) and averaged over ``N_AZ`` azimuths; its nodal forces are written onto the full mesh
+    by coordinate match, so web nodes carry nothing, as in the coupled run.  ``tilt``/``precone`` must equal the
+    config's values: the config, not the caller, defines this load.
+    """
+    from scipy.spatial import cKDTree
+
+    from aeroelast.cli.run_bem_fsi import _build_mesh, _effective_element_properties
+    from aeroelast.solvers.bem.fsi_participant import build_from_config
+
+    cfg = production_cfg()
+    if (float(cfg["bem"]["tilt"]), float(cfg["bem"]["precone"])) != (float(tilt), float(precone)):
+        raise SystemExit(f"--loads prod: tilt/precone {tilt}/{precone} != config "
+                         f"{cfg['bem']['tilt']}/{cfg['bem']['precone']} ({FLUID_YAML})")
+    cmesh, viz, ep = _build_mesh(cfg, FLUID_YAML)
+    prod = build_from_config(cmesh, cfg, viz_mesh=viz, element_properties=_effective_element_properties(cfg, ep))
+    Xc, Xf = np.asarray(prod._ref_coords), np.asarray(mesh.coords_array)
+    dist, idx = cKDTree(Xf).query(Xc)
+    if dist.max() > 1e-6 or len(np.unique(idx)) != len(Xc):
+        raise SystemExit(f"coupling mesh is not a vertex subset of the shell mesh: max dist {dist.max():.3e} m, "
+                         f"{len(np.unique(idx))} targets for {len(Xc)} nodes")
+    u = np.zeros((len(Xc), 3))
+    u[:, 0] = 1e-6
+    acc = np.zeros((len(Xc), 3))
+    for a in np.radians(np.arange(N_AZ) * 360.0 / N_AZ):
+        prod._partner_theta = float(a)
+        acc += prod._compute_forces(u)[0] / N_AZ
+    f3 = np.zeros((len(Xf), 3))
+    f3[idx] = acc
+    return f3
+
+
 def shell_loads(kind, asm, mesh, props, tilt, precone):
-    """Nodal force vector (n_dof,) and the participant (rings, production twist estimator)."""
+    """Nodal force vector (n_dof,) and the participant (rings, production twist estimator).
+
+    ``prod``: the production load (``production_loads``); ``bem``: the pre-T18 T3 load (AeroDyn polars, wall-flow
+    realisation on, azimuth 0, every node); ``ad``: the S-5 AeroDyn azimuth-mean loads.  The returned participant is
+    always the full-mesh one, so the rings and the twist estimator do not depend on ``kind``.
+    """
     from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant
     from tests.support.openfast_bem import build_blade_aero_from_aerodyn
 
     part = BEMFSIParticipant(mesh, build_blade_aero_from_aerodyn(AD_PRIMARY), bem_config(tilt, precone),
                              element_properties=props)
-    if kind == "bem":
+    if kind == "prod":
+        fa = production_loads(mesh, tilt, precone)
+        f = np.zeros(asm.dofs_count)
+        for d in range(3):
+            f[d::asm.dofs_per_node] = fa[:, d]
+    elif kind == "bem":
         fa, _ = part._compute_forces(np.zeros((mesh.node_count, 3)))
         f = np.zeros(asm.dofs_count)
         for d in range(3):
@@ -185,7 +245,7 @@ def run_beamdyn(work, rows, hub_radius, scales, omega=OMEGA):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--loads", choices=("ad", "bem"), required=True)
+    ap.add_argument("--loads", choices=("ad", "bem", "prod"), required=True)
     ap.add_argument("--out", type=Path, required=True, help="result JSON")
     ap.add_argument("--work", type=Path, required=True, help="BeamDyn case directory")
     ap.add_argument("--chord-divisions", type=float, default=20.0)

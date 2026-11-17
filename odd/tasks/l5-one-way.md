@@ -16,10 +16,10 @@ below is trusted against its independent reference or declared with cause and to
 
 - T1 | S1 S2 | parent | pending | BeamDyn under the S-5 AeroDyn loads: deflection OoP/IP and tip twist vs our shell (replaces the ElastoDyn IP apples-to-oranges bound)
 - T2 | S1 | parent | done (L12: S-6 3 passed on HEAD, no NaN) | S-6 NaN: reproduce on HEAD (mid-surface vs default OML skin), root cause, close or declare
-- T3 | S1 S3 | parent | pending | our rigid BEM loads (deck tilt -6 / precone -4, T7 model) through the production load mapping onto the shell, the same loads onto BeamDyn; load conservation check; 5 % on deflection and twist
+- T3 | S1 S3 | parent | rerun on the production load (L42): flap pass, edge and twist red | our rigid BEM loads (deck tilt -6 / precone -4, T7 model) through the production load mapping onto the shell, the same loads onto BeamDyn; load conservation check; 5 % on deflection and twist
 - T4 | S4 | parent | pending | twist metric for the one-way deliverable: equal-weight vs skin-weighted estimator on T1/T3, decide or carry to two-way
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
-- T6 | S1 S3 | worker | RED (L31: dyn mean = static with the Rust K_G to 1e-5; production loses centrifugal stiffening, +10 % flap; fix decision pending) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
+- T6 | S1 S3 | worker | done (L41: dyn mean vs static_t6 +0.30 % flap, -0.34 % edge, +0.61 % twist on 048bf2f) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
 - T9 | S1 S2 | worker | partial (L38, 3c293a5) | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
@@ -29,7 +29,7 @@ below is trusted against its independent reference or declared with cause and to
 - T14 | S1 | worker | done for mass/EI (L23); EA/GJ extraction on gmsh open | S-1 v2 sectional extractor on the gmsh mesh: m(r) 72 %, GJ 20 %, EA 1.99e10 % are orientation-free -> diagnose the extraction (login node), real EI_edge/GJ/mass values or a declared defect
 - T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
-- T17 | S5 S1 | parent | implemented (L34), T6 rerun pending | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
+- T17 | S5 S1 | parent | implemented (L34), T6 passes (L41); full suite pending (L41) | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
 - T18 | S1 S2 | worker | done (L37, 77d7257); prebend-drop fixed (L39) | aero torsional load: T6 time-mean F_AERO vs T3 `_compute_forces(zeros)` give the same flap but twist -3.20 vs -2.25 deg on the same K_eff (L31); per-strip force and torsional moment about the reference axis, cause (Cm/arm projection, azimuth mean with tilt, BEM config fluid.yaml vs bem_config), fix or declare
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
@@ -473,6 +473,38 @@ below is trusted against its independent reference or declared with cause and to
   only); add regression tests (dense reference + omega^2 scaling with a non-unit axis; out-of-range free_dofs -> ValueError);
   Python K_G now uses PETSc default LU instead of MUMPS (production runs keep MUMPS via PETSC_OPTIONS). RDD: push of main to
   origin blocked by the RDD gate (review due, 18.9k lines); `gentle-ai` is not on PATH in either shell; user: leave RDD for later.
+- L41 (2026-11-17) Parent. T6 rerun SLURM 11743499 (75d1913: K_G T17 + prebend fix) COMPLETED in 4h06;
+  `tools/l5_t6_settled.py` -> logs/check/l5_oneway/t6/settled_rerun.json. Tip, run's own mean loads, same K_eff:
+  | row | flap m | edge m | twist eq deg | twist skin deg |
+  |---|---|---|---|---|
+  | static_t6 | 17.1470 | 1.6039 | -3.433 | -3.463 |
+  | dyn_mean | 17.1990 | 1.5984 | -3.454 | -3.482 |
+  | delta | +0.30 % | -0.34 % | +0.61 % | +0.55 % |
+  | static_t6_nokg | 18.8669 | 1.7822 | -4.295 | -4.329 |
+  Criterion (1 %, T6) met on all four: the production run now carries the centrifugal stiffening (L31's +10 % flap
+  is gone; static_t6_kgrust == static_t6). T6 done. Full suite SLURM 11743498 TIMEOUT at 4 h (68 %, 2 F, ids not in
+  the -q log); resubmitted 11744840 with --time=600 on sequana_cpu, snapshot logs/check/git-snapshot-20261117T085709
+  (048bf2f). Handoff step 3 started: tools/l5_oneway_bd_parity.py gains `--loads prod` (`production_loads`: the
+  participant built as run_bem_fsi.main, rebuilt branch, 36-azimuth mean, coupling-mesh forces written onto the full
+  mesh by vertex match, tilt/precone checked against the config); `bem` keeps the pre-T18 T3 load for the earlier
+  records and its other callers (t6_settled, orientation_audit, twist_sense_chain); production_cfg/FLUID_YAML/N_AZ
+  moved there from l5_t18_loads (re-exported). T3 rerun: logs/check/l5_oneway/t3prod/.
+- L42 (2026-11-17) Parent. T3 rerun with the production load: `tools/l5_oneway_bd_parity.py --loads prod`
+  (048bf2f + uncommitted tool change) -> logs/check/l5_oneway/t3prod/prod.json (5.7 min, login). Conservation nodal = rows
+  (F 99.16/836.90 kN, M_root exact). Independent verify of `production_loads`: pass (recipe parity 6e-13; `bem` callers
+  unchanged); t18/subset.npz is stale (pre-L39, ~1 % Fx), re-record before using it as a reference.
+  Shell vs BeamDyn (x1, nonlinear), same station resultants:
+  | z m | 35.1 | 58.5 | 70.2 | 81.9 | 93.6 | 105.3 | 111.2 | 117.0 |
+  |---|---|---|---|---|---|---|---|---|
+  | flap d% | -6.0 | -4.8 | -4.9 | -4.7 | -4.1 | -3.0 | -2.6 | -2.0 |
+  | edge d% | -1.3 | +8.6 | +10.9 | +12.1 | +12.6 | +12.1 | +11.1 | +11.0 |
+  | twist eq shell-BD deg | 0.00 | +0.53 | +0.89 | +1.13 | +0.80 | +0.23 | +0.05 | +0.21 |
+  Tip: flap 16.760 vs 17.102 m, edge 1.585 vs 1.428 m, twist -3.214 vs -3.428 deg (skin -3.244). The shell tip twist
+  equals T6 aero_t6 (-3.213): T3 and T6 now carry the same load. Against the pre-T18 load (t11/bem.json): flap and edge
+  ratios unchanged to 0.5 %; the outboard twist difference loses its sign flip (z105-117: -0.97/-0.53/+0.99 -> +0.23/+0.05/
+  +0.21 deg); mid-span z58-94 stays +0.5 to +1.1 deg. Verdict against 5 % (S3): flap pass at z >= 58.5 (-6.0 % at z35, where
+  the deflection is 0.6 m); edge red (+11-13 %, the flap-edge cross-coupling of T9, not load-caused); twist red mid-span,
+  tip within 0.21 deg (6 %). Remaining T3 reds belong to T9 (coupling) and T4/T10 (twist metric and sense).
 
 ## Handoff (2026-11-16 night, end of session)
 Resume: this file to `## Log`, then L31-L40; one narrow mem_search "T17 K_G rebuild prestress".
