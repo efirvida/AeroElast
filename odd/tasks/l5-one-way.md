@@ -465,23 +465,25 @@ below is trusted against its independent reference or declared with cause and to
   the rebuild (test_bem_fsi_deformed_geometry, test_blade_deloading_vs_reference, test_torque_sense_vs_openfast, nan inputs)
   24 passed; check.sh quick OK. RDD push left for later (user: "si no puedes dejamos el rdd para despues y cerramos la fisica
   primero"); the earlier SLURM 11743282/11743283 were cancelled while pending and are resubmitted on this tree (L40).
-## Handoff (2026-11-16, end of session)
-Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
-State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
-pre-fix baseline, can be removed with `git worktree remove ../fem-shell-prefix` once T13 is no longer needed).
-Login node: ulimit -t 1800 CPU-s per process; run single-threaded (OMP/OPENBLAS=1), split long pytest per node.
+- L40 (2026-11-16) Parent. Resubmitted on 75d1913 (K_G T17 + prebend fix): full suite SLURM 11743498 (sequana_cpu_bigmem,
+  snapshot logs/check/git-snapshot-20261116T222722, pending AssocMaxJobsLimit) and T6 rerun SLURM 11743499 (moved to
+  sequana_cpu, RUNNING since ~22:30, 8 h limit, output $SCRATCH/l5_oneway/full-11743499/). Independent verify of T17: pass with
+  notes, no defect (18 Python tests pass; dense-reference probe 6.5e-15; X0 restore on all paths; one implementation). Notes for
+  after the suite: delete the dead l_char kernels `compute_centrifugal_prestress` (mitc3.rs:1596, mitc4.rs:3012, own tests
+  only); add regression tests (dense reference + omega^2 scaling with a non-unit axis; out-of-range free_dofs -> ValueError);
+  Python K_G now uses PETSc default LU instead of MUMPS (production runs keep MUMPS via PETSC_OPTIONS). RDD: push of main to
+  origin blocked by the RDD gate (review due, 18.9k lines); `gentle-ai` is not on PATH in either shell; user: leave RDD for later.
+
+## Handoff (2026-11-16 night, end of session)
+Resume: this file to `## Log`, then L31-L40; one narrow mem_search "T17 K_G rebuild prestress".
+State: branch feat/windio2-support = local main = HEAD (origin/main still at 5acbbd8; push blocked by RDD, see L40).
+Login node: ulimit -t 1800 CPU-s per process; OMP/OPENBLAS=1. Do not edit src/ or crates/ while 11743498 is pending/running.
 Next, in order:
- 1. T6: SLURM 11741636 (sequana_cpu_long, started ~13:00, ~1.6 s/window, expected end ~17:30-18:00). Output
-    $SCRATCH/l5_oneway/full-11741636/ (results/ every 0.5 s). Criterion: settled mean tip deflection and twist vs the T3
-    static solve (same loads, same K_eff; t11/bem.json is the fixed-mesh T3) within 1 %.
- 2. T9: fix the shell measurement (segment length / window convergence of psi and GJ, tools/l5_t9_arbiter.py
-    fit_section_kinematics), add an inboard station that does not cross a layup stack (not z 60), then verdict on the
-    flap-edge coupling; EI_edge shell deficit (~10 %) and deck GJ excess (D1) are already measured.
- 3. L3 re-closure decision (user): S-7 8.3 %, EI_edge -9 % (shell), GJ -12 % (deck D1), EA +7 % with the T16 torque
-    sensitivities (twist difference -2..-2.7 % torque vs BD linear, -0.4..-0.8 % vs BD nonlinear).
- 4. Then T4 (twist estimator), T5 (store rows), close step 4. Step-5 OpenFAST reference ready (flex-rigid -2.47 % power).
-Cleanup (user: "elimina todo lo que se pueda eliminar"): removed worktree ../fem-shell-prefix and its pyshim; session TMPDIRs
-under $SCRATCH/tmp (t11-*, t12-t16, t9b-*, v2cache-*, v2_blade_cache_prefix, cancelled T6 11741547); $SCRATCH/t9b ccx run dirs
-(results kept in logs/check/l5_oneway/t9b/<case>/solid.json); OpenFAST diag variants and smoke leftovers; T6 smoke results
-(logs kept: $SCRATCH/l5_oneway/smoke-11741409/*.log); failed/meaningless t9b dirs (z60_*, z95_A_n1, smoke/s80*). Kept: running
-T6 ($SCRATCH/l5_oneway/full-11741636 and its TMPDIR), post-fix mesh caches, OpenFAST flex/rigid reference decks and outputs.
+ 1. T6 verdict on SLURM 11743499: `scripts/aeroenv.sh python tools/l5_t6_settled.py --results $SCRATCH/l5_oneway/full-11743499/results
+    --out logs/check/l5_oneway/t6/settled_rerun.json`; criterion: `dyn_mean` within 1 % of `static_t6` (flap, edge, twist) with
+    the run's own mean loads (prebend fix changes the loads, so compare to the new static_t6, not 17.306).
+ 2. Full suite 11743498: compare with scripts/known-red-full.txt; if green, T17 cleanup (L40 notes), maturin, quick.
+ 3. Re-point tools/l5_oneway_bd_parity.py `shell_loads("bem")` at the production participant (T18, L37), rerun T1/T3 rows.
+ 4. T9 open items (L38): z45 solid torsion length convergence, cause of the shell psi oscillation (~6 m wavelength).
+ 5. L3 re-closure decision (user), then T4 (twist estimator), T5 (store rows), close step 4.
+ 6. RDD: user locates `gentle-ai` and runs `gentle-ai review mode disable --scope clone`, or reviews T17 range 59bc420..f8a1639; then push main.
