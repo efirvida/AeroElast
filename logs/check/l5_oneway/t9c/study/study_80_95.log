@@ -1,0 +1,14 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont18
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+study z=80 n_chord=2: L=6.5 m, 2147 nodes (9 s)
+study z=80 n_chord=4: L=13.2 m, 4355 nodes (14 s)
+study z=80 n_chord=6: L=19.9 m, 6609 nodes (37 s)
+study z=80 n_chord=8: L=26.3 m, 8891 nodes (65 s)
+study z=95 n_chord=2: L=5.5 m, 2289 nodes (69 s)
+study z=95 n_chord=4: L=10.8 m, 4358 nodes (77 s)
+study z=95 n_chord=6: L=16.3 m, 6508 nodes (95 s)
+study z=95 n_chord=8: L=21.8 m, 8604 nodes (128 s)

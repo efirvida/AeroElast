@@ -66,7 +66,10 @@ CCX = os.environ.get("CCX_BIN", "/scratch/leahk/eduardo.donestevez/venv/bin/ccx"
 STATIONS = (60.0, 80.0, 95.0)
 M0 = 1.0e6  # N m, the unit couple (linear problems)
 N_CHORD = 4.0  # solid segment length in chords (the validated W1 setting)
-N_SHELL_CHORD = 6.0  # shell segment length in chords (smoke z 80: psi -1.1 / +0.1 / +1.0 deg at 4 / 6 / 8 chords, so the length is a sensitivity, read the profile)
+N_SHELL_CHORD = 8.0  # shell segment length in chords: the converged setting of the T9c study (converged_setting, odd/tasks/l5-one-way.md T9c)
+SHELL_WINDOW = "half"  # shell fit window: half width L/4 (= 2 chords at 8 chords), the T9c converged setting
+TOL_PSI = 0.5  # deg, convergence criterion of the shell study: a step to the next segment length moves psi by <= this
+TOL_STIFF = 0.02  # relative, same for GJ, EI_flap, EI_edge (bias-corrected); the deficits to resolve are >= 6 %
 END_ZONE = 0.05  # shell rigid / clamped zone, fraction of L
 WINDOWS = {"third": 1.0 / 6.0, "half": 1.0 / 4.0}  # half widths, fraction of L
 LEVELS = {  # solid mesh levels, relative to the local chord: A = the validated W1 mesh A (h 0.1 at chord 2.77), B = half h
@@ -354,10 +357,10 @@ def solve_shell_couples(sub, props, M=M0):
                    "n_rigid": len(b_nodes), "ref": ref.tolist(), "z_range": [float(zlo), float(zhi)]}
 
 
-def window_compliance(X, Us, zc, L, loads, weights=None, include=None):
-    """3x3 compliance for each window of ``WINDOWS`` from nodal displacements of the three load cases."""
+def window_compliance(X, Us, zc, L, loads, weights=None, include=None, windows=None):
+    """3x3 compliance for each window of ``windows`` (default ``WINDOWS``: name -> half width / L) from nodal displacements of the three load cases."""
     out = {}
-    for name, frac in WINDOWS.items():
+    for name, frac in (WINDOWS if windows is None else windows).items():
         half = frac * L
         fits = [fit_section_kinematics(X if include is None else X[include], U if include is None else U[include], zc, half,
                                        weights=None if weights is None else (weights if include is None else weights[include]))
@@ -386,6 +389,78 @@ def shell_profile(X, Us, zc, L, deck_f, half=2.0, step=2.0, weights=None):
     return rows
 
 
+def shell_study(zs, out_dir, n_chords=(2.0, 4.0, 6.0, 8.0), fracs=(1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3), chord_divisions=20):
+    """Convergence study of the shell measurement (L5 T9c): for each station z, segment length (chords) and fit half window (fraction
+    of the segment length) the shell metrics, the deck read by the SAME fit on the SAME nodes (``beam_displacements``) and the deck's
+    exact value at the segment centre.  ``bias`` = same-fit deck - exact deck is what the taper / twist / window does to a section whose
+    compliance is exactly the deck's; ``corrected`` removes it from the shell reading (see ``bias_corrected``)."""
+    from tests.support.v2_blade import build_v2_blade
+
+    t0 = time.time()
+    mesh, props = build_v2_blade(0.25, skin_reference="mid", mesher="gmsh", es_range=(0.05, 0.25), chord_divisions=chord_divisions)
+    deck_f = deck_C_of_z(load_deck()[0])
+    wins = {f"{f:.4f}": f for f in fracs}
+    rows = []
+    for z in zs:
+        for nc in n_chords:
+            try:
+                sub, p, chord, L = shell_segment(mesh, props, z, nc)
+                X, Us, area, info = solve_shell_couples(sub, p)
+            except Exception as e:  # noqa: BLE001  (a segment that crosses the root / tip or fails to assemble is a result, not a crash)
+                rows.append({"z": z, "n_chord": nc, "error": f"{type(e).__name__}: {e}"})
+                print(f"study z={z:g} n={nc:g}: {e}", flush=True)
+                continue
+            zlo, zhi = info["z_range"]
+            zc = 0.5 * (zlo + zhi)
+            Lz = zhi - zlo
+            ref_xy = X[:, :2].mean(axis=0)
+            Ub = [beam_displacements(X, lambda zz: deck_f(zz)[0], zlo, zhi, M0 * np.eye(3)[j], ref_xy) for j in range(3)]
+            sh = window_compliance(X, Us, zc, Lz, [M0] * 3, weights=area, windows=wins)
+            bd = window_compliance(X, Ub, zc, Lz, [M0] * 3, weights=area, windows=wins)
+            exact = section_metrics(deck_f(zc)[0])
+            for k, frac in wins.items():
+                ms, mb = section_metrics(sh[k]["C"]), section_metrics(bd[k]["C"])
+                rows.append({"z": z, "n_chord": nc, "frac": frac, "half_m": frac * Lz, "zc": zc, "L": Lz, "chord": chord, "n_fit": sh[k]["n"],
+                             "shell": ms, "deck_same_fit": mb, "deck_exact": exact, "corrected": bias_corrected(ms, mb, exact),
+                             "distortion": sh[k]["distortion"]})
+            print(f"study z={z:g} n_chord={nc:g}: L={Lz:.1f} m, {info['n_nodes']} nodes ({time.time() - t0:.0f} s)", flush=True)
+    doc = {"model": "shell_study", "chord_divisions": chord_divisions, "rows": rows, "elapsed_s": time.time() - t0, "revision": tp.revision(REPO)}
+    _write(Path(out_dir) / "shell_study.json", doc)
+    return doc
+
+
+def converged_setting(rows, tol_psi=TOL_PSI, tol_stiff=TOL_STIFF, frac=0.25):
+    """Written convergence criterion of the shell measurement: per station z the SMALLEST segment length (chords) such that every later
+    step to the next studied length, at the fit window ``frac``, moves the bias-corrected psi by <= ``tol_psi`` deg and GJ, EI_flap, EI_edge
+    by <= ``tol_stiff`` (relative).  The longest length has no later step and is never accepted; ``None`` = not converged in the studied range.
+    ``rows`` = shell_study rows (``corrected`` dict); error rows are skipped."""
+    out = {}
+    for z in sorted({float(r["z"]) for r in rows}):
+        by_n = {float(r["n_chord"]): r["corrected"] for r in rows
+                if float(r["z"]) == z and "corrected" in r and abs(r["frac"] - frac) < 1e-3}
+        ns = sorted(by_n)
+        steps = [abs(by_n[b]["psi_deg"] - by_n[a]["psi_deg"]) <= tol_psi
+                 and all(abs(by_n[b][k] / by_n[a][k] - 1.0) <= tol_stiff for k in ("GJ", "EI_flap", "EI_edge"))
+                 for a, b in zip(ns[:-1], ns[1:], strict=True)]
+        out[z] = next((ns[i] for i in range(len(steps)) if all(steps[i:])), None)
+    return out
+
+
+def bias_corrected(shell, deck_fit, deck_exact):
+    """Shell reading with the geometric bias of the fit removed: psi and ratios by difference, stiffnesses by ratio.
+
+    bias = (deck read through the same fit on the same nodes) vs (deck exact at the segment centre): it is what taper, twist and the
+    window do to a section whose compliance is exactly the deck's, so it is common to any model on those nodes.
+    """
+    out = {"psi_deg": shell["psi_deg"] - (deck_fit["psi_deg"] - deck_exact["psi_deg"]),
+           "ratio_fe_ff": shell["ratio_fe_ff"] - (deck_fit["ratio_fe_ff"] - deck_exact["ratio_fe_ff"])}
+    if all("ratio_ef_ee" in m for m in (shell, deck_fit, deck_exact)):
+        out["ratio_ef_ee"] = shell["ratio_ef_ee"] - (deck_fit["ratio_ef_ee"] - deck_exact["ratio_ef_ee"])
+    for k in ("GJ", "EI_flap", "EI_edge"):
+        out[k] = shell[k] * deck_exact[k] / deck_fit[k]
+    return out
+
+
 def run_shell(zs, out_dir, chord_divisions=20, n_chord=N_SHELL_CHORD):
     from tests.support.v2_blade import build_v2_blade
 
@@ -401,7 +476,7 @@ def run_shell(zs, out_dir, chord_divisions=20, n_chord=N_SHELL_CHORD):
         Lz = info["z_range"][1] - info["z_range"][0]
         wins = window_compliance(X, Us, zc, Lz, [M0] * 3, weights=area)  # primary: tributary-area weights (as the solid)
         wins_eq = window_compliance(X, Us, zc, Lz, [M0] * 3)
-        main = wins["third"]
+        main = wins[SHELL_WINDOW]
         zlo, zhi = info["z_range"]
         ref_xy = X[:, :2].mean(axis=0)
         Ub = [beam_displacements(X, lambda zz: deck_f(zz)[0], zlo, zhi, M0 * np.eye(3)[j], ref_xy) for j in range(3)]
@@ -411,8 +486,10 @@ def run_shell(zs, out_dir, chord_divisions=20, n_chord=N_SHELL_CHORD):
                            {**{f"{k}_area": section_metrics(v["C"]) | {"n": v["n"], "rms": v["rms"]} for k, v in wins.items()},
                             **{f"{k}_equal": section_metrics(v["C"]) | {"n": v["n"], "rms": v["rms"]} for k, v in wins_eq.items()}}))
         rows[-1]["deck_same_fit"] = {k: section_metrics(v["C"]) for k, v in bwins.items()}
+        rows[-1]["corrected"] = bias_corrected(rows[-1], rows[-1]["deck_same_fit"][SHELL_WINDOW], section_metrics(deck_f(zc)[0]))  # the value the table prints
         rows[-1]["profile"] = shell_profile(X, Us, zc, zhi - zlo, lambda zz: deck_f(zz), weights=area)
         rows[-1]["deck_exact_at_zc"] = section_metrics(deck_f(zc)[0])
+        rows[-1]["window"] = SHELL_WINDOW
         print(f"shell z={z:g}: {info['n_nodes']} nodes, L={L:.2f} m, psi={rows[-1]['psi_deg']:.3f} deg, "
               f"GJ={rows[-1]['GJ']:.4e} ({time.time() - t0:.0f} s)", flush=True)
     doc = {"model": "shell", "chord_divisions": chord_divisions, "n_chord": n_chord, "moment_Nm": M0, "stations": rows,
@@ -511,8 +588,10 @@ def make_table(out_dir, solid_dirs=()):
     for z in sorted({r["z"] for r in deck + shell + solids}):
         d = next((r for r in deck if r["z"] == z), None)
         sh = [r for r in shell if r["z"] == z]
-        for label, src in [("deck", [d] if d else []), ("shell", sh),
-                           ("deck, same fit on the shell nodes", [r["deck_same_fit"]["third"] | {"z": z} for r in sh if "deck_same_fit" in r]),
+        for label, src in [("deck", [d] if d else []),
+                           ("shell, fit bias removed", [r["corrected"] | {"z": z} for r in sh if "corrected" in r]),
+                           ("shell raw", sh),
+                           ("deck, same fit on the shell nodes", [r["deck_same_fit"][r.get("window", "third")] | {"z": z} for r in sh if "deck_same_fit" in r]),
                            *[(f"solid {s['level']}{' +fill' if s['te_filler'] else ''}", [s]) for s in solids if s["z"] == z]]:
             for r in src:
                 rows.append((z, label, r, d))
@@ -520,7 +599,7 @@ def make_table(out_dir, solid_dirs=()):
              "|---|---|---|---|---|---|---|---|---|---|---|"]
     for z, label, r, d in rows:
         rt = (lambda k: f"{r[k] / d[k]:.3f}") if d else (lambda k: "-")
-        lines.append(f"| {z:g} | {label} | {r['psi_deg']:.3f} | {r['ratio_fe_ff']:+.4f} | {r['ratio_ef_ee']:+.4f} | {r['GJ']:.4e} | "
+        lines.append(f"| {z:g} | {label} | {r['psi_deg']:.3f} | {r['ratio_fe_ff']:+.4f} | {r.get('ratio_ef_ee', float('nan')):+.4f} | {r['GJ']:.4e} | "
                      f"{r['EI_flap']:.4e} | {r['EI_edge']:.4e} | {rt('GJ')} | {rt('EI_flap')} | {rt('EI_edge')} |")
     for sd in solids:
         if sd.get("GJ_st2d"):
@@ -532,15 +611,36 @@ def make_table(out_dir, solid_dirs=()):
     return text
 
 
+def study_table(out_dir):
+    """Markdown tables of shell_study.json: raw and bias-corrected psi, C_fe/C_ff, GJ, EI_flap, EI_edge per (z, chords, window)."""
+    out = Path(out_dir)
+    rows = json.loads((out / "shell_study.json").read_text())["rows"]
+    lines = ["| z | chords | L m | half/L | psi raw | psi corr | deck psi | fe/ff raw | fe/ff corr | deck fe/ff | GJ corr/deck | flap corr/deck | edge corr/deck | GJ raw/deck | edge raw/deck |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in rows:
+        if "error" in r:
+            lines.append(f"| {r['z']:g} | {r['n_chord']:g} | - | - | {r['error']} |")
+            continue
+        s, c, d = r["shell"], r["corrected"], r["deck_exact"]
+        lines.append(f"| {r['z']:g} | {r['n_chord']:g} | {r['L']:.1f} | {r['frac']:.3f} | {s['psi_deg']:.2f} | {c['psi_deg']:.2f} | {d['psi_deg']:.2f} | "
+                     f"{s['ratio_fe_ff']:+.4f} | {c['ratio_fe_ff']:+.4f} | {d['ratio_fe_ff']:+.4f} | {c['GJ'] / d['GJ']:.3f} | {c['EI_flap'] / d['EI_flap']:.3f} | "
+                     f"{c['EI_edge'] / d['EI_edge']:.3f} | {s['GJ'] / d['GJ']:.3f} | {s['EI_edge'] / d['EI_edge']:.3f} |")
+    text = "\n".join(lines)
+    (out / "study_table.md").write_text(text + "\n")
+    return text
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("model", choices=["deck", "shell", "solid", "table"])
+    ap.add_argument("model", choices=["deck", "shell", "solid", "table", "study", "study-table"])
     ap.add_argument("--z", type=float, nargs="+", default=list(STATIONS))
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cmd", choices=["build", "run", "analyze", "all", "st2d"], default="all", help="solid only")
     ap.add_argument("--level", choices=sorted(LEVELS), default="A", help="solid mesh level (relative to the local chord)")
     ap.add_argument("--nchord", type=float, default=None, help=f"segment length in chords (shell {N_SHELL_CHORD:g}, solid {N_CHORD:g})")
     ap.add_argument("--te-filler", dest="te_filler", type=float, default=0.0, help="solid: TE adhesive filler arc, m (L23 factor test)")
+    ap.add_argument("--nchords", type=float, nargs="+", default=[2.0, 4.0, 6.0, 8.0], help="study: segment lengths in chords")
+    ap.add_argument("--fracs", type=float, nargs="+", default=[1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3], help="study: fit half window / segment length")
     ap.add_argument("--chord-divisions", type=int, default=20)
     ap.add_argument("--solid-dirs", nargs="*", default=[])
     a = ap.parse_args()
@@ -550,6 +650,10 @@ def main():
             print(f"deck z={r['z']:g}: psi={r['psi_deg']:.3f} fe/ff={r['ratio_fe_ff']:+.4f} GJ={r['GJ']:.4e}")
     elif a.model == "shell":
         run_shell(a.z, a.out, a.chord_divisions, a.nchord or N_SHELL_CHORD)
+    elif a.model == "study":
+        shell_study(a.z, a.out, a.nchords, a.fracs, a.chord_divisions)
+    elif a.model == "study-table":
+        print(study_table(a.out))
     elif a.model == "solid":
         z = a.z[0]
         if a.cmd in ("build", "all"):

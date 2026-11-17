@@ -1,0 +1,9 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont18
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+shell z=45: 9763 nodes, L=38.15 m, psi=-6.394 deg, GJ=3.6242e+08 (82 s)
+shell z=80: 8891 nodes, L=26.33 m, psi=1.839 deg, GJ=6.3750e+07 (139 s)
+shell z=95: 8604 nodes, L=21.67 m, psi=-0.108 deg, GJ=2.7695e+07 (200 s)

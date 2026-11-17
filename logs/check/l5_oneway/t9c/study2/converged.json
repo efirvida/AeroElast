@@ -1,0 +1,23 @@
+{
+ "criterion": "smallest n_chord whose later steps all move psi <= 0.5 deg and GJ/EI_flap/EI_edge <= 2 % (bias-corrected), window half = L/4",
+ "tol_psi": 0.5,
+ "tol_stiff": 0.02,
+ "frac": 0.25,
+ "per_station": {
+  "45.0": 4.0,
+  "80.0": 8.0,
+  "95.0": 6.0
+ },
+ "sensitivity": {
+  "0.3deg/1%": {
+   "45.0": 6.0,
+   "80.0": null,
+   "95.0": null
+  },
+  "1deg/3%": {
+   "45.0": 4.0,
+   "80.0": 6.0,
+   "95.0": 4.0
+  }
+ }
+}

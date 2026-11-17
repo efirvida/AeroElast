@@ -160,3 +160,41 @@ def test_fit_section_kinematics_is_not_biased_by_in_plane_affine_strain():
     U[:, 1] += (-0.3 * 1e-3 * dz) * yc + 4e-4 * dz * xc
     fit = A.fit_section_kinematics(X, U, 0.0, half=3.0)
     np.testing.assert_allclose(fit["kappa"], [kappa[0], kappa[1], tr], rtol=1e-8)
+
+
+# --- L5 T9c: shell measurement convergence ---------------------------------------------------------------------------------
+
+
+def _row(z, n, psi, gj, ef=1.0e9, ee=2.0e9, frac=0.25):
+    return {"z": z, "n_chord": n, "frac": frac, "corrected": {"psi_deg": psi, "ratio_fe_ff": 0.0, "GJ": gj, "EI_flap": ef, "EI_edge": ee}}
+
+
+def test_bias_corrected_is_identity_when_the_deck_reads_back_exactly_and_removes_the_fit_bias_otherwise():
+    sh = {"psi_deg": 1.0, "ratio_fe_ff": 0.01, "GJ": 5.0e7, "EI_flap": 1.0e9, "EI_edge": 2.0e9}
+    ex = {"psi_deg": 0.5, "ratio_fe_ff": 0.005, "GJ": 6.0e7, "EI_flap": 1.1e9, "EI_edge": 2.2e9}
+    same = A.bias_corrected(sh, ex, ex)
+    for k in sh:
+        assert same[k] == pytest.approx(sh[k])
+    fit = {"psi_deg": 0.8, "ratio_fe_ff": 0.007, "GJ": 5.4e7, "EI_flap": 1.0e9, "EI_edge": 2.0e9}  # the fit reads the deck 0.3 deg / 10 % off
+    c = A.bias_corrected(sh, fit, ex)
+    assert c["psi_deg"] == pytest.approx(0.7)
+    assert c["ratio_fe_ff"] == pytest.approx(0.008)
+    assert c["GJ"] == pytest.approx(5.0e7 * 6.0 / 5.4)
+    assert c["EI_flap"] == pytest.approx(1.1e9)
+
+
+def test_converged_setting_returns_the_smallest_length_whose_later_steps_all_stay_inside_the_tolerances():
+    rows = [_row(80, 4, -0.7, 8.0e7), _row(80, 6, 1.0, 8.2e7), _row(80, 8, 1.84, 8.3e7), _row(80, 10, 2.29, 8.4e7), _row(80, 12, 2.45, 8.45e7)]
+    got = A.converged_setting(rows, tol_psi=0.5, tol_stiff=0.02)
+    assert got == {80.0: 8.0}  # 6 -> 8 moves 0.84 deg, 8 -> 10 0.45, 10 -> 12 0.16
+    # a stiffness step above the tolerance after n=8 pushes the answer to n=10
+    rows[3]["corrected"]["GJ"] = 9.0e7
+    rows[4]["corrected"]["GJ"] = 9.05e7
+    assert A.converged_setting(rows, tol_psi=0.5, tol_stiff=0.02) == {80.0: 10.0}
+
+
+def test_converged_setting_ignores_other_windows_reports_none_when_the_last_step_fails_and_keeps_stations_apart():
+    rows = [_row(80, 4, 0.0, 1.0e7), _row(80, 6, 1.0, 1.0e7), _row(95, 4, 0.0, 1.0e7), _row(95, 6, 0.1, 1.0e7), _row(95, 6, 9.0, 1.0e7, frac=0.4)]
+    got = A.converged_setting(rows, tol_psi=0.5, tol_stiff=0.02, frac=0.25)
+    assert got[95.0] == 4.0
+    assert got[80.0] is None  # the only step (4 -> 6) is 1 deg
