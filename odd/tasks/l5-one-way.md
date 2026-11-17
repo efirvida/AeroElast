@@ -21,7 +21,7 @@ below is trusted against its independent reference or declared with cause and to
 - T5 | S1 S2 | parent | pending | store rows + verdicts, thesis plan T4 closed or declared
 - T6 | S1 S3 | worker | RED (L31: dyn mean = static with the Rust K_G to 1e-5; production loses centrifugal stiffening, +10 % flap; fix decision pending) | S-5 rated run with the production code: `aeroelast-bem-fsi` one-way (`deformed_twist: false`, `deformed_radius: false`), gmsh N20 AR 1, deck tilt -6 / precone -4, rated 10.59 m/s 7.56 rpm, ~100 s; its settled mean tip deflection and twist must match the T3 static solve (same loads, same K_eff) within 1 %
 - T7 | S3 | worker (with T6) | done (L15: L5 cases explicit; legacy cases untouched by user decision) | tilt/precone explicit in every L5/L5-two-way case file: deck -6/-4 for OpenFAST comparisons, 0/0 only for Zhou cases, labelled; no case relies on the 0/0 default
-- T9 | S1 S2 | worker | in progress (prep on login, L28) | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
+- T9 | S1 S2 | worker | partial (L38, 3c293a5) | flap-edge cross-coupling arbiter (L9): per-station bending compliance of shell and BeamDyn under the same loads, deck 6x6 cross terms and principal angle, and a third reference independent of both
 - T10 | S1 S2 | parent | pending | twist-sense arbitration (L10): is the shell pretwist mirrored or a consistent mirror world; then the correct mesh->BeamDyn map and a rerun of the T1/T3 twist and edge rows
 - T11 | S1 S2 | worker + parent | in progress (fix committed, L14; cache rebuild + L3 re-measure pending) | fix the windIO-v2 pretwist sign (geometry.py:538), RED-first; mesh cache invalidation; then re-measure the orientation-dependent L3 rows (before/after, same reference) and rerun T1/T3
 - T12 | S1 S2 | parent | done (L17) | measured orientation audit (tools/l5_orientation_audit.py): physical frame, mesh rings vs yaml vs BeamDyn deck (LE, suction side, chord angle, prebend, sweep, chord), physics-only AoA, response-angle reading of the T1/T3 differences
@@ -30,7 +30,7 @@ below is trusted against its independent reference or declared with cause and to
 - T15 | S1 | worker | done (L24, 93beb2d) | T6 cost: 11.7 s per preCICE window with a constant K_eff; profile the smoke on the login node, find where the time goes (refactorization, Python callback, BEM, I/O), report before any code change
 - T16 | S2 | worker | done (L22) | torque/power/thrust sensitivity of the current T1/T3 reds (t11 jsons: twist shell - BeamDyn spanwise) with tools/l5_twist_torque_sensitivity.py, ad and bem
 - T17 | S5 S1 | parent | implemented (L34), T6 rerun pending | Rust K_G rebuild with static-solve prestress (option B): RED test (Rust K_G == Python K_G at X0), port, maturin, quick + rotor tests, full suite on SLURM, rerun T6
-- T18 | S1 S2 | worker | in progress (L36) | aero torsional load: T6 time-mean F_AERO vs T3 `_compute_forces(zeros)` give the same flap but twist -3.20 vs -2.25 deg on the same K_eff (L31); per-strip force and torsional moment about the reference axis, cause (Cm/arm projection, azimuth mean with tilt, BEM config fluid.yaml vs bem_config), fix or declare
+- T18 | S1 S2 | worker | done (L37, 77d7257; prebend-drop fix pending) | aero torsional load: T6 time-mean F_AERO vs T3 `_compute_forces(zeros)` give the same flap but twist -3.20 vs -2.25 deg on the same K_eff (L31); per-strip force and torsional moment about the reference axis, cause (Cm/arm projection, azimuth mean with tilt, BEM config fluid.yaml vs bem_config), fix or declare
 - T8 | S2 | worker | done (ce50b2e, L6) | torque sensitivity harness: a measured spanwise twist difference (shell - BeamDyn) -> delta torque / power / thrust at rated with the production BEM (reuse tools/l3_torque_sensitivity.py), ready for any red of T1/T3
 
 ## Log
@@ -437,6 +437,28 @@ below is trusted against its independent reference or declared with cause and to
   snapshot f8a1639) and the T6 rerun SLURM 11743283 (sequana_cpu_long, 8 h; criterion: dyn mean within 1 % of static_t6
   17.306 m flap, 1.628 m edge, twist -3.42 deg).
 - L36 (2026-11-16) User: "arranca con los dos" (T18 aero twist load difference and T9) and "no preguntes mas sobre el estado del git mezclalo todo a main". Parent: main fast-forwarded to acefb5f locally; T18 and T9 to two workers while SLURM 11743282/11743283 run.
+- L37 (2026-11-16) Worker T18 (77d7257, tools/l5_t18_*.py, logs/check/l5_oneway/t18/report.md, twist.json). The T6 twist -3.204 deg
+  is reproduced from the production config alone (participant built as run_bem_fsi.main: allOuterShellNods coupling set,
+  36-azimuth mean, u != 0 branch): -3.205 deg, F 100.31/842.29 kN. T3 -> T6 chain on the same K_eff: wall-flow realisation off in
+  production (projector gets element_properties=None) -0.311; AeroDyn -> windIO polars + station grid (53 vs 50) -0.690; azimuth
+  mean (tilt -6) -0.042; u != 0 branch +0.057; coupling node set (no web nodes) +0.035 deg. Ruled out: Cm on/off (both apply it,
+  totals equal 0.1 %), AC fraction swap (< 0.001 deg), BEMSolver kwargs, deformed feedback. FINDING (production bug):
+  `_rebuild_bem_solver` (fsi_participant.py ~:1033) rebuilds AeroStations WITHOUT prebend; production always takes that branch
+  (max|u| > 1e-12): thrust -1.1 %, torque -1.9 %, power -1.9 % vs the prebend-carrying solver. Also: `include_pitching_moment`
+  is never read (Cm always on). Intended load for T6: the production load; the parity tool's `shell_loads("bem")` must be
+  re-pointed at the production participant (T3/T1 BeamDyn rows use binned resultants; T6 uses the subset).
+- L38 (2026-11-16) Worker T9 (3c293a5, logs/check/l5_oneway/t9c/summary.md), PARTIAL. Shell measurement: bias-corrected
+  (deck read through the same fit), segment-length criterion psi <= 0.5 deg, stiffness <= 2 % -> 8 chords, window L/4 (z80
+  still +0.45 deg 8->10 chords); shell psi oscillates +-1.5 deg along z (wavelength ~6 m, cause open, absent in the deck read).
+  Inboard station z45 (one TE stack z 35-62). Model - solid (level B, 4 chords):
+  | z | shell dpsi | deck dpsi | shell C_fe/C_ff (solid) | GJ shell/deck vs solid | EI_edge shell/deck vs solid |
+  |---|---|---|---|---|---|
+  | 45 | +1.02 | +4.00 | -0.059 (-0.062) | solid GJ not length-converged (-11 % 4->6 chords) | 1.06 / 1.12 |
+  | 80 | +1.45 | +0.84 | +0.016 (+0.003) | 0.95 / 1.14 | 0.89 / 0.96 |
+  | 95 | -2.60 | +0.40 | -0.024 (+0.022, sign wrong) | 1.08 / 1.25 (1.11 TE filler) | 0.93 / 1.07 |
+  Reading: no single winner on flap-edge coupling (inboard shell ~ solid, deck 4 deg off; outboard deck ~ solid, shell 2.6 deg off
+  with the wrong cross-term sign at z95). EI_edge shell deficit -11/-7.5 % outboard, +6 % at z45 (not uniform). Deck GJ excess D1
+  confirmed outboard (+14/+25 %). Open: z45 solid torsion convergence; cause of the shell psi oscillation; band 1 deg set after data.
 ## Handoff (2026-11-16, end of session)
 Resume: read this file to `## Log`, then L13-L30; thesis-validation-plan.md L6-L9. One narrow mem_search "l5 one-way T6 T9".
 State: branch feat/windio2-support, HEAD after this commit; pretwist fix 0c04c36; worktree ../fem-shell-prefix REMOVED (ad1aecf,
