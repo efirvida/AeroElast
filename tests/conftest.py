@@ -159,66 +159,29 @@ _ensure_shared_lib("libGLU.so.1", _GLU_LIB_PATH)
 # ---------------------------------------------------------------------------
 # Blade YAML fixture
 # ---------------------------------------------------------------------------
-# Candidate paths for the IEA-15-240-RWT turbine definition YAML.
-# The file is large so it lives outside the repo in the simulations tree,
-# but a copy may also exist inside examples/.
-_BLADE_YAML_CANDIDATES = [
-    # Co-located with tests (highest priority)
+# The official windIO v2 IEA-15-240-RWT file (upstream copy). The former v1
+# candidate list (tests/, examples/, ../simulations) is retired.
+_OFFICIAL_BLADE_YAML = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
+        "IEA15MW",
+        "reference",
+        "upstream",
         "IEA-15-240-RWT.yaml",
-    ),
-    # Inside repo (preferred when present)
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "examples",
-        "reference_turbines",
-        "yamls",
-        "IEA-15-240-RWT.yaml",
-    ),
-    # Sibling simulations directory (dev environment)
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "simulations",
-        "blade",
-        "solid",
-        "IEA-15-240-RWT.yaml",
-    ),
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "simulations",
-        "IEA-15-240-RWT",
-        "fsi",
-        "NoTower",
-        "solid",
-        "IEA-15-240-RWT.yaml",
-    ),
-]
+    )
+)
 
 
 def _find_blade_yaml():
-    for p in _BLADE_YAML_CANDIDATES:
-        resolved = os.path.abspath(p)
-        if os.path.isfile(resolved):
-            return resolved
-    return None
+    return _OFFICIAL_BLADE_YAML if os.path.isfile(_OFFICIAL_BLADE_YAML) else None
 
 
 @pytest.fixture(scope="session")
 def iea_blade_yaml():
-    """Return the path to IEA-15-240-RWT.yaml or skip the test."""
+    """Return the path to the official windIO v2 IEA-15-240-RWT.yaml or skip."""
     path = _find_blade_yaml()
     if path is None:
-        pytest.skip(
-            "IEA-15-240-RWT.yaml not found. "
-            "Place a copy at examples/reference_turbines/yamls/ or alongside "
-            "the simulations/blade/solid/ tree."
-        )
+        pytest.skip(f"official IEA-15-240-RWT.yaml not found at {_OFFICIAL_BLADE_YAML}")
     return path
 
 
