@@ -1014,6 +1014,20 @@ class MultiFlapMesh:
         ).generate()
 
 
+def reject_excel_file(params) -> None:
+    """Raise if a mesh-generator ``params`` mapping still carries ``excel_file`` (S7a): never drop it silently.
+
+    The NuMAD xlsx path is retired; the runner and the BEM-FSI CLI call this before dispatching on the generator type, so
+    a config that keeps an old ``excel_file`` next to a v2 ``yaml_file`` fails instead of meshing the yaml.
+    """
+    excel_file = (params or {}).get("excel_file")
+    if excel_file:
+        raise ValueError(
+            f"excel_file ({excel_file!r}) is no longer read: the NuMAD mesher is retired. Remove the key and set "
+            "yaml_file to a windIO v2 blade yaml (e.g. tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)."
+        )
+
+
 class BladeMesh:
     """
     Blade shell mesh for the framework, built with :class:`~aeroelast.core.mesh.gmsh_blade.GmshBladeMesh`.

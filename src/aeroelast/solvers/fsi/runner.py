@@ -42,6 +42,7 @@ from ...core.mesh import (
     RotorMesh,
     SquareShapeMesh,
 )
+from ...core.mesh.generators import reject_excel_file
 from ...core.mesh.gmsh_blade import GmshBladeMesh
 from ...elements import ElementFamily as ElemFamily
 
@@ -708,6 +709,7 @@ class FSIRunner:
             return
 
         params = gen_config.params
+        reject_excel_file(params)
 
         if gen_config.type == MeshGeneratorType.GMSH_BLADE.value:
             generator = self._gmsh_blade_generator(params)
@@ -772,6 +774,7 @@ class FSIRunner:
 
         gen_type = gen_config.type
         params = gen_config.params
+        reject_excel_file(params)
 
         self._console.print(f"      Generating mesh with: [bold]{gen_type}[/bold]")
 

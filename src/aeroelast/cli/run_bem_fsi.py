@@ -279,6 +279,9 @@ def _build_mesh(cfg: dict, config_path: Path):
         gen_cfg = mesh_cfg.get("generator", {})
         gen_type = gen_cfg.get("type", MeshGeneratorType.BLADE.value)
         params = gen_cfg.get("params", {})
+        from aeroelast.core.mesh.generators import reject_excel_file
+
+        reject_excel_file(params)
 
         logging.info("[BEM-FSI] Generating mesh with %s", gen_type)
 
