@@ -505,6 +505,28 @@ below is trusted against its independent reference or declared with cause and to
   +0.21 deg); mid-span z58-94 stays +0.5 to +1.1 deg. Verdict against 5 % (S3): flap pass at z >= 58.5 (-6.0 % at z35, where
   the deflection is 0.6 m); edge red (+11-13 %, the flap-edge cross-coupling of T9, not load-caused); twist red mid-span,
   tip within 0.21 deg (6 %). Remaining T3 reds belong to T9 (coupling) and T4/T10 (twist metric and sense).
+- L43 (2026-11-19) Parent. [L5 paused after this entry: user chose to close the gmsh-official-mesher gates and retire NuMAD first, gmsh-official-mesher L-S37.] Full suite 11744840 (048bf2f, 9h24): 45 failed, 2097 passed, 8 errors; against
+  known-red-full.txt (recorded 2026-10-28 at bd3e73f, 236 commits back) 27 NEW-FAIL. Triage (explorer + parent):
+  (i) 11 x test_ring_kinematics_estimator: TypeError, `_ring_section_rotation` gained `edges` in T19 (6a6ad35)
+  and the catalog adapters were not updated -> fixed (closed-ring edges for the synthetic rings), 14 passed 2 xfailed.
+  (ii) v2 copies of the known-red v1 accuracy tests (S-1 EI_edge/GJ/EA, S-7, V-02 1st flap/edge): new ids, same
+  documented reds (v2 GJ 12.1 % vs v1 9.7 %) -> re-record, not a regression. (iii) mesher group (test_blade_mesh
+  counts, red since 2026-10-17; gmsh_chord_scaled 26015 vs 26018 elements; windio2 oblique y flip; web nd_arc offset
+  1.4-1.8 cm; quality gate h0.25 web0/web1 coincident at z 9.53-9.58): mesher workstream, not L5. (iv) ERROR x4
+  frame_tear/torsion_stiffness fixture `float(None)` (logs/check/triage-frame-tear.log): a 7-node station ring
+  (nodes 2809-2813, 2844-2845) whose skin edges leave < 3 positively weighted nodes, so `ring_section_rotation`
+  returns None (section_contour.py:600). The numad mesh now yields a partial station ring; likely the same mesher
+  change as the web0/web1 coincidence at z 9.55 (z of the ring not printed) -> mesher group, not L5. (v) ERROR x4 S-2 utd
+  `Laminate must have at least one ply`: disowned input. (vi) S-2 official LC1 interior 5.01 % vs 5 %.
+  None of these touches the T17 K_G change (rotating path only).
+  T9d(b) psi oscillation, logs/check/l5_oneway/t9d/osc/analyze.md (login, 2026-11-17): the bias-corrected shell psi
+  oscillation is mesh-converged (z80 cd 15/20/30: 1.52/1.44/1.48 deg at half 1, wavelength 8-9 m), independent of the
+  segment length (nchord 6/8/10: 1.56/1.44/1.45 deg), absent from the deck same-fit (<= 0.05 deg), uncorrelated with
+  the mean layup thickness (|corr| <= 0.16), shrinks with the fit window (half 1 -> 4: 1.44 -> 0.48 deg) and grows
+  outboard (z45 0.33, z80 1.44, z95 4.49 deg). Reading: real shell content at the 4-10 m scale that the deck's
+  station-wise 6x6 does not carry; not a discretization or fit artifact. Cause not yet named.
+  T9d(a) solid z45: 11744952-55 OOM (ntasks 3 = 24 GB, three ccx cases at once); resubmitted ntasks 12 as
+  11750509-12 (nchord 8/10/12/16), old outputs kept as z45_A_n*.oom.
 
 ## Handoff (2026-11-16 night, end of session)
 Resume: this file to `## Log`, then L31-L40; one narrow mem_search "T17 K_G rebuild prestress".

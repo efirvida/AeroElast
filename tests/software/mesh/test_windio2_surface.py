@@ -104,7 +104,9 @@ def test_oblique_stations_are_curvilinear_and_keep_native_field_grids(tmp_path):
     second = np.cross(tangent, first)
     correction = np.arctan2(second[0], first[0])
     for k in (0, 20, -1):
-        angle = np.deg2rad(g.idegreestwist[k]) + correction
+        # windIO twist is positive to feather, a negative rotation about the section normal in this
+        # frame (L5 T11, 0c04c36): the chord sits at correction - twist.
+        angle = correction - np.deg2rad(g.idegreestwist[k])
         basis = np.column_stack((np.cos(angle)*first + np.sin(angle)*second,
                                  -np.sin(angle)*first + np.cos(angle)*second))
         local = np.column_stack((g.profiles[:, 1, k] * g.ichord[k],

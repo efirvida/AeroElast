@@ -40,15 +40,17 @@ Estimator inventory (``path:line`` and calling convention)
     after removing the mean of ``u``; returns ``(alpha, beta, deviation)``.  It is the suite's
     distortion metric; its internal rotation is the same centroid estimate as ``_theta_fit``.
 
-``tests/validation/blade/test_blade_section_torsion_stiffness.py:145``
-    ``_ring_section_rotation(coords, u, ring)``.  Global 6-DOF ``u``; affine fit on DOF 0 and 1;
-    identical estimator to ``_ring_kinematics`` (imported lazily - the module pulls in
-    ``openfast_toolbox``).
+``tests/validation/blade/test_blade_section_torsion_stiffness.py:165``
+    ``_ring_section_rotation(coords, u, ring, edges)``.  Global 6-DOF ``u``; affine fit on DOF 0
+    and 1, weighted by the nodal tributary wall length over ``edges`` (T19); imported lazily - the
+    module pulls in ``openfast_toolbox``.  The synthetic rings here are ordered closed loops, so
+    their wall is the polygon joining consecutive nodes.
 
-``tests/validation/blade/test_blade_twist_anchor_beam.py:85`` and
-``tests/validation/rotor/test_bem_fsi_deformed_geometry.py:149``
-    ``_ring_section_rotation(coords, disp, ring)``.  ``disp`` is an ``(N, 3)`` displacement
-    array; affine fit on columns 0 and 1.
+``tests/validation/blade/test_blade_twist_anchor_beam.py:100`` and
+``tests/validation/rotor/test_bem_fsi_deformed_geometry.py:178``
+    ``_ring_section_rotation(coords, disp, ring[, edges])``.  ``disp`` is an ``(N, 3)``
+    displacement array; affine fit on columns 0 and 1.  The anchor one is skin arc-weighted over
+    ``edges`` (T19); the BEM-FSI one keeps equal nodal weights.
 
 ``tests/validation/blade/test_laminate_bend_twist.py:182/189/193``
     ``twist_lsq`` / ``twist_edge`` / ``twist_rotation``.  Plate conventions: a strip edge, not an
@@ -143,13 +145,22 @@ def _adapt_parallelogram(coords, u, ring):
 
 def _adapt_affine_u(coords, u, ring):
     mod = importlib.import_module("tests.validation.blade.test_blade_section_torsion_stiffness")
-    return {"rotation": mod._ring_section_rotation(coords, u, np.asarray(ring))}
+    ring = np.asarray(ring)
+    return {"rotation": mod._ring_section_rotation(coords, u, ring, _closed_ring_edges(ring))}
 
 
-def _adapt_affine_disp(fn):
+def _closed_ring_edges(ring):
+    """Wall edges of an ordered closed synthetic ring: each node joined to the next."""
+    return np.column_stack([ring, np.roll(ring, -1)])
+
+
+def _adapt_affine_disp(fn, weighted=False):
     def _call(coords, u, ring):
         disp = u.reshape(-1, 6)[:, :3]
-        return {"rotation": fn(coords, disp, np.asarray(ring))}
+        ring = np.asarray(ring)
+        if weighted:
+            return {"rotation": fn(coords, disp, ring, _closed_ring_edges(ring))}
+        return {"rotation": fn(coords, disp, ring)}
 
     return _call
 
@@ -191,13 +202,13 @@ RING_ESTIMATORS = [
     ),
     _Estimator(
         "_ring_section_rotation (disp) [anchor]",
-        "tests/validation/blade/test_blade_twist_anchor_beam.py:85",
-        _adapt_affine_disp(_ring_section_rotation_anchor),
+        "tests/validation/blade/test_blade_twist_anchor_beam.py:100",
+        _adapt_affine_disp(_ring_section_rotation_anchor, weighted=True),
         affine=True,
     ),
     _Estimator(
         "_ring_section_rotation (disp) [bem_fsi]",
-        "tests/validation/rotor/test_bem_fsi_deformed_geometry.py:149",
+        "tests/validation/rotor/test_bem_fsi_deformed_geometry.py:178",
         _adapt_affine_disp(_ring_section_rotation_bem),
         affine=True,
     ),
