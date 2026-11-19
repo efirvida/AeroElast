@@ -3,24 +3,21 @@ config_file: ../precice-config.xml
 coupling_mesh: Fluid-Mesh
 displacement_data: Displacement
 velocity_data: Velocity
-blade_file: ../../IEA-15-240-RWT.yaml
+blade_file: ../reference/upstream/IEA-15-240-RWT.yaml
 mesh:
   source: generator
   generator:
     type: RotorMesh
     params:
-      yaml_file: ../../IEA-15-240-RWT.yaml
-      airfoil_dir: ../../airfoils
+      yaml_file: ../reference/upstream/IEA-15-240-RWT.yaml
       element_size: 0.25
-      n_samples: 300
-      airfoil_spacing: constant
       n_blades: 3
       hub_radius: 3.0
   output_file: fluid_mesh.vtu
 aero:
   # Derived from fluid_yaw_0.yaml (BEM) as a SHARPy VLM test case.
   backend: sharpy
-  blade_file: ../../IEA-15-240-RWT.yaml
+  blade_file: ../reference/upstream/IEA-15-240-RWT.yaml
   rotor:
     n_blades: 3
     hub_radius: 3.0

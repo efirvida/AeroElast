@@ -20,7 +20,7 @@ velocity_data: null  # Disable velocity coupling (not in precice-config.xml)
 # load_blade_aero detects .xlsx and generates all polars via NeuralFoil;
 # airfoil coordinates are resolved from airfoils/ next to the Excel file.
 # Path is relative to this file's directory (fluid/).
-blade_file: "../../IEA-15-240-RWT.yaml"
+blade_file: "../reference/upstream/IEA-15-240-RWT.yaml"
 
 # ── Fluid mesh (BEM coupling mesh) ──────────────────────────────────────
 # Generator params are IDENTICAL to solid/simulation.yaml so both meshes
@@ -29,13 +29,11 @@ blade_file: "../../IEA-15-240-RWT.yaml"
 mesh:
   source: "generator"
   generator:
-    type: "BladeMesh"
+    type: "GmshBladeMesh"
     params:
-      yaml_file:  "../../IEA-15-240-RWT.yaml"
-      airfoil_dir: "../../airfoils"
+      yaml_file:  "../reference/upstream/IEA-15-240-RWT.yaml"
+      skin_reference: mid  # explicit: what the runner resolved for BladeMesh configs
       element_size: 0.25     # must match solid/simulation.yaml
-      n_samples: 300         # must match solid/simulation.yaml
-      span_grading: "chord"  # must match solid/simulation.yaml
     coupling_node_set: "allOuterShellNods"  # exclude shear-web nodes from aero coupling
   output_file: "fluid_mesh.vtu"
 

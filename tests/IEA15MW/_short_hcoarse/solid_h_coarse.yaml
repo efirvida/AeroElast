@@ -4,14 +4,12 @@
 mesh:
   source: generator
   generator:
-    type: BladeMesh
+    type: GmshBladeMesh
     params:
-      yaml_file: ../../IEA-15-240-RWT.yaml
-      airfoil_dir: ../../airfoils
-      element_size: 0.5
-      n_samples: 300
-      airfoil_spacing: cosine
-      span_grading: chord
+      yaml_file: ../reference/upstream/IEA-15-240-RWT.yaml
+      skin_reference: mid  # explicit: what the runner resolved for BladeMesh configs
+      chord_divisions: 20  # reference mesh N20, span AR 1 (AGENTS.md rule 9)
+      span_aspect: 1
   renumber: rcm
   output_file: solid_mesh.vtu
 elements:

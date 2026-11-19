@@ -65,7 +65,7 @@ def _resolve_case_path(case_dir: Path, value: str) -> Path:
 def load_case_config(case_dir: Path | str = CASE_DIR) -> dict[str, Any]:
     """Read the parked V50 case YAMLs and resolve the paths this tool needs.
 
-    Mesh-generator paths (``yaml_file``, ``airfoil_dir``) are resolved relative
+    The mesh-generator path ``yaml_file`` is resolved relative
     to the case directory, exactly as the runtime does.  Returns a flat dict so
     callers do not need to know the case file layout.
     """
@@ -88,10 +88,12 @@ def load_case_config(case_dir: Path | str = CASE_DIR) -> dict[str, Any]:
         "fluid_yaml_path": fluid_path,
         "precice_xml_path": case_dir / "precice-config.xml",
         "yaml_file": _resolve_case_path(case_dir, generator["yaml_file"]),
-        "airfoil_dir": _resolve_case_path(case_dir, generator["airfoil_dir"]),
-        "n_samples": int(generator.get("n_samples", 300)),
-        "span_grading": str(generator.get("span_grading", "chord")),
-        "element_size": float(generator.get("element_size", DEFAULT_ELEMENT_SIZE)),
+        # Only the keys the gmsh BladeMesh/Blade accept, and only when the case provides them
+        # (absent element_size and chord_divisions = the reference mesh, chord_divisions 20 / span_aspect 1).
+        "element_size": (float(generator["element_size"]) if "element_size" in generator else None),
+        "chord_divisions": generator.get("chord_divisions"),
+        "span_aspect": generator.get("span_aspect"),
+        "skin_reference": str(generator.get("skin_reference", "mid")),
         "span_direction": tuple(float(v) for v in solid["elements"]["span_direction"]),
         "damping": {
             "zeta": float(damping["zeta"]),
@@ -131,8 +133,20 @@ def build_blade_mesh(
     Node._id_counter = 0
     MeshElement._id_counter = 0
 
-    size = float(config["element_size"] if element_size is None else element_size)
-    blade = Blade(str(config["yaml_file"]), element_size=size, n_samples=int(config["n_samples"]))
+    size = element_size if element_size is not None else config.get("element_size")
+    if element_size is None and (
+        config.get("chord_divisions") is not None or config.get("span_aspect") is not None
+    ):
+        # Blade forwards no chord_divisions/span_aspect: refusing beats silently meshing another grid.
+        raise ValueError(
+            "the case sets chord_divisions/span_aspect, which Blade cannot forward; "
+            "pass element_size explicitly"
+        )
+    blade = Blade(
+        str(config["yaml_file"]),
+        element_size=None if size is None else float(size),
+        skin_reference=str(config.get("skin_reference", "mid")),
+    )
     blade.generate_mesh()
     return blade, blade.mesh, blade.get_element_properties()
 
@@ -509,10 +523,10 @@ def derive_precice_xml(
 
 _GENERATOR_PARAM_KEYS = (
     "yaml_file:",
-    "airfoil_dir:",
     "element_size:",
-    "n_samples:",
-    "span_grading:",
+    "chord_divisions:",
+    "span_aspect:",
+    "skin_reference:",
 )
 
 #: Geometry paths that a run directory outside the repository must resolve.

@@ -15,6 +15,10 @@ Make the gmsh skin mesher the single blade mesher of the framework (runner, conf
 - S6 (user decision 2026-11-19, L-S41, verbatim choice): "Re-apuntarlas a la v2 oficial (Recomendado)" — option text: "Script que cambia `BladeMesh` + yaml v1 -> `GmshBladeMesh` + tests/IEA15MW/reference/upstream (v2), mapeando parámetros (element_size, malla N20 de referencia); las del xlsx UTD se archivan. Sus números se mueven por diseño; ninguna es ancla vigente." Supersedes, for the mesher only, L5 T7's "legacy cases untouched".
 - S7 (T6 contract, derived from S1/S5/S6, AGENTS rule 9): `BladeMesh` and `Blade` build with GmshBladeMesh. (a) A windIO v1 yaml or `excel_file` raises ValueError naming the input and the v2 file to use (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml). (b) NuMAD-only keys (n_samples, airfoil_spacing, span_grading, airfoil_dir, refine_tip, max_bay_length, laminate_per_row) raise ValueError listing them; never dropped silently. (c) Without element_size or chord_divisions the mesh is the reference: chord_divisions 20, span_aspect 1; element_size >= 0.3 is not a default anywhere (rule 9). (d) Node/element set names, numad_mesh_data and numad_blade keep the GmshBladeMesh contract already consumed by runner/run_bem_fsi; existing GMSH_BLADE configs unchanged. (e) include_webs=False and geometry_only are T7: until then they raise NotImplementedError naming T7.
 
+- S8 (user decision 2026-11-19, L-S46, verbatim): "vamos a olvidarnos de v1, y enfocarnos solo en la v2". Scope it sets: windIO 1.x inputs are retired like NuMAD: every config key that reads a v1 yaml (mesh generator done in T6b; also top-level / aero `blade_file`, 69 keys) moves to the v2 upstream file; configs that only make sense on a v1 file (the rigid copy tests/IEA-15-240-RWT_rigid.yaml) are archived; v1 test twins with a tests/validation/blade/v2 counterpart retire in T8; v1 yaml files and v1-only tests/tools join the T9 deletion list (S3 still binds the deletion). The windIO 2.x reader must keep working; nothing is deleted without the user's file-by-file confirmation.
+
+- S9 (user decision 2026-11-19, L-S47, verbatim): "por lo tanto migra todo a v2 y a gmsh y elimina todo lo anterior y referente a v1, eliminalo o migralo". Supersedes S3's file-by-file confirmation: the user authorizes deleting the NuMAD mesher, the windio2 mesher, windIO 1.x inputs and everything that only serves them (tests, tools, configs, scripts), or migrating them to v2 + gmsh. Still binding: the windIO 2.x reader and definition objects (L9 KEEP list) stay; physics guards are migrated, not dropped; anchors are not widened (S4, AGENTS rules 1-2); deletions are listed in the Log with the commit that removes them.
+
 ## Tasks
 - T1 | S1 S4 | explorer | pending | Read-only map of how the framework consumes the blade mesh: runner.py BladeMesh sites (727, 829), config, BEMFSIParticipant/ForceProjector ring and strip assumptions (constant-z or constant-eta rings, node sets RootNodes/TipNodes, TE/LE detection), tests that import the NuMAD mesher. Output: what a gmsh MeshModel would have to provide, with path:line evidence.
 - T2 | S1 S4 | parent | pending | G-A evidence table (better mesher) from numbers already measured plus any gap found.
@@ -165,3 +169,20 @@ Engram was unavailable (server ownership mismatch on port 7437) the whole sessio
   N20 reference instead of n_samples (pins: test_rotor_and_blade_model_defaults_forward_no_numad_key,
   test_mesh_param_dataclasses_carry_no_numad_default; RED 2 failed -> GREEN 29 passed). test_turbine_mesh 15
   passed after renaming the expected web set to the gmsh `allWebEls`.
+- L-S45 (2026-11-19) T6b (worker mwnmo4qt-8-c5nj + follow-up mwnnnx2k-9-gpeq + parent), uncommitted:
+  tools/migrate_blademesh_configs.py (line-based edit of mesh.generator only, re-parse guard, dry-run default,
+  idempotent; 24 tests in tests/software/test_migrate_blademesh_configs.py, incl. quoted `type: "BladeMesh"` added
+  by the parent after parked_v50 was missed: RED 2 failed -> GREEN 24 passed). Applied: 150 configs rewritten (144+2
+  BladeMesh -> GmshBladeMesh with skin_reference: mid written explicitly, because runner._blade_skin_reference
+  already resolved absent to mid; 4 RotorMesh), 4 got chord_divisions 20 / span_aspect 1 (element_size 0.5, 2.0,
+  absent); 2 UTD xlsx configs archived to tests/archive/numad_xlsx_configs/ with README; 1 skipped:
+  frontiersin_2025_yaw_anim/solid_corotational_rigid_yaw_0.yaml reads the v1 rigid copy (E, G x1e4), user decision.
+  Loader: 146/148 load; 2 smoke_fix fluid configs fail on an unrelated bem key `partner_frame` (same on HEAD).
+  End-to-end: ab_test/solid_yaml 25012 nodes 26015 elements (86 s); frontiersin fluid RotorMesh 75036/78045 (83 s).
+  NOT migrated by design: 69 top-level/aero `blade_file` keys still name the v1 yaml (BEM aero input, not the mesh).
+  test_ch6_dlc_prepared_cases asserts the new generator contract (88 passed with the migration tests);
+  tools/ccx_fsi_parity_parked_v50.py forwards only element_size/chord_divisions/span_aspect/skin_reference.
+  Open: test_wall_flow_activation on the gmsh mesh 4 passed 3 failed (6 of 492 rings unrealisable: strips 38, 112,
+  137, 207, 390, 475) -> T8 before the guards move; ccx parity rerun pending.
+- L-S46 (2026-11-19) User, after the T6b report asked about the rigid v1 config and the 69 v1 `blade_file` keys: "vamos a olvidarnos de v1, y enfocarnos solo en la v2". Recorded as S8.
+- L-S47 (2026-11-19) User: "por lo tanto migra todo a v2 y a gmsh y elimina todo lo anterior y referente a v1, eliminalo o migralo" (S9). T6b extended (worker mwno5sjx-a-homt): 68 more `blade_file` keys -> v2 upstream (70 total with parked_v50), tool now archives configs whose v1 input has no v2 twin; 34 tool tests pass; 148/150 configs load (2 smoke_fix `partner_frame`, pre-existing); only remaining v1 YAML config: the rigid yaw-0 anim case (named by tests/IEA15MW/run_yaw0_anim_rigid.srm) -> deleted with its .srm in T10 per S9. Python files naming a v1 yaml: 138 (tools 67, tests 63, third-party papers 8) -> T8/T9/T10.

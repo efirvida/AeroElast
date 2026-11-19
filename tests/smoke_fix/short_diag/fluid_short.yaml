@@ -3,18 +3,15 @@ config_file: ../short_diag/precice-config.xml
 coupling_mesh: Fluid-Mesh
 displacement_data: Displacement
 velocity_data: null
-blade_file: ../../IEA-15-240-RWT.yaml
+blade_file: ../../IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
 mesh:
   source: generator
   generator:
-    type: BladeMesh
+    type: GmshBladeMesh
     params:
-      yaml_file: ../../IEA-15-240-RWT.yaml
-      airfoil_dir: ../../airfoils
+      yaml_file: ../../IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
+      skin_reference: mid  # explicit: what the runner resolved for BladeMesh configs
       element_size: 0.25
-      n_samples: 300
-      airfoil_spacing: constant
-      span_grading: chord
     coupling_node_set: allOuterShellNods
   output_file: fluid_mesh.vtu
 bem:
