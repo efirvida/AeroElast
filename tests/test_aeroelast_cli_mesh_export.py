@@ -3,9 +3,13 @@ from pathlib import Path
 import pytest
 
 from aeroelast.cli.aeroelast import main
+from tests.support.paths import REPO_ROOT
+
+# T6c: the blade/rotor exports mesh with gmsh and need the windIO v2 yaml; chord_divisions 10 keeps them cheap
+V2_YAML = str(REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")
 
 
-def test_aeroelast_cli_exports_blade_mesh_without_solver_yaml(tmp_path: Path, iea_blade_yaml: str):
+def test_aeroelast_cli_exports_blade_mesh_without_solver_yaml(tmp_path: Path):
     output_path = tmp_path / "blade.vtk"
 
     exit_code = main([
@@ -14,11 +18,9 @@ def test_aeroelast_cli_exports_blade_mesh_without_solver_yaml(tmp_path: Path, ie
         "--mesh-generator",
         "BladeMesh",
         "--blade-yaml",
-        iea_blade_yaml,
-        "--element-size",
-        "12.0",
-        "--n-samples",
-        "60",
+        V2_YAML,
+        "--chord-divisions",
+        "10",
     ])
 
     assert exit_code == 0
@@ -26,7 +28,20 @@ def test_aeroelast_cli_exports_blade_mesh_without_solver_yaml(tmp_path: Path, ie
     assert output_path.stat().st_size > 0
 
 
-def test_aeroelast_cli_exports_rotor_mesh_without_solver_yaml(tmp_path: Path, iea_blade_yaml: str):
+def test_aeroelast_cli_numad_option_is_rejected_not_dropped(tmp_path: Path, caplog):
+    output_path = tmp_path / "blade.vtk"
+
+    exit_code = main([
+        "--export-mesh", str(output_path), "--mesh-generator", "BladeMesh", "--blade-yaml", V2_YAML,
+        "--chord-divisions", "10", "--n-samples", "60",
+    ])
+
+    assert exit_code == 1
+    assert not output_path.exists()
+    assert "n_samples" in caplog.text and "NuMAD" in caplog.text
+
+
+def test_aeroelast_cli_exports_rotor_mesh_without_solver_yaml(tmp_path: Path):
     output_path = tmp_path / "rotor.vtk"
 
     exit_code = main([
@@ -35,13 +50,11 @@ def test_aeroelast_cli_exports_rotor_mesh_without_solver_yaml(tmp_path: Path, ie
         "--mesh-generator",
         "RotorMesh",
         "--blade-yaml",
-        iea_blade_yaml,
+        V2_YAML,
         "--n-blades",
         "2",
-        "--element-size",
-        "12.0",
-        "--n-samples",
-        "60",
+        "--chord-divisions",
+        "10",
     ])
 
     assert exit_code == 0
@@ -99,9 +112,6 @@ def test_aeroelast_cli_exports_rotor_hub_mesh_without_solver_yaml(
         "hub_radius": None,
         "hub_diameter": None,
         "rotor_diameter": None,
-        "element_size": 0.1,
-        "n_samples": 300,
-        "airfoil_spacing": "cosine",
         "hub_length": 8.0,
         "connector_radius": 1.4,
         "nose_radius": 4.2,
@@ -124,7 +134,7 @@ def test_aeroelast_cli_export_mesh_requires_generator(tmp_path: Path, iea_blade_
     assert not output_path.exists()
 
 
-def test_aeroelast_cli_exports_rotor_blades_separately(tmp_path: Path, iea_blade_yaml: str):
+def test_aeroelast_cli_exports_rotor_blades_separately(tmp_path: Path):
     parts_dir = tmp_path / "parts"
 
     exit_code = main([
@@ -133,13 +143,11 @@ def test_aeroelast_cli_exports_rotor_blades_separately(tmp_path: Path, iea_blade
         "--mesh-generator",
         "RotorMesh",
         "--blade-yaml",
-        iea_blade_yaml,
+        V2_YAML,
         "--n-blades",
         "3",
-        "--element-size",
-        "12.0",
-        "--n-samples",
-        "60",
+        "--chord-divisions",
+        "10",
     ])
 
     assert exit_code == 0
@@ -213,9 +221,6 @@ def test_aeroelast_cli_exports_rotor_blades_from_excel_separately(
         "hub_radius": None,
         "hub_diameter": None,
         "rotor_diameter": 242.23775645,
-        "element_size": 0.1,
-        "n_samples": 300,
-        "airfoil_spacing": "cosine",
     }
     assert calls["renumber"] is None
     assert calls["verbose"] is False

@@ -50,6 +50,13 @@ logger = logging.getLogger(__name__)
 
 # GmshBladeMesh sizing keys a case YAML may set; forwarded only when present (absent keys keep the generator default).
 _GMSH_SIZING_KEYS = ("chord_divisions", "span_aspect", "h_range", "min_band_elements", "min_band_fraction")
+# keys forwarded verbatim to BladeMesh / RotorMesh *only when the config gives them* (T6c): an absent size is the S7c reference mesh,
+# and a NuMAD-only key a config still carries reaches BladeMesh so that it raises the S7b error instead of being dropped here.
+_BLADE_MESH_FORWARD_KEYS = (
+    "element_size", "n_samples", "span_grading", "airfoil_spacing", "refine_tip", "max_bay_length", "laminate_per_row",
+    "include_webs", *_GMSH_SIZING_KEYS,
+)
+_ROTOR_MESH_FORWARD_KEYS = ("element_size", "n_samples", "airfoil_spacing", "include_webs", "chord_divisions", "span_aspect")
 
 
 def _blade_skin_reference(params: Dict[str, Any]) -> str:
@@ -720,15 +727,13 @@ class FSIRunner:
 
             generator = RotorMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
-                airfoil_dir=airfoil_dir,
+                **({"excel_file": excel_file} if excel_file else {}),
+                **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
                 hub_diameter=hub_diameter,
                 rotor_diameter=rotor_diameter,
-                element_size=params.get("element_size", 0.5),
-                n_samples=params.get("n_samples", 300),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **{k: params[k] for k in _ROTOR_MESH_FORWARD_KEYS if k in params},
             )
         else:
             yaml_file = params.get("yaml_file")
@@ -746,13 +751,10 @@ class FSIRunner:
 
             generator = BladeMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
-                airfoil_dir=airfoil_dir,
-                element_size=params.get("element_size", 0.15),
-                n_samples=params.get("n_samples", 300),
-                span_grading=params.get("span_grading", "chord"),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **({"excel_file": excel_file} if excel_file else {}),
+                **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
                 skin_reference=_blade_skin_reference(params),
+                **{k: params[k] for k in _BLADE_MESH_FORWARD_KEYS if k in params},
             )
 
         self._console.print("      Rehydrating composite metadata from generator...")
@@ -832,15 +834,13 @@ class FSIRunner:
 
             generator = RotorMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
-                airfoil_dir=airfoil_dir,
+                **({"excel_file": excel_file} if excel_file else {}),
+                **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
                 hub_diameter=hub_diameter,
                 rotor_diameter=rotor_diameter,
-                element_size=params.get("element_size", 0.5),
-                n_samples=params.get("n_samples", 300),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **{k: params[k] for k in _ROTOR_MESH_FORWARD_KEYS if k in params},
             )
             mesh = generator.generate(renumber="rcm")
             self._mesh_generator = generator
@@ -865,13 +865,10 @@ class FSIRunner:
 
             generator = BladeMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
-                airfoil_dir=airfoil_dir,
-                element_size=params.get("element_size", 0.15),
-                n_samples=params.get("n_samples", 300),
-                span_grading=params.get("span_grading", "chord"),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **({"excel_file": excel_file} if excel_file else {}),
+                **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
                 skin_reference=_blade_skin_reference(params),
+                **{k: params[k] for k in _BLADE_MESH_FORWARD_KEYS if k in params},
             )
             mesh = generator.generate(renumber=None)
             self._mesh_generator = generator

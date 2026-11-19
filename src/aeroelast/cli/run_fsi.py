@@ -278,8 +278,8 @@ GENERATOR_TEMPLATES = {
       yaml_file: "reference_turbines/yamls/IEA-15-240-RWT.yaml"  # Path to blade YAML
       n_blades: 3          # Number of blades in rotor
             hub_radius: null     # Hub radius [m] (null = use blade definition or derive from rotor radius)
-      element_size: 0.25   # Target element size [m]
-      n_samples: 300       # Samples for airfoil discretization
+      chord_divisions: 20  # Reference mesh: elements per local chord (AGENTS rule 9)
+      span_aspect: 1
     export_parts:
         enabled: true
         format: "stl"
@@ -288,9 +288,9 @@ GENERATOR_TEMPLATES = {
     "BladeMesh": """  generator:
     type: "BladeMesh"
     params:
-      yaml_file: "IEA-15-240-RWT.yaml"  # Path to blade YAML (WindIO format)
-      element_size: 0.15   # Target element size [m]
-      n_samples: 300       # Samples for airfoil discretization
+      yaml_file: "IEA-15-240-RWT.yaml"  # Path to a windIO 2.x blade YAML (built with gmsh)
+      chord_divisions: 20  # Reference mesh: elements per local chord (AGENTS rule 9)
+      span_aspect: 1
 # Note: When using BladeMesh, the 'material' section can be omitted.
 # Composite properties are extracted automatically from the blade YAML sections.
 """,

@@ -45,6 +45,24 @@ def _resolve_cli_path(path_str: str | None, base_dir: Path) -> str | None:
     return str(path)
 
 
+def _given_mesh_options(args: argparse.Namespace, base_dir: Path, *extra: str) -> dict:
+    """Mesh options the user actually passed; nothing is injected.
+
+    An absent size is the generator's reference mesh and a NuMAD-only option (--n-samples, --span-grading, --airfoil-spacing,
+    --airfoil-dir, --excel-file) reaches ``BladeMesh``/``RotorMesh``, which reject it (odd/tasks/gmsh-official-mesher.md, S7a/b/c).
+    """
+    out: dict = {}
+    for name in ("element_size", "chord_divisions", "span_aspect", "n_samples", "airfoil_spacing", *extra):
+        value = getattr(args, name, None)
+        if value is not None:
+            out[name] = value
+    if getattr(args, "excel_file", None):
+        out["excel_file"] = _resolve_cli_path(args.excel_file, base_dir)
+    if getattr(args, "airfoil_dir", None):
+        out["airfoil_dir"] = _resolve_cli_path(args.airfoil_dir, base_dir)
+    return out
+
+
 def _build_mesh_from_cli(args: argparse.Namespace, base_dir: Path):
     """Build a BladeMesh or RotorMesh directly from CLI arguments."""
     from aeroelast.core.mesh import BladeMesh, RotorHubMesh, RotorMesh
@@ -54,30 +72,21 @@ def _build_mesh_from_cli(args: argparse.Namespace, base_dir: Path):
 
     if args.mesh_generator == "BladeMesh":
         if not args.blade_yaml and not args.excel_file:
-            raise ValueError("BladeMesh export requires --blade-yaml or --excel-file")
+            raise ValueError("BladeMesh export requires --blade-yaml (a windIO v2 yaml)")
         generator = BladeMesh(
             yaml_file=_resolve_cli_path(args.blade_yaml, base_dir),
-            excel_file=_resolve_cli_path(args.excel_file, base_dir),
-            airfoil_dir=_resolve_cli_path(args.airfoil_dir, base_dir),
-            element_size=args.element_size,
-            n_samples=args.n_samples,
-            span_grading=args.span_grading,
-            airfoil_spacing=args.airfoil_spacing,
+            **_given_mesh_options(args, base_dir, "span_grading"),
         )
     elif args.mesh_generator == "RotorMesh":
         if not args.blade_yaml and not args.excel_file:
-            raise ValueError("RotorMesh export requires --blade-yaml or --excel-file")
+            raise ValueError("RotorMesh export requires --blade-yaml (a windIO v2 yaml)")
         generator = RotorMesh(
             yaml_file=_resolve_cli_path(args.blade_yaml, base_dir),
-            excel_file=_resolve_cli_path(args.excel_file, base_dir),
-            airfoil_dir=_resolve_cli_path(args.airfoil_dir, base_dir),
             n_blades=args.n_blades,
             hub_radius=args.hub_radius,
             hub_diameter=args.hub_diameter,
             rotor_diameter=args.rotor_diameter,
-            element_size=args.element_size,
-            n_samples=args.n_samples,
-            airfoil_spacing=args.airfoil_spacing,
+            **_given_mesh_options(args, base_dir),
         )
     elif args.mesh_generator == "RotorHubMesh":
         if not args.blade_yaml and not args.excel_file:
@@ -90,9 +99,7 @@ def _build_mesh_from_cli(args: argparse.Namespace, base_dir: Path):
             hub_radius=args.hub_radius,
             hub_diameter=args.hub_diameter,
             rotor_diameter=args.rotor_diameter,
-            element_size=args.element_size,
-            n_samples=args.n_samples,
-            airfoil_spacing=args.airfoil_spacing,
+            **{k: getattr(args, k) for k in ("element_size", "n_samples", "airfoil_spacing") if getattr(args, k) is not None},
             hub_length=args.hub_length,
             connector_radius=args.hub_connector_radius,
             nose_radius=args.hub_nose_radius,
@@ -172,7 +179,7 @@ Examples:
   aeroelast modal.yaml --preview        Preview config without running
   aeroelast modal.yaml --validate       Validate config and exit
   aeroelast --template > config.yaml    Generate template config
-  aeroelast --export-parts-dir blades --mesh-generator RotorMesh --excel-file blade.xlsx --airfoil-dir airfoils --rotor-diameter 242.23775645 --n-blades 3
+  aeroelast --export-parts-dir blades --mesh-generator RotorMesh --blade-yaml tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --n-blades 3
 
 Mesh generation (see `aeroelast mesh --help`):
   aeroelast mesh blade turbine.yaml --out blade.stl --no-webs
@@ -240,15 +247,15 @@ Mesh generation (see `aeroelast mesh --help`):
     )
     parser.add_argument(
         "--blade-yaml",
-        help="WindIO/NuMAD YAML blade definition used by direct mesh export",
+        help="windIO v2 YAML blade definition used by direct mesh export (e.g. tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)",
     )
     parser.add_argument(
         "--excel-file",
-        help="NuMAD Excel blade definition used by direct BladeMesh or RotorMesh export",
+        help="Retired (NuMAD): BladeMesh/RotorMesh reject it; use --blade-yaml with a windIO v2 yaml",
     )
     parser.add_argument(
         "--airfoil-dir",
-        help="Airfoil directory used with --excel-file for direct BladeMesh or RotorMesh export",
+        help="Retired (NuMAD, used with --excel-file): rejected by BladeMesh/RotorMesh",
     )
     parser.add_argument(
         "--n-blades",
@@ -289,25 +296,37 @@ Mesh generation (see `aeroelast mesh --help`):
     parser.add_argument(
         "--element-size",
         type=float,
-        default=0.1,
-        help="Target mesh element size for direct mesh export (default: 0.1)",
+        default=None,
+        help="Uniform element size [m] for direct mesh export (default: absent = the reference mesh, chord_divisions 20, span_aspect 1)",
+    )
+    parser.add_argument(
+        "--chord-divisions",
+        type=float,
+        default=None,
+        help="Chord-scaled sizing for direct mesh export (reference: 20)",
+    )
+    parser.add_argument(
+        "--span-aspect",
+        type=float,
+        default=None,
+        help="Span/chord element aspect for direct mesh export (reference: 1)",
     )
     parser.add_argument(
         "--n-samples",
         type=int,
-        default=300,
-        help="Airfoil resampling points used by direct mesh export (default: 300)",
+        default=None,
+        help="Retired (NuMAD): rejected by BladeMesh/RotorMesh",
     )
     parser.add_argument(
         "--span-grading",
-        default="chord",
-        help="Spanwise grading strategy for BladeMesh export (default: chord)",
+        default=None,
+        help="Retired (NuMAD): rejected by BladeMesh/RotorMesh",
     )
     parser.add_argument(
         "--airfoil-spacing",
-        default="cosine",
+        default=None,
         choices=("constant", "cosine", "half-cosine", "auto"),
-        help="Airfoil sampling distribution used by direct mesh export",
+        help="Retired (NuMAD): rejected by BladeMesh/RotorMesh",
     )
     parser.add_argument(
         "--renumber",

@@ -1016,64 +1016,50 @@ class MultiFlapMesh:
 
 class BladeMesh:
     """
-    Generates shell meshes for wind turbine blades from YAML definitions.
+    Blade shell mesh for the framework, built with :class:`~aeroelast.core.mesh.gmsh_blade.GmshBladeMesh`.
 
-    This generator uses the numad library to create parametric blade geometries
-    and mesh them with shell elements. The resulting mesh includes element sets
-    for different blade regions and sections.
+    ``BladeMesh`` is the YAML key (``type: BladeMesh``) the framework configs use; since T6a of
+    ``odd/tasks/gmsh-official-mesher.md`` it is an adapter over the structured gmsh skin mesher and no longer calls the NuMAD
+    mesher (the NuMAD modules stay on disk until their deletion, T9).  The mesh, ``numad_mesh_data`` and ``numad_blade`` follow
+    the ``GmshBladeMesh`` contract (node sets ``RootNodes``/``TipNodes``/``allOuterShellNods``, element sets ``SEC<i>`` etc.).
+
+    Input: a windIO 2.x blade yaml (``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml``).  A windIO v1 yaml or an
+    ``excel_file`` raises ``ValueError`` naming that v2 file; the NuMAD-only options ``n_samples``, ``airfoil_spacing``,
+    ``span_grading``, ``airfoil_dir``, ``refine_tip``, ``max_bay_length`` and ``laminate_per_row`` raise ``ValueError`` even at
+    their old default values (never dropped silently).  ``include_webs=False`` and ``generate(geometry_only=True)`` raise
+    ``NotImplementedError`` until T7.
 
     Attributes
     ----------
     yaml_file : str
-        Path to the blade YAML definition file
-    element_size : float
-        Target element size for meshing
-    n_samples : int
-        Number of samples for airfoil discretization
-    include_webs : bool
-        When *False* the shear webs are omitted and only the blade outer shell
-        (outer-mold-line surface) is meshed.  Use this for CFD wall surfaces.
+        Path to the windIO 2.x blade yaml.
+    element_size : float or None
+        Uniform target element size [m] (the ``GmshBladeMesh`` uniform path).  With neither ``element_size`` nor
+        ``chord_divisions`` the mesh is the reference one: ``chord_divisions`` 20, ``span_aspect`` 1 (AGENTS rule 9); there is no
+        default element size.
+    chord_divisions, span_aspect, h_range, min_band_elements, min_band_fraction
+        Forwarded to ``GmshBladeMesh`` when given (chord-scaled sizing, see its docstring).
     skin_reference : {"oml", "mid"}, optional
-        Reference surface of the skin (default: "oml", the unchanged CFD/FSI
-        outer mould line). "mid" shifts outer-skin nodes inward in their XY
-        section plane by the mean adjacent skin-laminate half-thickness, in
-        metres, using the solver's laminate properties. Nodes of *_TE_FLAT
-        elements remain on the OML to avoid trailing-edge inversions.
-        Interior/web-only nodes are untouched; shared skin/web boundary nodes
-        follow the skin. Applied once to each generated mesh before use.
-        Not the default because the OML is the CFD/FSI coupling surface.
-    laminate_per_row : bool, optional
-        Default True. Each NuMAD (region, bay) holds one bay-mean laminate (two-point Gauss over
-        the bay), so with the yaml stations (about 2.4 m on the IEA 15 MW) a tapering layer is
-        wrong by up to 11 %. The spanwise element rows are cut from ``element_size`` and the
-        span grading exactly as in the native mesh, independent of the laminate; this option
-        then inserts a NuMAD station at every native row boundary and forces one row per bay
-        (chordwise counts follow the native mesh), so the mesh is unchanged and each row carries
-        the mean laminate over its own extent. False gives the native mesh, one laminate per
-        yaml bay (``odd/tasks/blade-input-audit.md``, T7e).
-    max_bay_length : float or None, optional
-        Legacy: split every yaml bay longer than this [m] by extra NuMAD stations before the
-        mesher runs. The mesher then cuts ``ceil(bay / element_size)`` rows per bay, so the
-        spanwise element size follows the bay (0.119 m everywhere at 0.25 m, +47 % elements);
-        use ``laminate_per_row`` instead. Default None.
+        Reference surface of the skin (default ``"oml"``; the framework entry points pass ``"mid"`` explicitly).
 
     Examples
     --------
-    >>> blade_mesh = BladeMesh("blade_definition.yaml", element_size=0.05)
-    >>> mesh = blade_mesh.generate(renumber="rcm")
-    >>> mesh.write_mesh("blade.vtk")
-
-    >>> cfd = BladeMesh("blade_definition.yaml", include_webs=False)
-    >>> cfd.generate().write_mesh("blade_surface.stl")
+    >>> mesh = BladeMesh("tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml").generate(renumber="rcm")
     """
+
+    #: NuMAD-only options: accepted by the old mesher, rejected by name now.
+    _NUMAD_ONLY_KEYS = (
+        "n_samples", "airfoil_spacing", "span_grading", "airfoil_dir", "refine_tip", "max_bay_length", "laminate_per_row",
+    )
+    _V2_REFERENCE = "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 
     def __init__(
         self,
         yaml_file: str = None,
-        element_size: float = 0.1,
+        element_size: float | None = None,
         n_samples: int = _BLADE_OPTION_UNSET,
         excel_file: str = None,
-        airfoil_dir: str = None,
+        airfoil_dir: str = _BLADE_OPTION_UNSET,
         refine_tip: bool = _BLADE_OPTION_UNSET,
         span_grading: str = _BLADE_OPTION_UNSET,
         airfoil_spacing: str = _BLADE_OPTION_UNSET,
@@ -1081,178 +1067,112 @@ class BladeMesh:
         skin_reference: str = "oml",
         max_bay_length: float | None = _BLADE_OPTION_UNSET,
         laminate_per_row: bool = _BLADE_OPTION_UNSET,
+        *,
+        chord_divisions: float | None = None,
+        span_aspect: float = 1.0,
+        h_range: tuple[float, float] | None = None,
+        min_band_elements: int = 2,
+        min_band_fraction: float | None = 1.0,
     ):
         if skin_reference not in ("oml", "mid"):
             raise ValueError("skin_reference must be 'oml' or 'mid'")
-        self.skin_reference = skin_reference
-        legacy_options = {
-            "n_samples": n_samples, "refine_tip": refine_tip,
-            "span_grading": span_grading, "airfoil_spacing": airfoil_spacing,
-            "max_bay_length": max_bay_length, "laminate_per_row": laminate_per_row,
+        given = {
+            "n_samples": n_samples, "airfoil_spacing": airfoil_spacing, "span_grading": span_grading,
+            "airfoil_dir": airfoil_dir, "refine_tip": refine_tip, "max_bay_length": max_bay_length,
+            "laminate_per_row": laminate_per_row,
         }
-        self._explicit_legacy_options = tuple(
-            name for name, value in legacy_options.items() if value is not _BLADE_OPTION_UNSET
-        )
-        for name, value in legacy_options.items():
-            setattr(self, name, _BLADE_LEGACY_DEFAULTS[name] if value is _BLADE_OPTION_UNSET else value)
+        # explicit means rejected, even at the old default; airfoil_dir=None is "not given" (it only fed excel_file)
+        offending = [
+            k for k in self._NUMAD_ONLY_KEYS
+            if given[k] is not _BLADE_OPTION_UNSET and not (k == "airfoil_dir" and given[k] is None)
+        ]
+        if offending:
+            raise ValueError(
+                f"BladeMesh now meshes with gmsh (GmshBladeMesh); the NuMAD-only option(s) {', '.join(offending)} are not "
+                "supported and are never dropped silently. Remove them (use element_size or chord_divisions/span_aspect)."
+            )
+        if excel_file:
+            raise ValueError(
+                f"BladeMesh no longer reads excel_file ({excel_file!r}): the NuMAD mesher is retired. "
+                f"Use a windIO v2 yaml such as {self._V2_REFERENCE}."
+            )
+        if not yaml_file:
+            raise ValueError(f"BladeMesh requires yaml_file (a windIO v2 yaml such as {self._V2_REFERENCE})")
+        self._require_windio2(yaml_file)
+        if not include_webs:
+            raise NotImplementedError("BladeMesh(include_webs=False) (CFD outer-shell surface) on gmsh is task T7 and is not implemented yet")
+        self.skin_reference = skin_reference
         self.yaml_file = yaml_file
-        self.excel_file = excel_file
-        self.airfoil_dir = airfoil_dir
+        self.excel_file = None
         self.element_size = element_size
         self.include_webs = include_webs
-        # The numad objects come from the untyped ported mesher (``nuMAD``): their
-        # attributes are optional in the stubs but populated here, so ``Any`` is the honest
-        # annotation and keeps the Optional out of every downstream subscript.
+        self.chord_divisions = chord_divisions
+        self.span_aspect = span_aspect
+        self.h_range = h_range
+        self.min_band_elements = min_band_elements
+        self.min_band_fraction = min_band_fraction
         self._numad_blade: Any = None
         self._numad_mesh: Any = None
+
+    @classmethod
+    def _require_windio2(cls, yaml_file: str) -> None:
+        """ValueError naming the input and the v2 reference file unless ``yaml_file`` is a supported windIO 2.x yaml."""
+        import yaml  # noqa: PLC0415
+
+        from aeroelast.models.blade.windio import is_windio2  # noqa: PLC0415
+
+        with open(yaml_file) as fh:
+            data = yaml.safe_load(fh)
+        if not isinstance(data, dict) or not is_windio2(data):
+            version = data.get("windIO_version", "absent (windIO v1)") if isinstance(data, dict) else "unreadable"
+            raise ValueError(
+                f"BladeMesh needs a windIO 2.x yaml; {yaml_file} has windIO_version {version}. "
+                f"Use the v2 file {cls._V2_REFERENCE} (the NuMAD mesher that read windIO v1 is retired)."
+            )
 
     def generate(
         self, renumber: str | None = None, verbose: bool = True, *,
         geometry_only: bool = False, eta_bounds: tuple[float, float] = (0., 1.),
     ) -> "MeshModel":
         """
-        Generate the blade mesh from the YAML definition.
-
-        windIO 2.0 requires explicit ``geometry_only=True``: physical reference
-        offsets are retained in ``mesh.windio2_metadata``, not supported by FE.
-        ``eta_bounds`` optionally selects a native-eta v2 geometry patch.
-        V2 bypasses all legacy station planning, TE expansion and material flows;
-        explicitly supplied n_samples/refine_tip/span_grading/airfoil_spacing/
-        max_bay_length/laminate_per_row raise ValueError, even when equal to v1
-        defaults. Omit them for v2. Only unchanged OML nodes with webs are
-        supported. V1 effective defaults and explicit values are unchanged.
+        Build the blade mesh with ``GmshBladeMesh``.
 
         Parameters
         ----------
         renumber : str, optional
-            Renumbering algorithm to apply after mesh generation.
-            - None (default): No renumbering
-            - "simple": Direct index assignment
-            - "rcm": Reverse Cuthill-McKee for bandwidth reduction
+            ``None`` or ``"rcm"`` (as ``GmshBladeMesh.generate``).
         verbose : bool, optional
-            Whether to print progress messages (default: True)
-
-        Returns
-        -------
-        MeshModel
-            The generated mesh model with nodes, elements, and sets
+            Accepted for compatibility; ignored.
+        geometry_only, eta_bounds
+            The windIO 2 geometry-only adapter is task T7: ``geometry_only=True`` or a non-default ``eta_bounds`` raise
+            ``NotImplementedError``.
         """
-        # Import here to avoid circular imports and optional dependency
-        from aeroelast.core.mesh.model import MeshModel
-
-        try:
-            from aeroelast.models.blade.numad import Blade as numadBlade
-            from aeroelast.models.blade.numad.mesh_gen import get_shell_mesh
-        except ImportError as e:
-            raise ImportError(
-                "BladeMesh requires the numad module. "
-                "Make sure aeroelast.models.blade.numad is available."
-            ) from e
-
-        mesh_model = MeshModel()
-
-        # Initialize numad blade
-        if verbose:
-            print("      Loading blade definition...")
-        self._numad_blade = numadBlade()
-        if self.excel_file:
-            self._numad_blade.read_excel(self.excel_file, airfoil_dir=self.airfoil_dir)
-        elif self.yaml_file:
-            self._numad_blade.read_yaml(self.yaml_file)
-        else:
-            raise ValueError("BladeMesh requires either yaml_file or excel_file")
-
-        topology = getattr(self._numad_blade, "windio2_topology", None)
-        if topology is not None:
-            if not geometry_only:
-                raise ValueError(
-                    "windIO 2.0 requires geometry_only=True; physical FE offsets are not supported"
-                )
-            if self.skin_reference != "oml" or not self.include_webs:
-                raise ValueError("windIO 2.0 geometry-only requires skin_reference='oml' and include_webs=True")
-            if self._explicit_legacy_options:
-                option = self._explicit_legacy_options[0]
-                raise ValueError(
-                    f"windIO 2.0 geometry-only does not support explicit option '{option}'"
-                )
-            from aeroelast.core.mesh.windio2 import geometry_mesh
-
-            mesh = geometry_mesh(topology, self.element_size, eta_bounds, renumber)
-            self._numad_mesh = {
-                "structural_ready": False,
-                "windio2_metadata": mesh.windio2_metadata,
-            }
-            return mesh
-        if geometry_only or eta_bounds != (0., 1.):
-            raise ValueError("geometry_only and eta_bounds are only supported for windIO 2.0")
-
-        # Resample airfoils
-        for stat in self._numad_blade.definition.stations:
-            stat.airfoil.resample(n_samples=self.n_samples, spacing=self.airfoil_spacing)
-
-        # Update geometry
-        if verbose:
-            print("      Updating blade geometry...")
-        self._numad_blade.update_blade()
-
-        # Refine cross-sections where chord changes rapidly.  The default
-        # YAML grid is uniform in span, so the last section can jump from
-        # chord ≈ 1.8 m to 0.5 m in a single 2.4 m span gap.  We subdivide
-        # sections whose chord ratio exceeds a threshold so that element
-        # aspect ratios stay reasonable.
-        if self.max_bay_length is not None:
-            self._limit_bay_length(self.max_bay_length, verbose=verbose)
-        if self.refine_tip:
-            self._refine_high_gradient_sections(verbose=verbose)
-        self._insert_web_snap_stations(verbose=verbose)
-        self._web_end_spans = self._insert_web_end_stations(verbose=verbose)
-        span_plan = self._insert_row_stations(verbose=verbose) if self.laminate_per_row else None
-
-        # Expand trailing edge
-        n_stations = self._numad_blade.geometry.coordinates.shape[2]
-        min_TE_lengths = 0.001 * np.ones(n_stations)
-        self._numad_blade.expand_blade_geometry_te(min_TE_lengths)
-
-        # Generate shell mesh using numad
-        if verbose:
-            print("      Generating shell mesh...")
-        self._numad_mesh = get_shell_mesh(
-            self._numad_blade,
-            self.element_size,
-            spanGrading=self.span_grading,
-            include_webs=self.include_webs,
-            span_plan=span_plan,
-            web_end_spans=self._web_end_spans,
-        )
-
-        num_raw_nodes = len(self._numad_mesh["nodes"])
-        num_elements = len(self._numad_mesh["elements"])
-        if verbose:
-            print(f"      Raw mesh: {num_raw_nodes} nodes, {num_elements} elements")
-
-        # Deduplicate nodes
-        self._deduplicate_and_create_mesh(mesh_model, verbose)
-
-        if self.skin_reference == "mid":
-            from aeroelast.core.mesh.skin_reference import apply_midsurface_inset
-            from aeroelast.models.blade.model import build_rust_properties
-
-            apply_midsurface_inset(
-                mesh_model, build_rust_properties(self.numad_mesh_data), verbose=verbose
+        if geometry_only or tuple(eta_bounds) != (0., 1.):
+            raise NotImplementedError(
+                "BladeMesh.generate(geometry_only=True / eta_bounds) on gmsh is task T7 and is not implemented yet"
             )
+        from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh  # noqa: PLC0415
 
-        # Renumber mesh if requested
-        if renumber is not None:
-            if verbose:
-                print(f"      Renumbering mesh using {renumber} algorithm...")
-            mesh_model.renumber_mesh(algorithm=renumber)
-
-        if verbose:
-            print(
-                f"      Blade mesh generated: {mesh_model.node_count} nodes, {mesh_model.elements_count} elements"
-            )
-
-        return mesh_model
+        chord_divisions, span_aspect = self.chord_divisions, self.span_aspect
+        if self.element_size is None and chord_divisions is None:
+            chord_divisions, span_aspect = 20, 1  # the reference mesh (AGENTS rule 9)
+        kwargs: dict[str, Any] = {
+            "yaml_file": self.yaml_file,
+            "skin_reference": self.skin_reference,
+            "chord_divisions": chord_divisions,
+            "span_aspect": span_aspect,
+            "min_band_elements": self.min_band_elements,
+            "min_band_fraction": self.min_band_fraction,
+        }
+        if self.element_size is not None:
+            kwargs["element_size"] = self.element_size
+        if self.h_range is not None:
+            kwargs["h_range"] = self.h_range
+        gmsh_mesher = GmshBladeMesh(**kwargs)
+        mesh = gmsh_mesher.generate(renumber=renumber)
+        self._numad_mesh = gmsh_mesher.numad_mesh_data
+        self._numad_blade = gmsh_mesher.numad_blade
+        return mesh
 
     def _insert_web_snap_stations(self, verbose: bool = True, samples: int = 8, passes: int = 6, rounds: int = 4):
         """Put NuMAD stations where a web enters or leaves the snap distance of a key line (S8).
@@ -1601,7 +1521,7 @@ class BladeMesh:
     def create_from_yaml(
         cls,
         yaml_file: str,
-        element_size: float = 0.1,
+        element_size: float | None = None,
         n_samples: int = _BLADE_OPTION_UNSET,
         renumber: str = None,
         include_webs: bool = True,
@@ -1610,31 +1530,10 @@ class BladeMesh:
         eta_bounds: tuple[float, float] = (0., 1.),
     ) -> "MeshModel":
         """
-        Convenience method to create blade mesh directly from YAML file.
+        Build the blade mesh directly from a windIO 2.x yaml (see the class docstring).
 
-        For windIO 2.0 explicitly pass ``geometry_only=True``. The returned mesh
-        retains source/offset metadata but is not structural-ready. Optional
-        ``eta_bounds`` selects a native-eta patch; defaults mesh the full blade.
-        Omit ``n_samples`` for v2: explicitly supplying it raises ValueError,
-        including the legacy default 300. V1 still resolves omission to 300.
-
-        Parameters
-        ----------
-        yaml_file : str
-            Path to the blade YAML definition file
-        element_size : float, optional
-            Target element size (default: 0.1)
-        n_samples : int, optional
-            Number of samples for airfoil discretization (default: 300)
-        renumber : str, optional
-            Renumbering algorithm ("simple", "rcm", or None)
-        include_webs : bool, optional
-            Set *False* to mesh only the outer shell (CFD surface)
-
-        Returns
-        -------
-        MeshModel
-            The generated mesh model
+        ``n_samples`` is NuMAD-only and raises ``ValueError`` when given; ``geometry_only`` and ``eta_bounds`` are T7 and raise
+        ``NotImplementedError`` from ``generate``.
         """
         return cls(
             yaml_file=yaml_file,
@@ -1685,12 +1584,15 @@ class RotorMesh:
         hub_radius: float | None = None,
         hub_diameter: float | None = None,
         rotor_diameter: float | None = None,
-        element_size: float = 0.1,
-        n_samples: int = 300,
+        element_size: float | None = None,
+        n_samples: int = _BLADE_OPTION_UNSET,
         excel_file: str | None = None,
         airfoil_dir: str | None = None,
-        airfoil_spacing: str = "cosine",
+        airfoil_spacing: str = _BLADE_OPTION_UNSET,
         include_webs: bool = True,
+        *,
+        chord_divisions: float | None = None,
+        span_aspect: float | None = None,
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1703,6 +1605,8 @@ class RotorMesh:
         self.n_samples = n_samples
         self.airfoil_spacing = airfoil_spacing
         self.include_webs = include_webs
+        self.chord_divisions = chord_divisions
+        self.span_aspect = span_aspect
         self._blade_generator: BladeMesh = None
 
     def generate(self, renumber: str | None = None, verbose: bool = True) -> "MeshModel":
@@ -1731,15 +1635,20 @@ class RotorMesh:
         # Generate base blade mesh
         if verbose:
             print("\nGenerating base blade mesh...")
-        self._blade_generator = BladeMesh(
-            yaml_file=self.yaml_file,
-            excel_file=self.excel_file,
-            airfoil_dir=self.airfoil_dir,
-            element_size=self.element_size,
-            n_samples=self.n_samples,
-            airfoil_spacing=self.airfoil_spacing,
-            include_webs=self.include_webs,
-        )
+        # only what the caller gave reaches BladeMesh: an absent size is its reference mesh (S7c), and a NuMAD-only option the
+        # caller still passes (n_samples, airfoil_spacing, airfoil_dir, excel_file) gets BladeMesh's S7b/S7a error, never a silent drop
+        blade_kwargs: dict[str, Any] = {"yaml_file": self.yaml_file}
+        if self.excel_file:
+            blade_kwargs["excel_file"] = self.excel_file
+        if self.airfoil_dir:
+            blade_kwargs["airfoil_dir"] = self.airfoil_dir
+        for key in ("element_size", "n_samples", "airfoil_spacing", "chord_divisions", "span_aspect"):
+            value = getattr(self, key)
+            if value is not None and value is not _BLADE_OPTION_UNSET:
+                blade_kwargs[key] = value
+        if not self.include_webs:
+            blade_kwargs["include_webs"] = False
+        self._blade_generator = BladeMesh(**blade_kwargs)
         base_mesh = self._blade_generator.generate(renumber=None, verbose=verbose)
 
         if verbose:

@@ -528,6 +528,20 @@ below is trusted against its independent reference or declared with cause and to
   T9d(a) solid z45: 11744952-55 OOM (ntasks 3 = 24 GB, three ccx cases at once); resubmitted ntasks 12 as
   11750509-12 (nchord 8/10/12/16), old outputs kept as z45_A_n*.oom.
 
+- L44 (2026-11-19) T9d(a) solid z45 READ (SLURM 11750509-12, ntasks 12, 19-42 min, all ccx cases ran;
+  logs/check/l5_oneway/t9d/solid/slurm-1175050{9..12}.out). Level A, NQ 813, chord 4.786 m, segment length L:
+  | nchord | L m | psi deg | fe/ff | EIf N m2 | EIe N m2 | GJ N m2 |
+  |---|---|---|---|---|---|---|
+  | 8 | 38.29 | -7.537 | -0.0616 | 9.9755e9 | 1.8364e10 | 2.3908e8 |
+  | 10 | 47.86 | -7.532 | -0.0615 | 9.9757e9 | 1.8368e10 | 2.2448e8 |
+  | 12 | 57.43 | -7.529 | -0.0615 | 9.9757e9 | 1.8369e10 | 2.1335e8 |
+  | 16 | 76.57 | -7.529 | -0.0615 | 9.9757e9 | 1.8369e10 | 1.9960e8 |
+  Bending, principal angle and flap-edge coupling are length-converged (<= 0.03 %, 0.008 deg). GJ is NOT: -16.5 %
+  from L 38 to 77 m, still falling; GJ = a + b/L fits all four within 0.3 % and extrapolates to 1.60e8,
+  1/GJ = a + b/L gives 1.71e8 (fit within 1.3 %); the 2D St-Venant value of the same section is GJ_st2d 1.891e8.
+  Reading: the solid's torsion carries an end (warping-restraint) stiffening that decays slowly with L; the solid
+  GJ at z45 cannot arbitrate torsion until its limit is pinned (longer segment or free-warping ends). The T9
+  coupling question (edge +11-13 %) is answered on the converged quantities: fe/ff -0.0615 at z45.
 ## Handoff (2026-11-16 night, end of session)
 Resume: this file to `## Log`, then L31-L40; one narrow mem_search "T17 K_G rebuild prestress".
 State: branch feat/windio2-support = local main = HEAD (origin/main still at 5acbbd8; push blocked by RDD, see L40).

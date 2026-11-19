@@ -22,8 +22,8 @@ Make the gmsh skin mesher the single blade mesher of the framework (runner, conf
 - T4 | S1 S4 | parent | pending | Wire gmsh into the runner/config behind an explicit option first (default unchanged), tests RED/GREEN, then G-C parity run.
 - T5 | S3 | parent + user | pending | Retirement of NuMAD and windio2 meshers: importer search, list of files, user confirmation, removal, quick gate. Not before T2-T4 are recorded.
 
-- T6 | S1 S3 S5 S6 S7 | worker (T6a adapter) then parent (T6b configs) | in progress | R1: `BladeMesh` (core/mesh/generators.py) and `Blade.generate_mesh` (models/blade/model.py) build with gmsh; the YAML key `BladeMesh` stays as an alias so the 149 configs keep loading (their numbers move by design, S5). Needs T1's map first.
-- T7 | S1 S3 S5 | parent | pending | R2: RotorMesh / RotorHubMesh build their blades with gmsh; R3: the windIO2 geometry-only adapter (generators.py:1171, S13) moves out of the NuMAD BladeMesh.
+- T6 | S1 S3 S5 S6 S7 | worker (T6a adapter) then parent (T6b configs) | T6a+T6c done (L-S42..L-S44); T6b pending | R1: `BladeMesh` (core/mesh/generators.py) and `Blade.generate_mesh` (models/blade/model.py) build with gmsh; the YAML key `BladeMesh` stays as an alias so the 149 configs keep loading (their numbers move by design, S5). Needs T1's map first.
+- T7 | S1 S3 S5 | worker (T6c: callers + RotorMesh first) | in progress | R2: RotorMesh / RotorHubMesh build their blades with gmsh; R3: the windIO2 geometry-only adapter (generators.py:1171, S13) moves out of the NuMAD BladeMesh.
 - T8 | S1 S4 S5 | parent | pending | R4: physics guards that only ran on NuMAD (test_blade_section_frame_tear, test_blade_section_torsion_stiffness, anything T1 finds) move to the gmsh reference mesh; NuMAD-only tests (counts, local_refine, mesh_quality, span_decoupling, mesher_minor, web_position) go to the deletion list.
 - T9 | S3 | parent + user | pending | R5: fresh importer scan, exact file list (src, tests, tools) to the user, deletion only after the user's explicit confirmation, quick gate, full suite on SLURM, known-red re-record.
 
@@ -136,3 +136,32 @@ Engram was unavailable (server ownership mismatch on port 7437) the whole sessio
   multicell shear flow, bem_fsi deformed geometry. NuMAD-only tests: test_blade_mesh, local_refine, mesh_quality,
   mesher_minor, span_decoupling, bay_length, web_position, the v1 half of test_windio2_public_mesh.
 - L-S41 (2026-11-19) User, on the ~150 windIO-v1 legacy configs: "Re-apuntarlas a la v2 oficial (Recomendado)" (S6). S7 written as the T6 contract. T6 split: T6a adapter (BladeMesh/Blade on gmsh, S7), T6b config migration script (S6), after T6a.
+- L-S42 (2026-11-19) T6a DONE, uncommitted (worker mwnjvsly-5-mw1v): BladeMesh (generators.py) and Blade (model.py)
+  build GmshBladeMesh; S7 a-e pinned in tests/software/mesh/test_blade_mesh_gmsh_adapter.py (RED 15 failed 1 passed;
+  GREEN 22 passed fast + 1 slow 212 s: adapter == GmshBladeMesh counts/sets at N20 AR1, 38500 nodes 39648 elements;
+  test_gmsh_coupling_mesh 6 passed). generate_blocks_sections has no caller -> NotImplementedError (T7). Breaks, as
+  expected, every caller that still forwards NuMAD keys: FSIRunner BladeMesh branch (runner.py:727-756, :829),
+  cli/run_bem_fsi.py:307, cli/aeroelast.py:58, cli/mesh.py:66/163, RotorMesh (~generators.py:1734), turbine.py:268;
+  check.sh quick 1 new fail (test_rotor_aero_geometry via RotorMesh). Not committed alone: T6c (callers + RotorMesh)
+  lands with it.
+- L-S43 (2026-11-19) T6c (worker mwnkug7o-6-fkhs, partial -> completed inline): runner BladeMesh/RotorMesh branches,
+  cli/run_bem_fsi, cli/aeroelast, cli/mesh, RotorMesh, TurbineMesh forward only the keys the config/CLI gives (no
+  injected NuMAD defaults, no 0.5 m default: runner and run_bem_fsi element_size defaults gone); pins in
+  test_blade_mesh_gmsh_adapter.py (t6c RED 6 failed 1 passed -> GREEN 23 passed); rotor/CLI/turbine/no-webs tests
+  moved to the v2 yaml at chord_divisions 10; check.sh quick OK (75 passed, 1 xfailed). Gap found by the worker:
+  core/mesh/components.py read only the windIO 1.x tower/nacelle layout. Parent fix: 2.x tower (outer_shape +
+  block-level reference_axis) and nacelle (components.drivetrain outer_shape/lss/nose); UNITS: 2.x uptilt and
+  hub.cone_angle are degrees (6.0, 4.0) vs 1.x radians (0.1047, 0.0698) -> converted to radians; pinned by
+  test_windio2_components_match_the_windio1_reading_in_radians (RED without the fix, 16 passed with it).
+  Known T7 items: TurbineMesh default include_webs=False now raises the T7 NotImplementedError (CLI `mesh turbine`
+  needs --webs); 5 strict xfails in test_blade_no_webs flip when T7 lands; excel CLI test passes only on a fake
+  RotorMesh (T8 deletion candidate).
+- L-S44 (2026-11-19) T6a+T6c verified (gentle-ai-verify mwnm4ci9-7-ynf0, Risk item 3): S7 a-e met through the
+  public constructors, runner and run_bem_fsi; GMSH_BLADE branch untouched; no default element_size >= 0.3; units in
+  components.py confirmed (only consumer of cone_angle turbine.py:366 expects radians; uptilt unused in src); 71
+  passed on the six contract files; check.sh quick OK. Advisories closed inline: Rotor/BladeModel defaults
+  (model.py) no longer inject n_samples=300 / element_size 0.1; BladeMeshParams/RotorMeshParams (config.py) drop
+  n_samples/airfoil_spacing and the 0.5 m rotor default, add chord_divisions/span_aspect; run_fsi templates print the
+  N20 reference instead of n_samples (pins: test_rotor_and_blade_model_defaults_forward_no_numad_key,
+  test_mesh_param_dataclasses_carry_no_numad_default; RED 2 failed -> GREEN 29 passed). test_turbine_mesh 15
+  passed after renaming the expected web set to the gmsh `allWebEls`.

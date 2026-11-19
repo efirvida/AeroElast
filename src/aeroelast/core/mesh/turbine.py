@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import numpy as np
 
@@ -44,7 +44,7 @@ from aeroelast.core.mesh.components import (
     read_windio_components,
 )
 from aeroelast.core.mesh.entities import ElementSet, MeshElement, Node, NodeSet
-from aeroelast.core.mesh.generators import BladeMesh
+from aeroelast.core.mesh.generators import _BLADE_OPTION_UNSET, BladeMesh
 from aeroelast.core.mesh.io.writers import write_mesh
 from aeroelast.core.mesh.model import MeshModel
 
@@ -184,10 +184,10 @@ class TurbineMesh:
         self,
         yaml_file: str,
         n_blades: Optional[int] = None,
-        element_size: float = 0.5,
-        n_samples: int = 300,
+        element_size: Optional[float] = None,
+        n_samples: Any = _BLADE_OPTION_UNSET,
         include_webs: bool = False,
-        span_grading: str = "chord",
+        span_grading: Any = _BLADE_OPTION_UNSET,
         rotor_axis: Sequence[float] = _DEFAULT_ROTOR_AXIS,
         tower_element_size: Optional[float] = None,
         tower_n_axial: int = 20,
@@ -206,6 +206,8 @@ class TurbineMesh:
         tower_base_z: Optional[float] = None,
         overhang: Optional[float] = None,
         distance_tt_hub: Optional[float] = None,
+        chord_divisions: Optional[float] = None,
+        span_aspect: Optional[float] = None,
     ) -> None:
         if (tower_height is None) != (tower_base_diameter is None):
             raise ValueError("tower_height and tower_base_diameter must be given together")
@@ -216,6 +218,8 @@ class TurbineMesh:
         self.n_samples = n_samples
         self.include_webs = include_webs
         self.span_grading = span_grading
+        self.chord_divisions = chord_divisions
+        self.span_aspect = span_aspect
         self.rotor_axis = _unit(rotor_axis)
 
         self.tower_element_size = tower_element_size
@@ -265,13 +269,14 @@ class TurbineMesh:
         )
 
     def _build_blade(self, verbose: bool) -> MeshModel:
-        self._blade_generator = BladeMesh(
-            yaml_file=self.yaml_file,
-            element_size=self.element_size,
-            n_samples=self.n_samples,
-            include_webs=self.include_webs,
-            span_grading=self.span_grading,
-        )
+        # only what the caller gave reaches BladeMesh: an absent size is its reference mesh (S7c); NuMAD-only n_samples /
+        # span_grading are forwarded when given so BladeMesh raises its S7b error instead of dropping them
+        blade_kwargs: dict[str, Any] = {"yaml_file": self.yaml_file, "include_webs": self.include_webs}
+        for key in ("element_size", "n_samples", "span_grading", "chord_divisions", "span_aspect"):
+            value = getattr(self, key)
+            if value is not None and value is not _BLADE_OPTION_UNSET:
+                blade_kwargs[key] = value
+        self._blade_generator = BladeMesh(**blade_kwargs)
         return self._blade_generator.generate(verbose=verbose)
 
     def _resolve_tower_top(self, definition) -> np.ndarray:

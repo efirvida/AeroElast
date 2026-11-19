@@ -312,10 +312,11 @@ class MultiFlapMeshParams:
 class BladeMeshParams:
     """Parameters for BladeMesh generator (single blade)."""
 
-    yaml_file: str  # Path to blade YAML definition (WindIO format)
-    element_size: float = 0.15
-    n_samples: int = 300
-    airfoil_spacing: str = "cosine"  # "constant" | "cosine" | "half-cosine" | "auto"
+    yaml_file: str  # Path to a windIO 2.x blade YAML (BladeMesh builds with gmsh, gmsh-official-mesher S7)
+    element_size: Optional[float] = None  # None (and no chord_divisions): reference mesh N20 AR 1
+    chord_divisions: Optional[int] = None
+    span_aspect: Optional[float] = None
+    skin_reference: str = "oml"  # "oml" | "mid"
 
 
 @dataclass
@@ -334,9 +335,9 @@ class RotorMeshParams:
     yaml_file: str  # Path to blade YAML definition
     n_blades: int = 3
     hub_radius: Optional[float] = None  # If None, uses blade definition
-    element_size: float = 0.5
-    n_samples: int = 300
-    airfoil_spacing: str = "cosine"  # "constant" | "cosine" | "half-cosine" | "auto"
+    element_size: Optional[float] = None  # None (and no chord_divisions): reference mesh N20 AR 1
+    chord_divisions: Optional[int] = None
+    span_aspect: Optional[float] = None
 
 
 @dataclass

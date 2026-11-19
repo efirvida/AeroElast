@@ -7,6 +7,10 @@ import numpy as np
 from aeroelast.core.mesh import ElementSet, ElementType, MeshElement, MeshModel, Node, NodeSet
 from aeroelast.core.mesh.generators import RotorMesh
 from aeroelast.solvers.aero import build_full_rotor_aero_geometry
+from tests.support.paths import REPO_ROOT  # noqa: E402
+
+# T6c: BladeMesh/RotorMesh mesh with gmsh and need the windIO v2 yaml; chord_divisions=10 keeps the mesh cheap (13 k nodes)
+V2_YAML = str(REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")
 
 
 def _build_toy_rotor_mesh() -> MeshModel:
@@ -130,13 +134,12 @@ def test_build_full_rotor_aero_geometry_stores_rotation_center_and_hub_radius():
     assert geometry.hub_radius == 4.5
 
 
-def test_build_full_rotor_aero_geometry_from_rotormesh(iea_blade_yaml: str):
+def test_build_full_rotor_aero_geometry_from_rotormesh():
     rotor = RotorMesh(
-        yaml_file=iea_blade_yaml,
+        yaml_file=V2_YAML,
         n_blades=3,
         hub_radius=None,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,
     )
     mesh = rotor.generate(renumber=None, verbose=False)
 

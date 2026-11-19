@@ -304,14 +304,20 @@ def _build_mesh(cfg: dict, config_path: Path):
                 excel_file = _resolve(excel_file)
             if airfoil_dir:
                 airfoil_dir = _resolve(airfoil_dir)
+            # only the keys the config gives reach BladeMesh: absent size = the S7c reference mesh, NuMAD-only keys = its S7b error
             generator = BladeMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
-                airfoil_dir=airfoil_dir,
-                element_size=params.get("element_size", 0.5),
-                n_samples=params.get("n_samples", 300),
-                span_grading=params.get("span_grading", "chord"),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **({"excel_file": excel_file} if excel_file else {}),
+                **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
+                **{
+                    k: params[k]
+                    for k in (
+                        "element_size", "n_samples", "span_grading", "airfoil_spacing", "refine_tip", "max_bay_length",
+                        "laminate_per_row", "include_webs", "chord_divisions", "span_aspect", "h_range", "min_band_elements",
+                        "min_band_fraction",
+                    )
+                    if k in params
+                },
             )
             mesh = generator.generate(renumber=None)
 
@@ -335,9 +341,11 @@ def _build_mesh(cfg: dict, config_path: Path):
                 hub_radius=params.get("hub_radius"),
                 hub_diameter=hub_diameter,
                 rotor_diameter=rotor_diameter,
-                element_size=params.get("element_size", 0.5),
-                n_samples=params.get("n_samples", 300),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **{
+                    k: params[k]
+                    for k in ("element_size", "n_samples", "airfoil_spacing", "include_webs", "chord_divisions", "span_aspect")
+                    if k in params
+                },
             )
             mesh = generator.generate(renumber="rcm")
 

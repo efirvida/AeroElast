@@ -26,11 +26,11 @@ class Blade:
     Parameters
     ----------
     blade_yaml : str
-        Path to the blade YAML definition file
+        Path to the windIO 2.x blade YAML (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)
     element_size : float, optional
-        Target element size for meshing (default: 0.1)
+        Uniform target element size [m]. Default None: the reference mesh (chord_divisions 20, span_aspect 1).
     n_samples : int, optional
-        Number of samples for airfoil discretization (default: 300)
+        NuMAD-only; any value other than None makes ``generate_mesh`` raise ValueError (BladeMesh builds with gmsh).
     include_webs : bool, optional
         Set *False* to mesh only the outer shell (default: True)
     skin_reference : {"mid", "oml"}, optional
@@ -41,8 +41,8 @@ class Blade:
     def __init__(
         self,
         blade_yaml: str,
-        element_size: float = 0.1,
-        n_samples: int = 300,
+        element_size: Optional[float] = None,
+        n_samples: Optional[int] = None,
         include_webs: bool = True,
         skin_reference: str = "mid",
     ) -> None:
@@ -71,12 +71,13 @@ class Blade:
             - "simple": Direct index assignment
             - "rcm": Reverse Cuthill-McKee for bandwidth reduction
         """
+        options = {} if self.n_samples is None else {"n_samples": self.n_samples}  # NuMAD-only: BladeMesh rejects it
         self._mesh_generator = BladeMesh(
             yaml_file=self.yaml_file,
             element_size=self.element_size,
-            n_samples=self.n_samples,
             include_webs=self.include_webs,
             skin_reference=self.skin_reference,
+            **options,
         )
         self.mesh = self._mesh_generator.generate(renumber=renumber, verbose=True)
         self._numad_mesh = self._mesh_generator.numad_mesh_data
@@ -164,7 +165,14 @@ class Blade:
         """Genera la estructura completa de datos para perfiles aerodinámicos y cilindros,
         estableciendo el Leading Edge (LE) como el punto medio entre los puntos centrales
         del spline.
+
+        Needs the NuMAD splineZi/Xi/Yi arrays, which the gmsh mesher does not produce; no production code calls it
+        (T6a of odd/tasks/gmsh-official-mesher.md), so it raises until T7 provides a replacement.
         """
+        raise NotImplementedError(
+            "Blade.generate_blocks_sections needs NuMAD spline data (splineZi/Xi/Yi) that the gmsh mesher does not produce; "
+            "a gmsh-based replacement is task T7"
+        )
         if self._numad_blade is None or self._numad_mesh is None:
             raise RuntimeError("Mesh has not been generated yet. Call generate_mesh() first.")
 
@@ -604,15 +612,15 @@ class Rotor:
     Parameters
     ----------
     blade_yaml : str
-        Path to the blade YAML definition file
+        Path to the windIO 2.x blade YAML (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)
     n_blades : int
         Number of blades in the rotor
     hub_radius : float, optional
         Radial distance from rotation axis to blade root
     element_size : float, optional
-        Target element size for meshing (default: 0.1)
+        Uniform target element size [m]. Default None: the reference mesh (chord_divisions 20, span_aspect 1).
     n_samples : int, optional
-        Number of samples for airfoil discretization (default: 300)
+        NuMAD-only; any value other than None makes ``generate_mesh`` raise ValueError (BladeMesh builds with gmsh).
     """
 
     def __init__(
@@ -620,8 +628,8 @@ class Rotor:
         blade_yaml: str,
         n_blades: int,
         hub_radius: Optional[float] = None,
-        element_size: float = 0.1,
-        n_samples: int = 300,
+        element_size: Optional[float] = None,
+        n_samples: Optional[int] = None,
         include_webs: bool = True,
     ) -> None:
         self.blade_yaml = blade_yaml
@@ -648,8 +656,9 @@ class Rotor:
             n_blades=self.n_blades,
             hub_radius=self.hub_radius,
             element_size=self.element_size,
-            n_samples=self.n_samples,
             include_webs=self.include_webs,
+            # NuMAD-only: RotorMesh/BladeMesh reject n_samples (S7b); forwarded only when given.
+            **({} if self.n_samples is None else {"n_samples": self.n_samples}),
         )
         self.mesh = self._mesh_generator.generate(renumber=renumber, verbose=True)
 
@@ -875,7 +884,7 @@ class BladeSection:
 
 
 class BladeModel:
-    def __init__(self, blade_yaml: str, element_size: float = 0.1, n_samples: int = 300) -> None:
+    def __init__(self, blade_yaml: str, element_size: Optional[float] = None, n_samples: Optional[int] = None) -> None:
         self.blade_mesh_obj = Blade(blade_yaml, element_size, n_samples)
         print(self.get_element_material(1))
 
