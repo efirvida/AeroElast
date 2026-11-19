@@ -1,9 +1,8 @@
 """
 Aerodynamic data layer for wind turbine blades.
 
-Loads airfoil polar tables (Cl, Cd, Cm vs alpha) from WindIO YAML files or
-NuMAD Excel files, with NeuralFoil as a fallback (YAML) or primary source
-(Excel) for polar generation. Provides interpolated blade aerodynamic
+Loads airfoil polar tables (Cl, Cd, Cm vs alpha) from WindIO YAML files, with
+NeuralFoil as a fallback for polar generation. Provides interpolated blade aerodynamic
 properties along the span for use by BEM solvers.
 """
 
@@ -458,134 +457,6 @@ def _extract_reference_axis_from_numad_geometry(
     return ref_points[:, 1], ref_points[:, 0]
 
 
-def _load_from_excel(
-    excel_path: Path,
-    default_re: float,
-    neuralfoil_model: str,
-    hub_radius: float,
-    n_blades: int,
-    airfoil_dir: Optional[str],
-    viterna_ar: float = 17.0,
-    viterna_confidence_threshold: float = 0.5,
-) -> BladeAero:
-    """Load blade aerodynamic data from a NuMAD Excel file.
-
-    Since Excel files do not contain polar data, all polars are generated
-    via NeuralFoil from the airfoil coordinates.
-    """
-    from aeroelast.models.blade.numad.objects.blade import Blade as NumadBlade
-
-    blade = NumadBlade()
-    if airfoil_dir is not None:
-        blade.read_excel(str(excel_path), airfoil_dir=airfoil_dir)
-    else:
-        blade.read_excel(str(excel_path))
-    defn = blade.definition
-    if defn.span is None or defn.chord is None or defn.degreestwist is None:
-        raise ValueError("blade definition has no span/chord/twist distribution")
-
-    blade_length = float(defn.span[-1])
-    rotor_radius = hub_radius + blade_length
-
-    # --- Build unique AirfoilAero objects from station airfoils ---
-    airfoils: List[AirfoilAero] = []
-    af_name_map: dict[str, int] = {}
-    af_span_locs: List[float] = []
-    af_indices: List[int] = []
-
-    for station in defn.stations:
-        af = station.airfoil
-        if af is None or af.coordinates is None:
-            continue
-        if af.name not in af_name_map:
-            coords = np.asarray(af.coordinates, dtype=float)
-            rel_t = float(af.percentthick / 100.0) if af.percentthick else 0.0
-
-            polars = _generate_polars_neuralfoil(
-                coords,
-                re=default_re,
-                model_size=neuralfoil_model,
-                ar=viterna_ar,
-                confidence_threshold=viterna_confidence_threshold,
-            )
-
-            airfoil_aero = AirfoilAero(
-                name=af.name,
-                coordinates=coords,
-                relative_thickness=rel_t,
-                aerodynamic_center=0.25,
-                polars=polars,
-            )
-            af_name_map[af.name] = len(airfoils)
-            airfoils.append(airfoil_aero)
-
-        if station.spanlocation is None:
-            continue
-        af_span_locs.append(float(station.spanlocation))
-        af_indices.append(af_name_map[af.name])
-
-    af_span_arr = np.array(af_span_locs)
-    af_idx_arr = np.array(af_indices)
-
-    # --- Build stations on the definition span grid ---
-    span = defn.span
-    chord = defn.chord
-    twist_rad = np.deg2rad(defn.degreestwist)
-    aerocenter = defn.aerocenter if defn.aerocenter is not None else np.full_like(span, 0.25)
-    prebend = np.asarray(defn.prebend, dtype=float) if defn.prebend is not None else None
-    if prebend is None or prebend.size != len(span):
-        prebend = np.zeros_like(span, dtype=float)
-    sweep = np.asarray(defn.sweep, dtype=float) if defn.sweep is not None else None
-    if sweep is None or sweep.size != len(span):
-        sweep = np.zeros_like(span, dtype=float)
-
-    has_prebend = np.ptp(prebend) > 1.0e-8
-    has_sweep = np.ptp(sweep) > 1.0e-8
-    if not has_prebend or not has_sweep:
-        estimated_axis = _extract_reference_axis_from_numad_geometry(
-            blade,
-            pitch_axes=np.asarray(aerocenter, dtype=float),
-        )
-        if estimated_axis is not None:
-            prebend_est, sweep_est = estimated_axis
-            # Guard against twist/chord-offset artefacts when true prebend/sweep
-            # data are unavailable in legacy definitions.
-            if not has_prebend and np.ptp(prebend_est) > 1.0e-1:
-                prebend = prebend_est
-            if not has_sweep and np.ptp(sweep_est) > 8.0e-1:
-                sweep = sweep_est
-
-    stations: List[AeroStation] = []
-    for i, s in enumerate(span):
-        eta = s / blade_length
-        r = hub_radius + s
-
-        nearest = int(np.argmin(np.abs(af_span_arr - s)))
-        af_idx = af_idx_arr[nearest]
-
-        stations.append(
-            AeroStation(
-                span_fraction=float(eta),
-                r=float(r),
-                chord=float(chord[i]),
-                twist=float(twist_rad[i]),
-                pitch_axis=float(aerocenter[i]),
-                prebend=float(prebend[i]),
-                sweep=float(sweep[i]),
-                airfoil=airfoils[af_idx],
-            )
-        )
-
-    return BladeAero(
-        airfoils=airfoils,
-        stations=stations,
-        blade_length=blade_length,
-        hub_radius=hub_radius,
-        rotor_radius=rotor_radius,
-        n_blades=n_blades,
-    )
-
-
 def load_blade_aero(
     blade_file: str,
     default_re: float = 1e7,
@@ -597,7 +468,7 @@ def load_blade_aero(
     viterna_ar: float = 17.0,
     viterna_confidence_threshold: float = 0.5,
 ) -> BladeAero:
-    """Load blade aerodynamic data from a WindIO YAML or NuMAD Excel file.
+    """Load blade aerodynamic data from a WindIO YAML file.
 
     For YAML files, reads windIO v1 or the supported v2.0 blade fields in memory
     without rewriting the source. Parses the ``outer_shape_bem`` view for chord, twist,
@@ -605,26 +476,24 @@ def load_blade_aero(
     data.  When an airfoil entry has no ``polars`` key, NeuralFoil is used
     as a fallback to generate Cl/Cd/Cm from the airfoil coordinates.
 
-    For Excel files (.xlsx/.xls), loads the blade definition using the NuMAD
-    parser and generates *all* polars via NeuralFoil (Excel files do not
-    contain polar data).  The ``hub_radius``, ``n_blades``, and ``airfoil_dir``
-    keyword arguments are only used for the Excel path.
+    NuMAD Excel files (.xlsx/.xls) are rejected with ``ValueError``: that reader is
+    retired.  ``hub_radius``, ``n_blades`` and ``airfoil_dir`` fed only that path and are
+    ignored (kept in the signature for existing callers).
 
     Parameters
     ----------
     blade_file : str
-        Path to a WindIO YAML (.yaml/.yml) or NuMAD Excel (.xlsx/.xls) file.
+        Path to a WindIO YAML (.yaml/.yml) file.
     default_re : float
         Reynolds number used for NeuralFoil polar generation.
     neuralfoil_model : str
         NeuralFoil model size ("xlarge", "large", "medium", "small", "xsmall").
     hub_radius : float
-        Hub radius in metres (Excel only; YAML reads this from the file).
+        Ignored (fed the retired Excel path; YAML reads it from the file).
     n_blades : int
-        Number of blades (Excel only; YAML reads this from the file).
+        Ignored (fed the retired Excel path; YAML reads it from the file).
     airfoil_dir : str or None
-        Directory containing airfoil coordinate .txt files (Excel only).
-        Defaults to an ``airfoils/`` folder next to the Excel file.
+        Ignored (fed the retired Excel path).
     viterna_ar : float
         Aspect ratio for the Viterna–Corrigan cd_max formula
         (``cd_max = 1.11 + 0.13·AR``).  Default 17 suits IEA-15 outer sections.
@@ -643,15 +512,9 @@ def load_blade_aero(
     ext = blade_path.suffix.lower()
 
     if ext in (".xlsx", ".xls"):
-        return _load_from_excel(
-            blade_path,
-            default_re=default_re,
-            neuralfoil_model=neuralfoil_model,
-            hub_radius=hub_radius,
-            n_blades=n_blades,
-            airfoil_dir=airfoil_dir,
-            viterna_ar=viterna_ar,
-            viterna_confidence_threshold=viterna_confidence_threshold,
+        raise ValueError(
+            f"{blade_path.name}: NuMAD Excel blades are no longer read; use a windIO v2 blade yaml "
+            "(e.g. tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)."
         )
 
     # --- YAML path ---

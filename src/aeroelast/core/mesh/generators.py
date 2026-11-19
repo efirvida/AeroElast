@@ -1427,21 +1427,7 @@ class RotorMesh:
         if self.rotor_diameter is not None:
             definition.rotor_diameter = float(self.rotor_diameter)
 
-        try:
-            return definition.resolve_hub_radius(override=self.hub_radius)
-        except ValueError as exc:
-            if (
-                self.excel_file is not None
-                and self.hub_radius is None
-                and self.hub_diameter is None
-                and self.rotor_diameter is None
-            ):
-                raise ValueError(
-                    "Unable to determine hub radius from Excel blade definition. "
-                    "Pass hub_radius explicitly or provide hub_diameter/rotor_diameter "
-                    "when exporting a RotorMesh from Excel."
-                ) from exc
-            raise
+        return definition.resolve_hub_radius(override=self.hub_radius)
 
     @classmethod
     def blade_part_set_name(cls, blade_index: int) -> str:
@@ -1611,6 +1597,7 @@ class RotorHubMesh:
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
+        reject_excel_file({"excel_file": excel_file})  # S7a: the retired xlsx reader is never silently skipped
         self.airfoil_dir = airfoil_dir
         self.n_blades = n_blades
         self.hub_radius = hub_radius
@@ -1708,12 +1695,9 @@ class RotorHubMesh:
             print("  Loading blade definition for hub geometry...")
 
         self._numad_blade = numadBlade()
-        if self.excel_file:
-            self._numad_blade.read_excel(self.excel_file, airfoil_dir=self.airfoil_dir)
-        elif self.yaml_file:
-            self._numad_blade.read_yaml(self.yaml_file)
-        else:
-            raise ValueError("RotorHubMesh requires either yaml_file or excel_file")
+        if not self.yaml_file:
+            raise ValueError("RotorHubMesh requires yaml_file (a windIO v2 blade yaml)")
+        self._numad_blade.read_yaml(self.yaml_file)
 
         for station in self._numad_blade.definition.stations:
             station.airfoil.resample(n_samples=self.n_samples, spacing=self.airfoil_spacing)
@@ -1731,21 +1715,7 @@ class RotorHubMesh:
         if self.rotor_diameter is not None:
             definition.rotor_diameter = float(self.rotor_diameter)
 
-        try:
-            return definition.resolve_hub_radius(override=self.hub_radius)
-        except ValueError as exc:
-            if (
-                self.excel_file is not None
-                and self.hub_radius is None
-                and self.hub_diameter is None
-                and self.rotor_diameter is None
-            ):
-                raise ValueError(
-                    "Unable to determine hub radius from Excel blade definition. "
-                    "Pass hub_radius explicitly or provide hub_diameter/rotor_diameter "
-                    "when exporting a RotorHubMesh from Excel."
-                ) from exc
-            raise
+        return definition.resolve_hub_radius(override=self.hub_radius)
 
     def _first_profile_coords(self) -> np.ndarray:
         """Return XYZ coordinates of the first blade profile from the updated geometry."""

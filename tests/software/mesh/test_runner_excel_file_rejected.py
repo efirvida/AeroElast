@@ -34,3 +34,27 @@ def test_bem_fsi_cli_rejects_excel_file_next_to_v2_yaml(tmp_path):
     cfg = {"mesh": {"generator": {"type": "GmshBladeMesh", "params": _leftover_params({})}}}
     with pytest.raises(ValueError, match="excel_file"):
         run_bem_fsi._build_mesh(cfg, tmp_path / "case.yaml")
+
+
+def test_rotor_hub_mesh_rejects_excel_file():
+    from aeroelast.core.mesh.generators import RotorHubMesh
+
+    with pytest.raises(ValueError, match="excel_file"):
+        RotorHubMesh(yaml_file=V2, excel_file="blade.xlsx")
+
+
+@pytest.mark.parametrize("suffix", [".xlsx", ".xls"])
+def test_blade_aero_loader_rejects_excel(tmp_path, suffix):
+    from aeroelast.models.blade.aerodynamics import load_blade_aero
+
+    path = tmp_path / f"blade{suffix}"
+    path.write_bytes(b"")
+    with pytest.raises(ValueError, match="Excel blades are no longer read"):
+        load_blade_aero(str(path))
+
+
+def test_numad_blade_rejects_excel_filename():
+    from aeroelast.models.blade.numad.objects.blade import Blade
+
+    with pytest.raises(ValueError, match="NuMAD Excel is retired"):
+        Blade("blade.xlsx")

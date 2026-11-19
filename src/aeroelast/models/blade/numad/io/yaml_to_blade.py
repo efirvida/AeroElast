@@ -170,7 +170,6 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     # turns the load upwind: ForceProjector's load frame then reads the section normal the
     # opposite way (tests/validation/bem/test_force_projection_load_frame.py) and the elastic
     # twist changes sign, away from the 1D beam built from the published deck (-1.7765 deg).
-    # The Excel path still sets it from the ``CW``/``CCW`` flag (see excel_to_blade.py).
 
     blade.update_blade()
 
