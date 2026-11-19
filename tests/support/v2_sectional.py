@@ -44,7 +44,7 @@ import numpy as np
 
 from tests.support.paths import REPO_ROOT
 
-#: z strip width [m] of the stations of an unstructured (gmsh) v2 mesh (= the windio2 es 0.25 ring pitch).
+#: z strip width [m] of the stations of an unstructured (gmsh) v2 mesh (= the 0.25 m ring pitch of the es 0.25 reference).
 GMSH_STRIP_M = 0.25
 V2_YAML = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 

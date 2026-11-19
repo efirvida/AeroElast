@@ -4,9 +4,9 @@
 v1 pair ``BladeMesh(yaml_file=..., element_size=..., skin_reference="mid").generate(renumber="rcm")`` +
 ``aeroelast.models.blade.model.build_rust_properties(generator.numad_mesh_data)``.
 
-Mesh source: ``windio2_mesh.generate_mesh(topology, es, min_strip_m=1e-6, collapse_ratio=...)`` + ``map_mesh_materials`` on the windIO v2
-YAML ``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml``. ``element_size`` must lie in [0.15, 0.25] m (AGENTS.md
-rule 9; the v2 mesher rejects other values).
+Mesh source: the gmsh skin mesher (``gmsh_skin.generate_mesh_gmsh`` with materials) on the windIO v2
+YAML ``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml``; gmsh is the only mesher (odd/tasks/gmsh-official-mesher.md T10, S9).
+``element_size`` must lie in [0.15, 0.25] m (AGENTS.md rule 9) unless ``chord_divisions`` N sizes the mesh by the local chord.
 
 Reference-surface rule (OML -> mid-surface inset)
 -------------------------------------------------
@@ -50,7 +50,7 @@ Cache
 -----
 Generation takes ~10 min at element size 0.25, so the RAW arrays (never live objects) are cached as an ``.npz`` under
 ``$SCRATCH/tmp/v2_blade_cache/`` (override: ``V2_BLADE_CACHE_DIR``), keyed by sha256(YAML) + a digest of
-``src/aeroelast/models/blade/numad/mesh_gen/windio2_*.py`` + ``objects/geometry.py`` + this module's ``CACHE_VERSION`` + element size, collapse
+``gmsh_skin.py`` + ``gmsh_raw.py`` + ``windio2_basis.py`` + ``core/mesh/gmsh_blade.py`` + ``objects/windio2_*.py`` + ``objects/geometry.py`` + this module's ``CACHE_VERSION`` + element size, collapse
 ratio, eta bounds and ``min_strip_m`` (``skin_reference`` is applied after the cache). A process-level memo sits on top. Produce the
 cache with an sbatch job (never on a login node): ``python tests/support/v2_blade.py <es> [collapse_ratio]``.
 """
@@ -69,10 +69,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_YAML = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 MESH_GEN_DIR = REPO_ROOT / "src/aeroelast/models/blade/numad/mesh_gen"
 GMSH_BLADE = REPO_ROOT / "src/aeroelast/core/mesh/gmsh_blade.py"
+OBJECTS_DIR = REPO_ROOT / "src/aeroelast/models/blade/numad/objects"
 GEOMETRY = REPO_ROOT / "src/aeroelast/models/blade/numad/objects/geometry.py"
 # 4: windIO-v2 pretwist sign fixed (chord at -twist; geometry.py, which builds the section frames, joins the digest)
 CACHE_VERSION = 4  # 3: chord-scaled gmsh sizing (N, AR, min band in the key; gmsh_blade.py in the gmsh digest)
-MESHERS = ("windio2", "gmsh")
+MESHERS = ("gmsh",)
 ES_RANGE = (0.15, 0.25)
 # Resolution guard of the public v2 adapter (core/mesh/windio2.py::geometry_mesh): stations closer than 1 micrometre of
 # span are one. generate_mesh's own default (0) hits "Nonpositive shell Jacobian" at es 0.25 (z ~ 94 m, SLURM 11641645).
@@ -88,14 +89,13 @@ def _sha256_file(path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def source_digest(mesher="windio2") -> str:
-    """Digest of the mesher sources, names and bytes, sorted: ``windio2_*.py`` + ``collapse_opt.py`` + ``objects/geometry.py``
-    (the section frames/twist) for the windio2 mesher,
-    plus ``gmsh_skin.py`` and ``core/mesh/gmsh_blade.py`` for the gmsh one (which also runs ``windio2_*`` code)."""
+def source_digest() -> str:
+    """Digest of the gmsh meshing sources, names and bytes, sorted: ``gmsh_skin.py``, ``gmsh_raw.py``, ``windio2_basis.py``,
+    ``core/mesh/gmsh_blade.py``, ``objects/windio2_*.py`` (laminate, topology, precision) and ``objects/geometry.py`` (the section
+    frames/twist)."""
     h = hashlib.sha256()
-    files = [*MESH_GEN_DIR.glob("windio2_*.py"), MESH_GEN_DIR / "collapse_opt.py", GEOMETRY]  # geometry.py: section frames
-    if mesher == "gmsh":
-        files.extend([MESH_GEN_DIR / "gmsh_skin.py", GMSH_BLADE])
+    files = [MESH_GEN_DIR / "gmsh_skin.py", MESH_GEN_DIR / "gmsh_raw.py", MESH_GEN_DIR / "windio2_basis.py", GMSH_BLADE,
+             *OBJECTS_DIR.glob("windio2_*.py"), GEOMETRY]
     for p in sorted(files):
         h.update(p.name.encode())
         h.update(p.read_bytes())
@@ -103,7 +103,7 @@ def source_digest(mesher="windio2") -> str:
 
 
 def cache_key(element_size, collapse_ratio=None, eta_bounds=(0.0, 1.0), yaml_file=DEFAULT_YAML,
-              min_strip_m=MIN_STRIP_M, mesher="windio2", chord_divisions=None, span_aspect=1.0, min_band_elements=2,
+              min_strip_m=MIN_STRIP_M, mesher="gmsh", chord_divisions=None, span_aspect=1.0, min_band_elements=2,
               min_band_fraction=1.0) -> str:
     """Stable key of the raw mesh: YAML bytes + mesher sources + generator arguments.  With ``chord_divisions`` (gmsh only) the
     key carries N, the spanwise aspect, the minimum band elements and ``min_band_fraction`` (None, the no-relative-floor
@@ -121,9 +121,8 @@ def cache_key(element_size, collapse_ratio=None, eta_bounds=(0.0, 1.0), yaml_fil
         del args["es"]
         args["chord"] = {"N": float(chord_divisions), "AR": float(span_aspect), "min_band": int(min_band_elements),
                          "min_band_fraction": None if min_band_fraction is None else float(min_band_fraction)}
-    if mesher != "windio2":
-        args["mesher"] = mesher  # the default key stays what it was for the windio2 mesher (no extra field)
-    blob = _sha256_file(yaml_file) + (source_digest() if mesher == "windio2" else source_digest(mesher)) + json.dumps(args, sort_keys=True)
+    args["mesher"] = mesher
+    blob = _sha256_file(yaml_file) + source_digest() + json.dumps(args, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
@@ -151,26 +150,18 @@ def _element_areas(x, elements):
     return areas
 
 
-def _generate_raw(element_size, collapse_ratio, eta_bounds, yaml_file, min_strip_m=MIN_STRIP_M, mesher="windio2", es_range=None,
+def _generate_raw(element_size, collapse_ratio, eta_bounds, yaml_file, min_strip_m=MIN_STRIP_M, mesher="gmsh", es_range=None,
                   chord=None) -> dict:
     """Run the mesher (slow) and return plain arrays + JSON-able tables."""
-    from aeroelast.models.blade.numad.mesh_gen.windio2_mesh import generate_mesh, map_mesh_materials
+    from aeroelast.models.blade.numad.mesh_gen.gmsh_skin import generate_mesh_gmsh
     from aeroelast.models.blade.numad.objects.blade import Blade
 
     blade = Blade()
     blade.read_yaml(str(yaml_file))
     topology = blade.windio2_topology
-    if mesher == "gmsh":
-        from aeroelast.models.blade.numad.mesh_gen.gmsh_skin import generate_mesh_gmsh
-
-        extra = {} if es_range is None else {"h_range": tuple(es_range)}  # the mesher has its own range check
-        extra.update(chord or {})
-        raw = generate_mesh_gmsh(topology, element_size, with_materials=True, **extra)  # quality gate REJECTS, never repairs
-    else:
-        raw = map_mesh_materials(
-            topology, generate_mesh(topology, element_size, tuple(eta_bounds), min_strip_m=min_strip_m,
-                          collapse_ratio=collapse_ratio or None)
-        )
+    extra = {} if es_range is None else {"h_range": tuple(es_range)}  # the mesher has its own range check
+    extra.update(chord or {})
+    raw = generate_mesh_gmsh(topology, element_size, with_materials=True, **extra)  # quality gate REJECTS, never repairs
     ne = len(raw.elements)
     params = np.full((ne, 4, 2), np.nan)
     for k in range(ne):
@@ -242,7 +233,7 @@ def _resolve_element_size(element_size):
 
 
 def _resolve_chord_divisions(chord_divisions):
-    """An explicit N wins; otherwise ``V2_BLADE_CHORD_DIVISIONS`` (e.g. ``20``, with ``V2_BLADE_MESHER=gmsh``), so the gates
+    """An explicit N wins; otherwise ``V2_BLADE_CHORD_DIVISIONS`` (e.g. ``20``), so the gates
     run on the chord-scaled mesh without editing tests (odd/tasks/gmsh-chord-scaled-mesh.md T7); unset = unchanged."""
     if chord_divisions is not None:
         return chord_divisions
@@ -251,9 +242,8 @@ def _resolve_chord_divisions(chord_divisions):
 
 
 def _resolve_mesher(mesher):
-    """An explicit mesher wins; otherwise ``V2_BLADE_MESHER`` (``gmsh``), so a campaign runs on the gmsh mesh without
-    editing tests; otherwise ``windio2``.  The gmsh mesher builds the full blade only and takes no collapse ratio."""
-    mesher = mesher or os.environ.get("V2_BLADE_MESHER") or "windio2"
+    """gmsh is the only mesher (default); it builds the full blade only and takes no collapse ratio."""
+    mesher = mesher or "gmsh"
     if mesher not in MESHERS:
         raise ValueError(f"mesher {mesher!r} not in {MESHERS}")
     return mesher

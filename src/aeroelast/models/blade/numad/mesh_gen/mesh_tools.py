@@ -5,6 +5,7 @@ from aeroelast.models.blade.numad.mesh_gen.element_utils import (
 )
 from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list2d import spatial_grid_list2d
 from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list3d import spatial_grid_list3d
+from aeroelast.models.blade.numad.mesh_gen.windio2_basis import get_direction_cosines  # noqa: F401  (moved, T10; mesh_gen.py still imports it here)
 
 
 def rotate_vector(vec, axis, angle):
@@ -56,22 +57,6 @@ def rotate_mesh(meshData, pt, axis, angle):
         newNds[i] = ptAr + rCrd
     meshData["nodes"] = newNds
     return meshData
-
-
-def get_direction_cosines(xDir, xyDir):
-    mag = np.linalg.norm(xDir)
-    a1 = (1.0 / mag) * xDir
-    zDir = cross_prod(xDir, xyDir)
-    mag = np.linalg.norm(zDir)
-    if mag < 1e-14:
-        # xyDir collapsed to zero (e.g. tip section with zero chord).
-        # Fall back to a global z-axis so the element is not degenerate.
-        zDir = np.array([0.0, 0.0, 1.0])
-        mag = 1.0
-    a3 = (1.0 / mag) * zDir
-    a2 = cross_prod(a3, a1)
-    dirCos = np.array([a1, a2, a3])
-    return dirCos
 
 
 def get_average_node_spacing(nodes, elements) -> float:

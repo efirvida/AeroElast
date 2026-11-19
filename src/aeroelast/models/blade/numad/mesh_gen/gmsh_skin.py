@@ -1946,13 +1946,13 @@ def _chart_jacobian(params, elements):
 
 def _orient_positive(elements, params):
     """Reverse every element whose chart orientation is negative, so the connectivity normal follows the chart (what
-    ``windio2_mesh.map_mesh_materials`` assumes).  A zero Jacobian is not repaired: it raises."""
+    ``map_mesh_materials`` (the windio2 original, now :func:`map_mesh_materials_gmsh`) assumes).  A zero Jacobian is not repaired: it raises."""
     elements, params = elements.copy(), params.copy()
     det = _chart_jacobian(params, elements)
     if np.any(det == 0):
         raise MeshQualityError(f"{int((det == 0).sum())} elements have a zero chart Jacobian")
     tri = elements[:, 3] < 0
-    params[tri, 3] = params[tri, 0]  # triangles repeat one corner (windio2_mesh._centroid sums params * live-mask: NaN would poison it)
+    params[tri, 3] = params[tri, 0]  # triangles repeat one corner (gmsh_raw._centroid sums params * live-mask: NaN would poison it)
     for i in np.nonzero(det < 0)[0]:
         order = [0, 2, 1] if tri[i] else [0, 3, 2, 1]
         elements[i, : len(order)] = elements[i, order]
@@ -1961,7 +1961,7 @@ def _orient_positive(elements, params):
 
 
 def map_mesh_materials_gmsh(topology, mesh):
-    """``windio2_mesh.map_mesh_materials`` for the gmsh mesh: same frames, normals and web-to-LE orientation, with ONE change.
+    """The windIO v2 material mapping for the gmsh mesh: same frames, normals and web-to-LE orientation, with ONE change.
 
     An element whose frame is degenerate with the beam axis (``map_stack`` raises "Degenerate beam-axis") takes the element's first
     shell-basis axis as the reference direction instead.  Only the MAPPED fibre angle depends on it (the SOURCE angle, which the FEM
@@ -1971,7 +1971,7 @@ def map_mesh_materials_gmsh(topology, mesh):
 
     from ..objects.geometry import Geometry
     from .windio2_basis import map_stack, shell_bases
-    from .windio2_mesh import Pchip, _centroid
+    from .gmsh_raw import Pchip, _centroid
 
     eta = _centroid(mesh.element_parameters, mesh.elements)[:, 0]
     definition = topology._definition
@@ -2018,7 +2018,7 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
                        with_materials=False, material_dy=0.0, enforce_gate=True, h_range=(0.15, 0.25), loft=None,
                        return_info=False, max_strip_ar=5.0, chord_divisions=None, span_aspect=1.0, min_band_elements=2,
                        min_band_fraction=1.0, te_coating_fill=True):
-    """Skin + webs raw mesh with the STRUCTURED gmsh mesher; a drop-in for ``windio2_mesh.generate_mesh`` outputs.
+    """Skin + webs raw mesh with the STRUCTURED gmsh mesher; returns a :class:`gmsh_raw.RawMesh`.
 
     ``chord_divisions`` N (default None: the ``element_size`` path, unchanged) sizes the mesh by the local chord c(eta) instead
     (see :func:`generate_skin_mesh`): chordwise c/N, spanwise ``span_aspect`` * c/N, at least ``min_band_elements`` elements across
@@ -2033,11 +2033,11 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     webs   one structured chart (eta, q) per web with the SAME rows as the skin, only on the row intervals where the web
            layup has material (``thickness > 0``), q = distance between its two attachment nodes at the row;
            the q = 0 / 1 edges are the skin nodes (1 division per row segment, shared ids);
-    out    :class:`windio2_mesh.RawMesh` (nodes, elements with -1 padded triangles, cells, surfaces ['skin', web...],
+    out    :class:`gmsh_raw.RawMesh` (nodes, elements with -1 padded triangles, cells, surfaces ['skin', web...],
            element_parameters (eta, nd) / (eta, q), shell bases, attachments chains) and, with ``with_materials``,
-           ``map_mesh_materials``.  Nodes are float64 (the v2 mesher uses extended precision)."""
+           ``map_mesh_materials_gmsh``.  Nodes are float64 (the v2 mesher uses extended precision)."""
     from .windio2_basis import shell_bases
-    from .windio2_mesh import RawMesh
+    from .gmsh_raw import RawMesh
 
     t0 = time.perf_counter()
     h = float(element_size)

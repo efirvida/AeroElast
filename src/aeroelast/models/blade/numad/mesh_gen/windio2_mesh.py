@@ -14,17 +14,13 @@ from aeroelast.models.blade.numad.objects.windio2_precision import (
 )
 from functools import lru_cache
 
+from .gmsh_raw import RawMesh, _centroid  # noqa: F401  (moved to gmsh_raw, T10; re-exported until this module is deleted)
+
 import numpy as np
 
 
 COLLAPSE_EDGE_M = 1e-9  # physical edge length treated as a geometric collapse
 MIN_RING_DIVISIONS = 16  # about 45 degrees of turning per element on average
-
-
-def _centroid(parameters, elements):
-    """Mean chart coordinate over each element's true corners (triangles repeat one)."""
-    live = (elements >= 0)[:, :, None]
-    return (parameters*live).sum(axis=1)/live.sum(axis=1)
 
 
 def _has_material(cells):
@@ -386,26 +382,6 @@ def _generate_chart(topology, element_size, eta_bounds, surface, layout=None, mi
     return SkinMesh(nodes, connectivity, parameters, corner_uv,
                     tuple(cells), (extended(lo), extended(hi)), chains,
                     (tuple(stations), substations))
-
-
-@dataclass(frozen=True)
-class RawMesh:
-    nodes: np.ndarray
-    elements: np.ndarray
-    cells: tuple
-    surfaces: tuple
-    element_parameters: np.ndarray
-    bases: np.ndarray  # rows: geometric shell x, y, normal; NOT source material axes
-    attachments: dict
-    material_stacks: tuple | None = None
-
-    @property
-    def material_angles(self):
-        """Element angles in mapped bottom-to-top order, or None if not requested."""
-        if self.material_stacks is None:
-            return None
-        return tuple(tuple(layer.angle_deg for layer in stack.layers)
-                     for stack in self.material_stacks)
 
 
 def generate_mesh(topology, element_size=.25, eta_bounds=(0., 1.), *, with_materials=False,

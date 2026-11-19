@@ -39,7 +39,7 @@ def raws():
 
 def _raw(raws, name, yaml_rel, h):
     if name not in raws:
-        raws[name] = load_raw(h, yaml_file=REPO_ROOT / yaml_rel, mesher="gmsh", es_range=ES_RANGE)
+        raws[name] = load_raw(h, yaml_file=REPO_ROOT / yaml_rel, es_range=ES_RANGE)
     return raws[name]
 
 
