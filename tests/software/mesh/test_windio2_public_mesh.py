@@ -15,22 +15,6 @@ from tests.software.mesh.test_windio2_laminate import expected
 PATCH = (.08163265306122448, .08173265306122448)
 
 
-def test_default_v2_rejected_before_mesh_mutation(capsys, monkeypatch):
-    def forbidden(*args, **kwargs):
-        pytest.fail('default v2 must reject before legacy station planning')
-    monkeypatch.setattr(BladeMesh, '_insert_row_stations', forbidden)
-    gen = BladeMesh(str(OFFICIAL), element_size=.25)
-    counters = Node._id_counter, MeshElement._id_counter
-    before = OFFICIAL.read_bytes()
-    with pytest.raises(ValueError, match='windIO 2.0 requires geometry_only=True; physical FE offsets are not supported'):
-        gen.generate(verbose=False)
-    assert (Node._id_counter, MeshElement._id_counter) == counters
-    assert gen._numad_mesh is None
-    assert OFFICIAL.read_bytes() == before
-    captured = capsys.readouterr()
-    assert captured.out == '' and captured.err == ''
-
-
 @pytest.mark.parametrize('renumber', [None, 'rcm'])
 def test_public_geometry_retains_source_offsets_and_connectivity(official, monkeypatch, renumber):  # noqa: F811 -- imported pytest fixture
     from aeroelast.models.blade.numad.objects.blade import Blade
@@ -125,63 +109,6 @@ def test_unsupported_geometry_options_fail_before_entities(options):
         gen.generate(verbose=False, geometry_only=True, eta_bounds=PATCH)
     assert counters == (Node._id_counter, MeshElement._id_counter)
     assert gen._numad_mesh is None
-
-
-@pytest.mark.parametrize('options', [{}, {
-    'n_samples': 150, 'refine_tip': False, 'span_grading': 'uniform',
-    'airfoil_spacing': 'constant', 'max_bay_length': .2, 'laminate_per_row': False,
-}, {'airfoil_spacing': 'linear'}])
-def test_v1_public_legacy_deduplication_and_properties_preserved(monkeypatch, options):
-    import aeroelast.models.blade.numad.mesh_gen as legacy
-    from tests.software.mesh.test_windio2_official import ROOT
-
-    # Small deterministic legacy output: exercise the unchanged public adapter,
-    # including duplicate-node welding, sets and the centered property consumer.
-    raw = {
-        'nodes': np.array([[0., 0., 0.], [1., 0., 0.], [1., 1., 0.],
-                           [0., 1., 0.], [0., 0., 0.]]),
-        'elements': [[4, 1, 2, 3]],
-        'sets': {'element': [{'name': 'skin', 'labels': [0]}],
-                 'node': [{'name': 'root', 'labels': [0, 4]}]},
-        'sections': [{'elementSet': 'skin', 'layup': [['iso', .002, 0.]]}],
-        'materials': [{'name': 'iso', 'density': 1000.,
-                       'elastic': {'E': 1e9, 'nu': .3}}],
-    }
-    calls = []
-    def shell(*args, **kwargs):
-        assert kwargs['spanGrading'] == options.get('span_grading', 'chord')
-        return raw
-    monkeypatch.setattr(legacy, 'get_shell_mesh', shell)
-    monkeypatch.setattr(BladeMesh, '_insert_row_stations', lambda *a, **k: calls.append('row'))
-    monkeypatch.setattr(BladeMesh, '_refine_high_gradient_sections', lambda *a, **k: calls.append('tip'))
-    monkeypatch.setattr(BladeMesh, '_limit_bay_length', lambda self, length, **k: calls.append(length))
-    gen = BladeMesh(str(ROOT/'tests/IEA-15-240-RWT.yaml'), element_size=.25, **options)
-    effective = {'n_samples': 300, 'refine_tip': True, 'span_grading': 'chord',
-                 'airfoil_spacing': 'cosine', 'max_bay_length': None, 'laminate_per_row': True}
-    effective.update(options)
-    assert {name: getattr(gen, name) for name in effective} == effective
-    if options.get('airfoil_spacing') == 'linear':
-        # V1 already rejects this spelling in its existing resampler; preserve
-        # that error rather than inventing support while fixing the v2 boundary.
-        counters = Node._id_counter, MeshElement._id_counter
-        with pytest.raises(Exception) as error:
-            gen.generate(verbose=False, renumber='simple')
-        assert type(error.value) is Exception
-        assert str(error.value) == 'Resampling algorithm specified is not an available option'
-        assert counters == (Node._id_counter, MeshElement._id_counter)
-        assert gen._numad_mesh is None and not calls
-        return
-    mesh = gen.generate(verbose=False, renumber='simple')
-    assert calls == ([.2] if options else ['tip', 'row'])
-    assert mesh.windio2_metadata is None
-    assert mesh.node_count == 4 and mesh.elements_count == 1
-    assert mesh.elements[0].node_ids == (0, 1, 2, 3)
-    assert len(mesh.node_sets['root'].nodes) == 1
-    assert gen.numad_mesh_data is raw
-    assert build_rust_properties(raw)['skin'] == {
-        'type': 'isotropic', 'e': 1e9, 'nu': .3, 'rho': 1000.,
-        'thickness': .002, 'shear_correction': 5./6.,
-    }
 
 
 @pytest.mark.parametrize('option,value', [

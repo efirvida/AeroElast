@@ -106,7 +106,6 @@ def test_aeroelast_cli_exports_rotor_hub_mesh_without_solver_yaml(
     assert output_path.exists()
     assert calls["kwargs"] == {
         "yaml_file": str(Path.cwd() / "tests/IEA-15-240-RWT.yaml"),
-        "excel_file": None,
         "airfoil_dir": None,
         "n_blades": 3,
         "hub_radius": None,
@@ -151,81 +150,6 @@ def test_aeroelast_cli_exports_rotor_blades_separately(tmp_path: Path):
     ])
 
     assert exit_code == 0
-    assert (parts_dir / "rotor_blade_1.stl").exists()
-    assert (parts_dir / "rotor_blade_2.stl").exists()
-    assert (parts_dir / "rotor_blade_3.stl").exists()
-
-
-def test_aeroelast_cli_exports_rotor_blades_from_excel_separately(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    import aeroelast.core.mesh as mesh_module
-
-    parts_dir = tmp_path / "parts"
-    excel_file = tmp_path / "blade.xlsx"
-    airfoil_dir = tmp_path / "airfoils"
-    excel_file.write_text("placeholder")
-    airfoil_dir.mkdir()
-
-    calls: dict[str, object] = {}
-
-    class FakeMesh:
-        element_sets_names = ["rotor_blade_1", "rotor_blade_2", "rotor_blade_3"]
-
-        def write_element_sets(self, output_dir, set_names, file_format):
-            output_dir = Path(output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            calls["set_names"] = list(set_names)
-            calls["file_format"] = file_format
-            written = []
-            for set_name in set_names:
-                output_file = output_dir / f"{set_name}.{file_format}"
-                output_file.write_text("solid fake\n")
-                written.append(output_file)
-            return written
-
-    class FakeRotorMesh:
-        BLADE_PART_SET_PREFIX = "rotor_blade_"
-
-        def __init__(self, **kwargs):
-            calls["kwargs"] = kwargs
-
-        def generate(self, renumber=None, verbose=True):
-            calls["renumber"] = renumber
-            calls["verbose"] = verbose
-            return FakeMesh()
-
-    monkeypatch.setattr(mesh_module, "RotorMesh", FakeRotorMesh)
-
-    exit_code = main([
-        "--export-parts-dir",
-        str(parts_dir),
-        "--mesh-generator",
-        "RotorMesh",
-        "--excel-file",
-        str(excel_file),
-        "--airfoil-dir",
-        str(airfoil_dir),
-        "--rotor-diameter",
-        "242.23775645",
-        "--n-blades",
-        "3",
-    ])
-
-    assert exit_code == 0
-    assert calls["kwargs"] == {
-        "yaml_file": None,
-        "excel_file": str(excel_file),
-        "airfoil_dir": str(airfoil_dir),
-        "n_blades": 3,
-        "hub_radius": None,
-        "hub_diameter": None,
-        "rotor_diameter": 242.23775645,
-    }
-    assert calls["renumber"] is None
-    assert calls["verbose"] is False
-    assert calls["set_names"] == ["rotor_blade_1", "rotor_blade_2", "rotor_blade_3"]
-    assert calls["file_format"] == "stl"
     assert (parts_dir / "rotor_blade_1.stl").exists()
     assert (parts_dir / "rotor_blade_2.stl").exists()
     assert (parts_dir / "rotor_blade_3.stl").exists()

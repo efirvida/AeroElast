@@ -296,18 +296,14 @@ def _build_mesh(cfg: dict, config_path: Path):
 
         elif gen_type == MeshGeneratorType.BLADE.value:
             yaml_file = params.get("yaml_file")
-            excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
             if yaml_file:
                 yaml_file = _resolve(yaml_file)
-            if excel_file:
-                excel_file = _resolve(excel_file)
             if airfoil_dir:
                 airfoil_dir = _resolve(airfoil_dir)
             # only the keys the config gives reach BladeMesh: absent size = the S7c reference mesh, NuMAD-only keys = its S7b error
             generator = BladeMesh(
                 yaml_file=yaml_file,
-                **({"excel_file": excel_file} if excel_file else {}),
                 **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
                 **{
                     k: params[k]
@@ -323,19 +319,15 @@ def _build_mesh(cfg: dict, config_path: Path):
 
         elif gen_type == MeshGeneratorType.ROTOR.value:
             yaml_file = params.get("yaml_file")
-            excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
             hub_diameter = params.get("hub_diameter")
             rotor_diameter = params.get("rotor_diameter")
             if yaml_file:
                 yaml_file = _resolve(yaml_file)
-            if excel_file:
-                excel_file = _resolve(excel_file)
             if airfoil_dir:
                 airfoil_dir = _resolve(airfoil_dir)
             generator = RotorMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
                 airfoil_dir=airfoil_dir,
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
@@ -543,8 +535,6 @@ def main(argv=None) -> int:
     if "blade_file" in cfg:
         cfg["blade_file"] = _resolve(cfg["blade_file"])
     mesh_gen = cfg.get("mesh", {}).get("generator", {}).get("params", {})
-    if "excel_file" in mesh_gen:
-        mesh_gen["excel_file"] = _resolve(mesh_gen["excel_file"])
     if "airfoil_dir" in mesh_gen:
         mesh_gen["airfoil_dir"] = _resolve(mesh_gen["airfoil_dir"])
 

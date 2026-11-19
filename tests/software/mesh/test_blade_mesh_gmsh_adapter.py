@@ -108,7 +108,7 @@ def test_s7e_geometry_only_is_t7():
         BladeMesh(yaml_file=str(V2_YAML)).generate(geometry_only=True)
 
 
-def test_blade_wrapper_forwards_no_numad_key_and_generate_blocks_sections_is_t7(monkeypatch):
+def test_blade_wrapper_forwards_no_numad_key_and_has_no_blocks_sections(monkeypatch):
     from aeroelast.models.blade.model import Blade
 
     calls = []
@@ -125,8 +125,7 @@ def test_blade_wrapper_forwards_no_numad_key_and_generate_blocks_sections_is_t7(
     blade = Blade(str(V2_YAML))
     blade.generate_mesh()
     assert "n_samples" not in calls[-1] and calls[-1]["element_size"] is None
-    with pytest.raises(NotImplementedError, match="T7"):
-        blade.generate_blocks_sections()
+    assert not hasattr(blade, "generate_blocks_sections")  # NuMAD block meshing deleted (T11, S9)
 
 
 def test_runner_gmsh_blade_dispatch_is_unchanged(monkeypatch):
@@ -308,8 +307,10 @@ def test_rotor_and_blade_model_defaults_forward_no_numad_key(monkeypatch):
     model.Rotor("blade.yaml", 3).generate_mesh()
     assert "n_samples" not in captured
     assert captured.get("element_size") is None
-    bm = model.BladeModel.__init__.__defaults__
-    assert bm == (None, None)
+    import inspect
+    params = inspect.signature(model.BladeModel.__init__).parameters
+    assert "n_samples" not in params  # NuMAD sampling key deleted (T11, S9)
+    assert all(p.default is None for p in params.values() if p.default is not inspect.Parameter.empty)
 
 
 def test_mesh_param_dataclasses_carry_no_numad_default():

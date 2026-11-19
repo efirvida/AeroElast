@@ -49,15 +49,13 @@ def _given_mesh_options(args: argparse.Namespace, base_dir: Path, *extra: str) -
     """Mesh options the user actually passed; nothing is injected.
 
     An absent size is the generator's reference mesh and a NuMAD-only option (--n-samples, --span-grading, --airfoil-spacing,
-    --airfoil-dir, --excel-file) reaches ``BladeMesh``/``RotorMesh``, which reject it (odd/tasks/gmsh-official-mesher.md, S7a/b/c).
+    --airfoil-dir) reaches ``BladeMesh``/``RotorMesh``, which reject it (odd/tasks/gmsh-official-mesher.md, S7a/b/c).
     """
     out: dict = {}
     for name in ("element_size", "chord_divisions", "span_aspect", "n_samples", "airfoil_spacing", *extra):
         value = getattr(args, name, None)
         if value is not None:
             out[name] = value
-    if getattr(args, "excel_file", None):
-        out["excel_file"] = _resolve_cli_path(args.excel_file, base_dir)
     if getattr(args, "airfoil_dir", None):
         out["airfoil_dir"] = _resolve_cli_path(args.airfoil_dir, base_dir)
     return out
@@ -71,14 +69,14 @@ def _build_mesh_from_cli(args: argparse.Namespace, base_dir: Path):
         raise ValueError("--mesh-generator is required with --export-mesh or --export-parts-dir")
 
     if args.mesh_generator == "BladeMesh":
-        if not args.blade_yaml and not args.excel_file:
+        if not args.blade_yaml:
             raise ValueError("BladeMesh export requires --blade-yaml (a windIO v2 yaml)")
         generator = BladeMesh(
             yaml_file=_resolve_cli_path(args.blade_yaml, base_dir),
             **_given_mesh_options(args, base_dir, "span_grading"),
         )
     elif args.mesh_generator == "RotorMesh":
-        if not args.blade_yaml and not args.excel_file:
+        if not args.blade_yaml:
             raise ValueError("RotorMesh export requires --blade-yaml (a windIO v2 yaml)")
         generator = RotorMesh(
             yaml_file=_resolve_cli_path(args.blade_yaml, base_dir),
@@ -89,11 +87,10 @@ def _build_mesh_from_cli(args: argparse.Namespace, base_dir: Path):
             **_given_mesh_options(args, base_dir),
         )
     elif args.mesh_generator == "RotorHubMesh":
-        if not args.blade_yaml and not args.excel_file:
-            raise ValueError("RotorHubMesh export requires --blade-yaml or --excel-file")
+        if not args.blade_yaml:
+            raise ValueError("RotorHubMesh export requires --blade-yaml (a windIO v2 yaml)")
         generator = RotorHubMesh(
             yaml_file=_resolve_cli_path(args.blade_yaml, base_dir),
-            excel_file=_resolve_cli_path(args.excel_file, base_dir),
             airfoil_dir=_resolve_cli_path(args.airfoil_dir, base_dir),
             n_blades=args.n_blades,
             hub_radius=args.hub_radius,
@@ -250,12 +247,8 @@ Mesh generation (see `aeroelast mesh --help`):
         help="windIO v2 YAML blade definition used by direct mesh export (e.g. tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)",
     )
     parser.add_argument(
-        "--excel-file",
-        help="Retired (NuMAD): BladeMesh/RotorMesh reject it; use --blade-yaml with a windIO v2 yaml",
-    )
-    parser.add_argument(
         "--airfoil-dir",
-        help="Retired (NuMAD, used with --excel-file): rejected by BladeMesh/RotorMesh",
+        help="Retired (NuMAD): rejected by BladeMesh/RotorMesh",
     )
     parser.add_argument(
         "--n-blades",
