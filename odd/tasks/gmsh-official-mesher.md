@@ -10,12 +10,22 @@ Make the gmsh skin mesher the single blade mesher of the framework (runner, conf
 - S3 (destructive step): removing the NuMAD mesher (and the windio2 mesher) deletes code others import; it is not done by the agent without the user's explicit confirmation of the exact files, after G-A, G-B and G-C are recorded, and after a search of every importer. Until then both stay.
 - S4 (AGENTS.md physics discipline): tolerances not moved; negative results reported; the user's strict validation order (thesis-validation-plan.md) is not skipped by this work.
 
+- S5 (user decision 2026-11-19, L-S39): G-C is declared not arbitrable and NuMAD is retired; the answer chosen verbatim: "Declarar G-C no arbitrable y retirar (Recomendado)" — option text: "Se registra por escrito: NuMAD no es referencia (stubs, snap, S-5 in-plane +63 %), la brecha no se puede separar de v1/v2, la referencia es BeamDyn/OpenFAST, no NuMAD. Aceptar las 5 filas peores de G-A. Retiro en fases: cablear gmsh en Blade/Rotor/configs, migrar guardas, y recién después te muestro la lista exacta para borrar." S3 still binds the deletion itself.
+
+- S6 (user decision 2026-11-19, L-S41, verbatim choice): "Re-apuntarlas a la v2 oficial (Recomendado)" — option text: "Script que cambia `BladeMesh` + yaml v1 -> `GmshBladeMesh` + tests/IEA15MW/reference/upstream (v2), mapeando parámetros (element_size, malla N20 de referencia); las del xlsx UTD se archivan. Sus números se mueven por diseño; ninguna es ancla vigente." Supersedes, for the mesher only, L5 T7's "legacy cases untouched".
+- S7 (T6 contract, derived from S1/S5/S6, AGENTS rule 9): `BladeMesh` and `Blade` build with GmshBladeMesh. (a) A windIO v1 yaml or `excel_file` raises ValueError naming the input and the v2 file to use (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml). (b) NuMAD-only keys (n_samples, airfoil_spacing, span_grading, airfoil_dir, refine_tip, max_bay_length, laminate_per_row) raise ValueError listing them; never dropped silently. (c) Without element_size or chord_divisions the mesh is the reference: chord_divisions 20, span_aspect 1; element_size >= 0.3 is not a default anywhere (rule 9). (d) Node/element set names, numad_mesh_data and numad_blade keep the GmshBladeMesh contract already consumed by runner/run_bem_fsi; existing GMSH_BLADE configs unchanged. (e) include_webs=False and geometry_only are T7: until then they raise NotImplementedError naming T7.
+
 ## Tasks
 - T1 | S1 S4 | explorer | pending | Read-only map of how the framework consumes the blade mesh: runner.py BladeMesh sites (727, 829), config, BEMFSIParticipant/ForceProjector ring and strip assumptions (constant-z or constant-eta rings, node sets RootNodes/TipNodes, TE/LE detection), tests that import the NuMAD mesher. Output: what a gmsh MeshModel would have to provide, with path:line evidence.
 - T2 | S1 S4 | parent | pending | G-A evidence table (better mesher) from numbers already measured plus any gap found.
 - T3 | S1 S2 | parent | pending | G-B: h-sequence of the open-cause residuals at the certified sizes (A3 IEA-15 outboard edge; A2 z 80-100 m torsion; A4 IEA-22 flap already stable 0.5 pp 0.25 -> 0.125).
 - T4 | S1 S4 | parent | pending | Wire gmsh into the runner/config behind an explicit option first (default unchanged), tests RED/GREEN, then G-C parity run.
 - T5 | S3 | parent + user | pending | Retirement of NuMAD and windio2 meshers: importer search, list of files, user confirmation, removal, quick gate. Not before T2-T4 are recorded.
+
+- T6 | S1 S3 S5 S6 S7 | worker (T6a adapter) then parent (T6b configs) | in progress | R1: `BladeMesh` (core/mesh/generators.py) and `Blade.generate_mesh` (models/blade/model.py) build with gmsh; the YAML key `BladeMesh` stays as an alias so the 149 configs keep loading (their numbers move by design, S5). Needs T1's map first.
+- T7 | S1 S3 S5 | parent | pending | R2: RotorMesh / RotorHubMesh build their blades with gmsh; R3: the windIO2 geometry-only adapter (generators.py:1171, S13) moves out of the NuMAD BladeMesh.
+- T8 | S1 S4 S5 | parent | pending | R4: physics guards that only ran on NuMAD (test_blade_section_frame_tear, test_blade_section_torsion_stiffness, anything T1 finds) move to the gmsh reference mesh; NuMAD-only tests (counts, local_refine, mesh_quality, span_decoupling, mesher_minor, web_position) go to the deletion list.
+- T9 | S3 | parent + user | pending | R5: fresh importer scan, exact file list (src, tests, tools) to the user, deletion only after the user's explicit confirmation, quick gate, full suite on SLURM, known-red re-record.
 
 ## Log
 - L1 User (verbatim): "yo quiero cablear gmsh y usarlo siempre desestimar los otros malladores, pero solo cuando nos aseguremos de que es mejor mallador y que las diferencias son fisicas o numericas, pero no de malla. entonces eliminamos el mallador de numad y dejamos el nuestro" (sent while the torque-sensitivity job 11707361 was running; that job is unaffected and its result feeds G-C).
@@ -95,3 +105,34 @@ Engram was unavailable (server ownership mismatch on port 7437) the whole sessio
   from the evidence already logged (L-S1..L-S36, gmsh-gap-reduction, gmsh-chord-scaled-mesh), gaps named; fresh
   importer scan; exact file list to the user (S3); removal; physics guards that only ran on NuMAD (frame_tear, section
   torsion GJ) move to the gmsh reference mesh. L5 paused meanwhile (only SLURM 11750509-12 run).
+- L-S38 (2026-11-19) Gate drafts from logged evidence (explorer mwnj7ps1-3-80qk, read-only; nothing re-run). G-A: 15
+  rows, 8 better / 2 same / 5 worse (V-02 1F +0.88 pp; S-4 parked 1E/2F, rated 1E/2F +0.5-1.1 pp) plus S-5 flap
+  +1.8 pp, no row pass->fail, LC1/LC4 fail->pass, S-5 in-plane NuMAD +63 % vs gmsh +2.8 % against the 1D beam; gaps:
+  NuMAD quality metrics, material fidelity and h-sequence never recorded; V-02/V-03/V-05 only on uniform 0.25, not
+  N20. G-B: A3, A4, A8 met; A7 met (weld decided L-S37, not done); A2 outboard partial (no h 0.125, OOM); A6 (S-1 on
+  gmsh) and A9 (torsion frequency) without cross-check; A1 the user's. G-C NOT MET: production (wall flow on) gmsh vs
+  numad-mid torque +5.78 %, thrust +8.7 %, tip twist -26 % (L-S8, L-S19) against the 0.36 % L3 budget; wall flow off
+  +1.46 % / +1.95 %; not separable: numad reads the v1 yaml, gmsh the v2 (L-S22) and NuMAD cannot mesh v2; windio2
+  control lands on neither (L-S24); no N20 G-C row after the TE/ring work; no two-way comparison. Code: gmsh wired in
+  runner/config/run_bem_fsi behind GMSH_BLADE (config.py:249, runner.py:705, run_bem_fsi.py:285); absent in
+  Blade.generate_mesh (model.py), RotorMesh/RotorHubMesh, the windIO2 geometry adapter and the 149 configs.
+  Fresh importer scan logs/check/gmsh_retire/import_scan_20261119.txt: core.mesh.generators imported by 4 src,
+  18 tests, 51 tools. Reading: S1's condition ("las diferencias son fisicas o numericas, pero no de malla") is not
+  demonstrated for G-C; the user's call is needed before any deletion.
+- L-S39 (2026-11-19) User, on G-C not met and not arbitrable (L-S38): "Declarar G-C no arbitrable y retirar (Recomendado)". Recorded as S5: the reference is BeamDyn/OpenFAST, not NuMAD; the 5 worse G-A rows (0.5-1.1 pp) and S-5 flap (+1.8 pp, inside its band) are accepted; G-C gap +5.78 % torque / +8.7 % thrust / -26 % tip twist (production, gmsh v2 vs numad-mid v1) is declared mixed mesher + definition and not separable because NuMAD cannot mesh windIO v2. Retirement phases T6-T9 added; T1 (consumer map) runs first. Deletion still waits for the user's confirmation of the exact files (S3).
+- L-S40 (2026-11-19) T1 DONE (explorer mwnjpqjt-4-xeit, read-only). Blocker for T6: every `type: BladeMesh` config
+  (~150; tests/IEA15MW/ch6_prepared_cases ~80, frontiersin_2025_yaw, ab_test, convergence_b1_b2, parked_v50,
+  yaw_smoke_cases, tests/smoke_fix, tests/exp_*, tests/zeta_sweep) reads the windIO v1 tests/IEA-15-240-RWT.yaml
+  (no windIO_version -> "1.0", windio.py:21) or the UTD xlsx; GmshBladeMesh (core/mesh/gmsh_blade.py:172, :223)
+  needs blade.windio2_topology, so it cannot read them: an alias alone breaks every legacy config. v2 inputs:
+  tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml, IEA22MW upstream, IEA34 upstream (2.1.1). cases/l5_* (8)
+  already use GmshBladeMesh. Missing on gmsh: excel_file, include_webs (test_blade_no_webs, CFD surface),
+  geometry_only (the windIO2 public adapter, generators.py:1165-1187, itself built on the windio2 mesher via
+  core/mesh/windio2.py:13), Blade spline data splineZi/Xi/Yi (model.py:183, 385-387, generate_blocks_sections),
+  per-element thickness. RotorMesh swaps cleanly (needs base_mesh + numad_blade.definition); RotorHubMesh reads only
+  the kept definition objects. v2 twins in tests/validation/blade/v2/ default to the windio2 mesher
+  (tests/support/v2_blade.py:75), not gmsh. Physics guards with no gmsh twin: S-6 dynamic, section torsion GJ,
+  frame tear, twist anchor beam, sectional tangent frame, T7 panel parity, ccx parity (blade, parked v50),
+  multicell shear flow, bem_fsi deformed geometry. NuMAD-only tests: test_blade_mesh, local_refine, mesh_quality,
+  mesher_minor, span_decoupling, bay_length, web_position, the v1 half of test_windio2_public_mesh.
+- L-S41 (2026-11-19) User, on the ~150 windIO-v1 legacy configs: "Re-apuntarlas a la v2 oficial (Recomendado)" (S6). S7 written as the T6 contract. T6 split: T6a adapter (BladeMesh/Blade on gmsh, S7), T6b config migration script (S6), after T6a.
