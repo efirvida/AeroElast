@@ -19,7 +19,7 @@ deck (``_build_quadratic_data`` stacks the corner nodes first); the tool checks 
 
 Usage (SLURM, not the login node):
 
-    python tools/diagnose_g5_mode7.py --meshes 0.5 0.35 0.25 --modes 10 --out logs/check/l3/g5/mac.json
+    python tools/diagnose_g5_mode7.py --meshes 0.25 0.177 0.125 --modes 10 --out logs/check/l3/g5/mac.json
 """
 
 from __future__ import annotations

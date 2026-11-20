@@ -6,7 +6,7 @@ convergence trend of:
   * S-5: the parked static OoP tip deflection under the AD loads
 
 Usage:
-  python tools/run_sx_convergence.py --sizes 1.0 0.5 0.25 \
+  python tools/run_sx_convergence.py --sizes 0.25 0.177 0.125 \
       --out <openfast .out> --ad-blade <AeroDyn15_blade.dat> \
       --csv docs/validation_data/generated/sx_mesh_convergence.csv
 """
