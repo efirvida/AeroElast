@@ -337,7 +337,7 @@ def view_ref(out_dir):
     mesh, _, _ = P.build_shell(20)
     X = np.array([n.coords for n in mesh.nodes], float)
     data = load()
-    twist_grid = data["components"]["blade"]["outer_shape_bem"]["twist"]
+    twist_grid = data["components"]["blade"]["outer_shape"]["twist"]  # windIO 2: degrees
     rows = []
     for z0 in stations():
         eta = z0 / R_M
@@ -346,7 +346,7 @@ def view_ref(out_dir):
         K2_yaml = thin_wall_block(sp)  # in the yaml frame, for the record
         rows.append({"z": z0, "eta": eta, **table_row(C), "EI_flap_Nm2": float(K2[0, 0]), "EI_edge_Nm2": float(K2[1, 1]),
                      "EI_cross_Nm2": float(-K2[0, 1]), "chord_angle_mesh_deg": chord_angle_deg(ring),
-                     "windio_twist_deg": float(np.degrees(interp(twist_grid, eta))),
+                     "windio_twist_deg": float(interp(twist_grid, eta)),
                      "alignment": {"best_residual_m": best["residual"], "second_residual_m": cand[1]["residual"],
                                    "reflect": best["reflect"], "swap": best["swap"],
                                    "rotation_deg": float(np.degrees(np.arctan2(best["A"][1, 0], best["A"][0, 0]))),

@@ -1,83 +1,52 @@
-"""Summarise the mass diagnostic JSON, without importing aeroelast.
+"""Blade mass report of the windIO 2.x layup, mesh-free (independent evaluator).
 
-Run: python -B tools/blade_mass_report.py
-Writes logs/check/mass/layer-report.txt. Delta decomposes exactly into coverage,
-thickness and geometry terms; it does not infer SONATA internals from a deck.
+Run: python -B tools/blade_mass_report.py [--yaml FILE] [--stations N] [--output FILE]
+
+Per layer mass per length at N stations (tools/yaml_layup_independent), the layup mass per length against the
+declared elastic_properties mass, and the blade mass: both integrated over the reference-axis arc length.
+Prints to stdout; --output also writes the text. (The pre-T18 version summarised a NuMAD-mesh diagnostic JSON under
+logs/check/mass; that mesher and its JSON are retired, so this report no longer depends on any mesh artefact.)
 """
 
-import json
+import argparse
 from pathlib import Path
 
 import numpy as np
 
-from yaml_layup_independent import contour, interp, load
+from yaml_layup_independent import DEFAULT_YAML, blade_length, blade_mass, load, section
 
-ROOT = Path(__file__).resolve().parents[1]
+
+def report(data, stations=12):
+    lines = [f"blade length (reference-axis arc) = {blade_length(data):.4f} m",
+             "eta layer material thickness[m] width[m] mass[kg/m]"]
+    totals = {}
+    for eta in np.linspace(0.2, 0.85, stations):
+        r = section(data, eta)
+        for layer in r["layers"]:
+            lines.append(f"{eta:.6f} {layer['name']} {layer['material']} {layer['thickness_m']:.9f} "
+                         f"{layer['width_m']:.6f} {layer['mass']:.6f}")
+            totals.setdefault(layer["material"], []).append(layer["mass"] / r["beam_mass"])
+        lines.append(f"{eta:.6f} TOTAL layup={r['mass']:.5f} declared={r['beam_mass']:.5f} kg/m "
+                     f"({100*(r['mass']/r['beam_mass']-1):+.4f} %)")
+    for material, v in sorted(totals.items()):
+        lines.append(f"MATERIAL_MEAN {material} contribution_pct_of_declared={100*np.sum(v)/stations:.6f}")
+    layup, declared = blade_mass(data)
+    lines.append(f"BLADE_MASS layup={layup:.1f} kg declared(elastic_properties)={declared:.1f} kg "
+                 f"ratio-1={100*(layup/declared-1):+.3f} %")
+    return lines
 
 
 def main():
-    evidence = json.loads((ROOT / "logs/check/mass/diagnostic.json").read_text())
-    lines = ["kg/m; widths are actual mesh area / axial span; density=1940 kg/m^3",
-             "Post-fix mesh_h is region-effective thickness (includes partial coverage).",
-             "coverage/thickness/geometry is an algebraic decomposition, not three independent physical effects.",
-             "reference eta layer yaml_h mesh_h_min mesh_h_max yaml_width mesh_width delta coverage thickness geometry"]
-    for reference, result in evidence.items():
-        terms = {}
-        for row in result["stations"]:
-            if not .2 <= row["eta"] <= .85:
-                continue
-            for layer in row["layers"]:
-                if layer["material"] != "glass_triax":
-                    continue
-                mapped = layer["mapped"]
-                h = layer["thickness_m"]
-                w = mapped["width_m"]
-                # Both affected skins are mapped over the full perimeter.
-                # This decomposition is exact for those uniform-thickness layers.
-                hm = mapped["mass"]/(1940*w)
-                coverage = 1940*h*(row["perimeter_m"]-layer["width_m"])
-                thickness = 1940*(hm-h)*w
-                geometry = 1940*h*(w-row["perimeter_m"])
-                terms.setdefault(layer["name"], []).append([coverage, thickness, geometry])
-                lines.append(f"{reference} {row['eta']:.6f} {layer['name']} {h:.9f} "
-                             f"{min(mapped['thicknesses_m']):.9f} {max(mapped['thicknesses_m']):.9f} "
-                             f"{layer['width_m']:.6f} {w:.6f} {layer['delta_kg_m']:+.6f} "
-                             f"{coverage:+.6f} {thickness:+.6f} {geometry:+.6f}")
-        for name, values in terms.items():
-            mean = np.mean(values, axis=0)
-            lines.append(f"NATIVE_MEAN {reference} {name} coverage/thickness/geometry="
-                         f"{mean[0]:+.6f}/{mean[1]:+.6f}/{mean[2]:+.6f} kg/m")
-        yaml_ratios = [row["mass"]/row["beam_mass"]-1 for row in result["stations"]
-                       if .2 <= row["eta"] <= .85]
-        lines.append(f"NATIVE_MEAN yaml/beam signed={100*np.mean(yaml_ratios):+.6f}% "
-                     "(native midpoints; not the prior 12-station mean)")
-    data = load()
-    structure = data["components"]["blade"]["internal_structure_2d_fem"]
-    le = next(l for l in structure["layers"] if l["name"] == "LE_reinforcement")
-    rho = next(m["rho"] for m in data["materials"] if m["name"] == le["material"])
-    for eta in (3.5/49, 40.5/49):
-        a, b = (interp(le[key], eta) for key in ("start_nd_arc", "end_nd_arc"))
-        h = interp(le["thickness"], eta)
-        _, _, perimeter = contour(data, eta)
-        lines.append(f"YAML_INVALID_CHECK eta={eta:.9f} nd=[{a:.17g},{b:.17g}] "
-                     f"h_m={h:.9g} signed_strip_mass_kg_m={rho*h*(b-a)*perimeter:.9g}; "
-                     "diagnostic skips the independent comparison row, NOT a production mesh layer")
-    original = json.loads((ROOT / "logs/check/layup/independent.json").read_text())
-    delta = 100*np.mean([r["mass"]/r["beam_mass"]-1 for r in original])
-    lines.append(f"ORIGINAL_12_STATION_MEAN yaml/beam signed={delta:+.6f}% (unmodified independent integral)")
-    for material in sorted({l["material"] for r in original for l in r["layers"]}):
-        fraction = 100*np.mean([sum(l["mass"] for l in r["layers"]
-                                   if l["material"] == material)/r["beam_mass"]
-                                for r in original])
-        lines.append(f"MATERIAL_REMOVAL_MEAN {material} contribution_pct_of_beam={fraction:.6f} "
-                     f"remaining_yaml_minus_beam_pct={delta-fraction:+.6f}; "
-                     "sensitivity only, NOT evidence that BeamDyn omits this material")
-    path = ROOT / "logs/check/mass/layer-report.txt"
-    path.write_text("\n".join(lines)+"\n")
-    for line in lines:
-        if "MEAN" in line or "0.500000" in line or "YAML_INVALID_CHECK" in line:
-            print(line)
-    print("WROTE", path)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--yaml", type=Path, default=DEFAULT_YAML)
+    parser.add_argument("--stations", type=int, default=12)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    lines = report(load(args.yaml), args.stations)
+    print("\n".join(lines))
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":
