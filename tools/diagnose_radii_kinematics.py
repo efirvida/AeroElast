@@ -7,7 +7,7 @@ line (trapezoid rule) the fed ``u_z`` splits into the linear prebend/sweep kinem
 linear solve omits the second-order shortening ``nl = -1/2 int (u_y'^2 + u_x'^2) dz``.
 ``|nl| / lin > 1`` means the fed term has the wrong physical sign.
 
-States solved (official IEA-15MW mesh, element_size 1.0, rigid-blade rated aero load):
+States solved (official IEA-15MW mesh, element_size 0.25, rigid-blade rated aero load):
   control : K u = F_aero  (the de-loading fixture; reproduces lin +1.0973, nl -2.1534 m)
   prod    : (K + K_G + K_SP) u = F_aero + F_cf(X0), 7.56 rpm, axis +y, centre 0 (as every
             case YAML), K_G from the static centrifugal solve with free_dofs
@@ -40,7 +40,7 @@ AXIS = np.array([0.0, 1.0, 0.0])
 
 Node._id_counter = 0
 MeshElement._id_counter = 0
-model = Blade(str(fx.YAML), element_size=1.0)
+model = Blade(str(fx.YAML), element_size=0.25)
 model.generate_mesh()
 mesh = model.mesh
 props = model.get_element_properties()

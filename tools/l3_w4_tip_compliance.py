@@ -1,6 +1,6 @@
 """W4/T5 (L3 D3): is the FE local GJ drop below Bredt from z~100 load introduction / section distortion (b) or mesh/extraction (c)?
 
-usage: python tools/l3_w4_tip_compliance.py CASE OUT.json      CASE = gmsh<N> | windio2
+usage: python tools/l3_w4_tip_compliance.py CASE OUT.json      CASE = gmsh<N>
 Same case as the S-7 test (mid-surface, tip torque 1000 N.m as wall shear flow on TipNodes, root clamped).  Variant ``--zload Z``:
 the same torque is applied on the ring of nodes nearest z = Z (full wall-flow, nothing outboard) - a load-introduction probe: if the drop
 is tip introduction it moves with the load plane; if it is the section it stays at the same z.
@@ -36,11 +36,9 @@ def parse():
 
 
 def mesh_kw(case):
-    return (
-        {"mesher": "windio2"}
-        if case == "windio2"
-        else {"mesher": "gmsh", "chord_divisions": int(case[4:])}
-    )
+    if not case.startswith("gmsh"):
+        raise SystemExit(f"CASE {case!r}: only gmsh<N> exists (the windio2 mesher is retired, gmsh-official-mesher S9)")
+    return {"mesher": "gmsh", "chord_divisions": int(case[4:])}
 
 
 def solve(mesh, props, zload):

@@ -153,27 +153,15 @@ def extract_ad_loads(out_path: Path, ad_blade_path: Path, t_lo=80.0, t_hi=100.0)
     return blspn, fn, ft, twist
 
 
-def build_assembly(element_size=0.25, skin_reference="oml", mesher="numad"):
+def build_assembly(element_size=0.25, skin_reference="oml"):
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
     from aeroelast.core.assembler import MeshAssembler
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    if mesher == "gmsh":
-        # the gmsh skin mesher on the windIO 2.0 definition of the same turbine
-        from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh
-
-        gen = GmshBladeMesh(
-            yaml_file=str(REPO / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"),
-            element_size=element_size,
-            skin_reference=skin_reference,
-        )
-    else:
-        gen = BladeMesh(
-            element_size=element_size,
-            yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"),
-            skin_reference=skin_reference,
-        )
+    # the gmsh skin mesher on the windIO 2.x definition (element_size None = reference mesh N20 AR 1)
+    gen = blade_generator(V2_IEA15, element_size, skin_reference)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {
@@ -214,7 +202,7 @@ def apply_ad_loads(assembler, mesh, r_m, fn, ft, twist_deg=None):
     geometric twist.  AeroDyn BlTwist is positive to feather (leading edge
     toward upwind); in the mesh frame (LE +x, suction/downwind +y, span +z)
     the chord angle (TE -> LE about +z) is therefore psi = -BlTwist, for the
-    numad v1 mesh (always) and for the windIO-v2 / gmsh mesh (since the
+    gmsh / windIO-v2 mesh (since the
     2026-11-15 pretwist fix, odd/tasks/l5-one-way.md T11).  The exact section
     frame is rebuilt from the interpolated BlTwist: with psi = -BlTwist,
     t_hat = (cos psi, sin psi, 0) (chord), n_hat = (-sin psi, cos psi, 0)
@@ -243,7 +231,7 @@ def apply_ad_loads(assembler, mesh, r_m, fn, ft, twist_deg=None):
 
     if twist_deg is not None:
         # Physical airfoil frame in the mesh: chord angle psi = -BlTwist (positive twist = LE upwind = -y),
-        # for both meshers (numad v1 and gmsh/windIO-v2 after the T11 pretwist fix).
+        # for the gmsh/windIO-v2 mesh (after the T11 pretwist fix).
         psi = -np.deg2rad(np.interp(z, r_m, twist_deg))
         t_hat = np.column_stack([np.cos(psi), np.sin(psi), np.zeros_like(psi)])
         n_hat = np.column_stack([-np.sin(psi), np.cos(psi), np.zeros_like(psi)])
@@ -327,7 +315,7 @@ def main():
                          "(r_m,fn_Nm,ft_Nm) instead of --out/--ad-blade")
     ap.add_argument("--export", type=Path, default=None,
                     help="export the AD loads to a CSV artifact")
-    ap.add_argument("--element-size", type=float, default=0.25)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     args = ap.parse_args()
 
     if args.loads:

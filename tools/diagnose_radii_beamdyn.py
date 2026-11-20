@@ -71,7 +71,7 @@ def kinematics(X, U):
 def shell_state():
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(fx.YAML), element_size=1.0)
+    model = Blade(str(fx.YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     asm = MeshAssembler(mesh, {"elements": {"element_family": ElementFamily.SHELL,

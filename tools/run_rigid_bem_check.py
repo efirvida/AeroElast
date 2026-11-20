@@ -37,7 +37,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-BLADE_FILE = REPO / "tests" / "IEA-15-240-RWT.yaml"
+BLADE_FILE = REPO / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"
 REF_CSV = REPO / "docs" / "validation_data" / "reference_iea15mw_rotor_performance.csv"
 
 # S-6 / FSI yaw campaign operating point

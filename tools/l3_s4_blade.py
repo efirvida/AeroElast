@@ -1,6 +1,6 @@
 """Parked/rotating S-4 modes of a supported windIO v1/v2.0 YAML, using the S-4 test path.
 
-python tools/l3_s4_blade.py --yaml tests/IEA-3.4-130-RWT.yaml --element-size 0.25 --out r.json
+python tools/l3_s4_blade.py --yaml tests/IEA34/reference/upstream/IEA-3.4-130-RWT.yaml --out r.json
 
 Mirrors tests/test_iea15mw_s4_rotating_modal.py: MITC4 shell, skin_reference="mid", clamped
 root nodes, consistent mass, ``assemble_rotating`` (K + K_G + K_SP, parked by default) and
@@ -32,11 +32,12 @@ from run_s4_rotating_modal import (  # noqa: E402
 
 def build_assembly(yaml_file, element_size):
     from aeroelast.core.assembler import MeshAssembler
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import blade_generator
+
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=element_size, yaml_file=str(yaml_file), skin_reference="mid")
+    gen = blade_generator(yaml_file, element_size)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {"elements": {"element_family": ElementFamily.SHELL,
@@ -46,13 +47,13 @@ def build_assembly(yaml_file, element_size):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--yaml", required=True, help="Unmodified windIO v1 or supported v2.0 blade YAML")
-    ap.add_argument("--element-size", type=float, required=True)
+    ap.add_argument("--yaml", required=True, help="windIO 2.x blade YAML (tests/IEA15MW|IEA34/reference/upstream)")
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--out", required=True)
     ap.add_argument("--rpm", type=float, default=0.0)
     ap.add_argument("--n-modes", type=int, default=12, help="12 = the S-4 test")
     args = ap.parse_args()
-    if args.element_size >= 0.3:
+    if args.element_size is not None and args.element_size >= 0.3:
         ap.error("element_size >= 0.3 is not allowed (docs/blade_mesh_size_rule.md)")
 
     asm, mesh = build_assembly(Path(args.yaml), args.element_size)

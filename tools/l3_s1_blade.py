@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""S-1 sectional metrics of a supported windIO v1/v2.0 blade against its BeamDyn 6x6.
+"""S-1 sectional metrics of a supported windIO 2.x blade against its BeamDyn 6x6.
 
 Same extraction as ``tests/test_iea15mw_s1_sectional.py`` (mid-surface skin, native yaml bay centres,
 tangent-frame EI from two static solves, T40 wall-shear-flow GJ, CLT EA, station-membership mass), with
@@ -7,9 +7,9 @@ the yaml, the deck and the blade length as arguments, so the IEA-15 and a second
 Prints, per metric, the mid-span (0.2-0.85 of the station range) signed mean and mean |rel err| vs the deck,
 GJ band means, and writes the per-station values to ``--out`` (JSON). Decides nothing.
 
-  python tools/l3_s1_blade.py --yaml tests/IEA-3.4-130-RWT.yaml \\
+  python tools/l3_s1_blade.py --yaml tests/IEA34/reference/upstream/IEA-3.4-130-RWT.yaml \\
       --beamdyn tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat --blade-length 63.0 \\
-      --element-size 0.25 --out logs/check/l3/t9/s1-iea34-es025.json
+      --out logs/check/l3/t9/s1-iea34-n20.json
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from beam_reference import load_beamdyn_blade  # noqa: E402
 from run_s1_sectional import ea_gj_from_static_response, native_bay_centres  # noqa: E402
+from v2_blade_mesh import blade_generator  # noqa: E402
 
 GJ_BANDS = ((0.2, 0.3), (0.3, 0.6), (0.6, 0.85))
 
@@ -38,22 +39,21 @@ def _summary(z, ours, ref, lo=0.2, hi=0.85):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--yaml", required=True, help="Unmodified windIO v1 or supported v2.0 blade YAML")
+    ap.add_argument("--yaml", required=True, help="windIO 2.x blade YAML (tests/IEA15MW|IEA34/reference/upstream)")
     ap.add_argument("--beamdyn", required=True, help="BeamDyn blade file (6x6 per station)")
     ap.add_argument("--blade-length", type=float, required=True,
                     help="length that scales the deck eta (yaml reference_axis z at the tip)")
-    ap.add_argument("--element-size", type=float, default=0.25)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
-    if args.element_size >= 0.3:
+    if args.element_size is not None and args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
 
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.models.blade.model import build_rust_properties
     from aeroelast.postprocess.sectional import SectionalExtractor
 
     bd = load_beamdyn_blade(args.beamdyn, blade_length=args.blade_length)
-    gen = BladeMesh(yaml_file=args.yaml, element_size=args.element_size, skin_reference="mid")
+    gen = blade_generator(args.yaml, args.element_size)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     ext = SectionalExtractor(mesh, props)

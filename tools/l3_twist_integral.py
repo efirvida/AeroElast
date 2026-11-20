@@ -10,9 +10,9 @@ T / (GJ tz) dz (the extractor takes the rate per arc length, ds = dz / tz) with 
 ``tools/l3_bredt_mesh.py`` on a dense z grid, and with the deck GJ_sc. T is the delivered moment about
 the station tangent. Ratio ~1: the FE is torsionally right (extraction wrong); ~1.2-1.3: the FE is soft.
 
-  python tools/l3_twist_integral.py --yaml tests/IEA-3.4-130-RWT.yaml \\
+  python tools/l3_twist_integral.py --yaml tests/IEA34/reference/upstream/IEA-3.4-130-RWT.yaml \\
       --beamdyn tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat --blade-length 63.0 \\
-      --element-size 0.15 --out logs/check/l3/t9/twist/iea34.json
+      --out logs/check/l3/t9/twist/iea34.json
   python tools/l3_twist_integral.py --selftest
 """
 
@@ -218,7 +218,7 @@ def main(argv=None) -> int:
     ap.add_argument("--yaml")
     ap.add_argument("--beamdyn")
     ap.add_argument("--blade-length", type=float)
-    ap.add_argument("--element-size", type=float, default=0.15)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--torque", type=float, default=1e6)
     ap.add_argument("--bands", type=float, nargs="+", help="eta pairs z1 z2 [z1 z2 ...] (default: spec bands)")
     ap.add_argument("--bredt-step", type=float, default=0.5, help="[m] Bredt z grid spacing")
@@ -230,14 +230,14 @@ def main(argv=None) -> int:
         return selftest()
     if not all((args.yaml, args.beamdyn, args.blade_length, args.out)):
         ap.error("--yaml, --beamdyn, --blade-length and --out are required")
-    if args.element_size >= 0.3:
+    if args.element_size is not None and args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
     bands = tuple(zip(args.bands[::2], args.bands[1::2], strict=True)) if args.bands else BANDS
     length = args.blade_length
 
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import blade_generator
 
-    gen = BladeMesh(yaml_file=args.yaml, element_size=args.element_size, skin_reference="mid")
+    gen = blade_generator(args.yaml, args.element_size)
     mesh = gen.generate(renumber="rcm")
     data = gen.numad_mesh_data
     sections = {s["elementSet"]: s for s in data["sections"]}

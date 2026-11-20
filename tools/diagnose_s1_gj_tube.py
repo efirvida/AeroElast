@@ -5,7 +5,7 @@ Runs ``run_s1_sectional.ea_gj_from_static_response`` (T40: tip torque as the end
 shear flow, twist rate from the local quadratic fit; T39 measured the previous couple + spline) on an isotropic MITC4 rectangular
 tube whose torsional stiffness is known per station by thin-wall Bredt, ``GJ = G t 4 A^2 / P``
 (mid-line area and perimeter). The tube copies what the S-1 extraction sees on the blade: 117 m long,
-root clamped, one 0.25 m station element set per layer (``BladeMesh.max_bay_length``), the
+root clamped, one 0.25 m station element set per layer (the former ``BladeMesh.max_bay_length``), the
 ``native_bay_centres`` stations of the official yaml and the S-1 torque of 1e6 N m.
 
 Cases (rectangle 4.0 x 2.0 m or circle of the same 12 m perimeter, mid-line):
@@ -241,7 +241,7 @@ def main():
                     help="s1: ea_gj_from_static_response; s7: run_s7_torsion tip couple + slice twist")
     ap.add_argument("--all-stations", action="store_true", help="stations=None (every 0.25 m layer)")
     args = ap.parse_args()
-    yaml = ROOT / "tests" / "IEA-15-240-RWT.yaml"
+    yaml = ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"
     stations = None if args.all_stations else s1.native_bay_centres(yaml)
     nz = int(round(LENGTH / ES))
     zmid = (np.arange(nz) + 0.5) * ES

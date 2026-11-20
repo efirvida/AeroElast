@@ -67,51 +67,31 @@ BEM_CONFIG = {
 }
 
 
-def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = False, chord_divisions: float | None = None,
+def solve_rated(element_size: float, mesher: str = "gmsh", wall_flow: bool = False, chord_divisions: float | None = None,
                 load_transform=None, mesh_transform=None):
     """Mesh, participant and the rated displacement field (n_nodes, 3).
 
-    ``mesher="gmsh"`` builds the blade with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO v2 YAML of the
-    IEA-15, mid-surface) instead of the NuMAD ``Blade`` model (``chord_divisions`` N sizes that mesh by the local chord, c/N, instead of ``element_size``; gmsh only); ``mesher="windio2"`` builds the same windIO v2 blade with the windio2 mesher; the load, the clamp, the BEM participant and the solve are the same code.
+    The blade is built with the gmsh skin mesher through ``tests.support.v2_blade.build_v2_blade`` (windIO 2.x YAML of the
+    IEA-15, mid-surface; ``chord_divisions`` N sizes that mesh by the local chord, c/N, instead of ``element_size``).  ``mesher`` is
+    kept for the callers and only accepts ``"gmsh"`` (the NuMAD and windio2 meshers are retired, gmsh-official-mesher S9); the load,
+    the clamp, the BEM participant and the solve are the same code.
     """
     from _aeroelast import PyMeshAssembler  # type: ignore[import-not-found]
     from scipy.sparse import coo_matrix
     from scipy.sparse.linalg import spsolve
 
     import tests.validation.blade.test_blade_iea15mw_validation as blade_validation
-    from aeroelast.core.mesh.entities import MeshElement, Node
-    from aeroelast.models.blade.model import Blade
     from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant
     from tests.support.openfast_bem import build_blade_aero_from_aerodyn
     from tests.support.paths import DATA_DIR
 
     ad = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
-    if mesher == "numad-mid":
-        # the NuMAD generator on the mid-surface, built as tests/validation/blade/test_blade_iea15mw_validation.py::build_blade_mesh does
-        from aeroelast.core.mesh.generators import BladeMesh
-        from aeroelast.models.blade.model import build_rust_properties
+    if mesher != "gmsh":
+        raise ValueError(f"mesher {mesher!r}: only 'gmsh' exists (NuMAD / windio2 meshers retired, gmsh-official-mesher S9)")
+    from tests.support.v2_blade import build_v2_blade
 
-        Node._id_counter = 0
-        MeshElement._id_counter = 0
-        generator = BladeMesh(yaml_file=str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=element_size, skin_reference="mid")
-        mesh = generator.generate()
-        props = build_rust_properties(generator.numad_mesh_data)
-    elif mesher == "gmsh":
-        from tests.support.v2_blade import build_v2_blade
-
-        mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="gmsh", es_range=(0.05, 0.25), chord_divisions=chord_divisions)
-    elif mesher == "windio2":
-        # the NuMAD-derived windio2 mesher on the same windIO v2 YAML as "gmsh": isolates the mesher from the blade definition
-        from tests.support.v2_blade import build_v2_blade
-
-        mesh, props = build_v2_blade(element_size, skin_reference="mid", mesher="windio2")
-    else:
-        Node._id_counter = 0
-        MeshElement._id_counter = 0
-        model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=element_size)
-        model.generate_mesh()
-        mesh, props = model.mesh, model.get_element_properties()
-    if mesh_transform is not None:  # diagnostic hook: edit the property assignment (tools/diagnose_gc_twist_chord.py --te-fill)
+    mesh, props = build_v2_blade(element_size, skin_reference="mid", es_range=(0.05, 0.25), chord_divisions=chord_divisions)
+    if mesh_transform is not None:  # diagnostic hook: edit the property assignment (the former diagnose_gc_twist_chord --te-fill)
         mesh, props = mesh_transform(mesh, props)
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props),
@@ -132,7 +112,7 @@ def solve_rated(element_size: float, mesher: str = "numad", wall_flow: bool = Fa
         mesh, build_blade_aero_from_aerodyn(ad), BEM_CONFIG, element_properties=props if wall_flow else None
     )
     forces, _ = participant._compute_forces(np.zeros((n // 6, 3)))
-    if load_transform is not None:  # diagnostic hook: redistribute the nodal load (tools/diagnose_gc_twist_chord.py --load)
+    if load_transform is not None:  # diagnostic hook: redistribute the nodal load (the former diagnose_gc_twist_chord --load)
         forces = load_transform(participant, mesh, forces)
     load = np.zeros(n)
     for dof in range(3):
@@ -276,8 +256,8 @@ def twist_definitions(participant, disp, r_def, tw_def):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--element-size", type=float, default=0.25)
-    parser.add_argument("--mesher", choices=("numad", "numad-mid", "gmsh"), default="numad",
-                        help="blade mesh source: numad = the Blade model (BladeMesh default skin_reference=oml, unchanged default), numad-mid = BladeMesh on the mid-surface, gmsh")
+    parser.add_argument("--mesher", choices=("gmsh",), default="gmsh",
+                        help="blade mesh source: gmsh on the windIO 2.x yaml, mid-surface (the only mesher)")
     parser.add_argument("--chord-divisions", type=float, default=None,
                         help="gmsh only: elements per chord N (chord-scaled mesh) instead of --element-size")
     parser.add_argument("--twist-ratio", type=float, required=True, help="S-7 twist, ours / beam")

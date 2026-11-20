@@ -76,7 +76,8 @@ def bd_wrenches() -> dict:
 def shell_cases(es: float) -> dict:
     from run_s2_static_cases import run_shell_case
 
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
     from aeroelast.models.blade.model import build_rust_properties
     from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 
@@ -89,7 +90,7 @@ def shell_cases(es: float) -> dict:
         return f
 
     StaticLinearSolver._build_f_ext = capture
-    gen = BladeMesh(yaml_file=str(REPO_ROOT / "tests/IEA-15-240-RWT.yaml"), element_size=es)
+    gen = blade_generator(V2_IEA15, es)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     xyz = mesh.coords_array

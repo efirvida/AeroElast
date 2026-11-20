@@ -6,7 +6,7 @@ the yaml Bredt of ``tools/l3_bredt_yaml.py``) or the element / extraction (mesh 
 below it). Generalises ``model_bredt`` of ``tools/bredt_gj.py`` (branch ``fix/cap-arcs``, IEA-15 only)
 to any windIO v1 yaml. Conventions:
 
-* mesh: ``BladeMesh(yaml, element_size, skin_reference='mid')`` as ``tools/l3_s1_blade.py``; the section
+* mesh: ``GmshBladeMesh`` via ``tools/v2_blade_mesh.blade_generator`` (skin_reference mid) as ``tools/l3_s1_blade.py``; the section
   is the element row whose centroid z is nearest ``eta * blade_length``, cut at that z (each element
   polygon gives one wall segment on its mid-surface);
 * wall G t = laminate A66 of the element's section layup (Qbar66 per ply; G12 t for 0 deg plies);
@@ -15,9 +15,9 @@ to any windIO v1 yaml. Conventions:
   (web), with their share of the summed integral ds/(G t);
 * deck GJ_sc = K66 condensed over the two shear strains (``l3_bredt_yaml.condense_shear``).
 
-  python tools/l3_bredt_mesh.py --yaml tests/IEA-3.4-130-RWT.yaml \\
+  python tools/l3_bredt_mesh.py --yaml tests/IEA34/reference/upstream/IEA-3.4-130-RWT.yaml \\
       --beamdyn tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat --blade-length 63.0 \\
-      --element-size 0.15 --stations 0.3 0.5 0.7 --s1-json logs/check/l3/t9/s1-iea34-es0.15.json \\
+      --stations 0.3 0.5 0.7 --s1-json logs/check/l3/t9/s1-iea34-es0.15.json \\
       --yaml-bredt-json logs/check/l3/t9/bredt/iea34.json --out logs/check/l3/t9/bredt/mesh-iea34.json
   python tools/l3_bredt_mesh.py --selftest
 """
@@ -164,10 +164,10 @@ def _chord_frame(blade, z: float):
     return te, np.array([chord, [-chord[1], chord[0]]]).T
 
 
-def build_mesh(yaml: str, element_size: float):
-    from aeroelast.core.mesh.generators import BladeMesh
+def build_mesh(yaml: str, element_size: float | None = None):
+    from v2_blade_mesh import blade_generator
 
-    gen = BladeMesh(yaml_file=yaml, element_size=element_size, skin_reference="mid")
+    gen = blade_generator(yaml, element_size)
     mesh = gen.generate(renumber="rcm")
     data = gen.numad_mesh_data
     sections = {s["elementSet"]: s for s in data["sections"]}
@@ -245,7 +245,7 @@ def main(argv=None) -> int:
     ap.add_argument("--yaml")
     ap.add_argument("--beamdyn")
     ap.add_argument("--blade-length", type=float, help="length that scales the deck eta to the mesh z")
-    ap.add_argument("--element-size", type=float, default=0.15)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--stations", type=float, nargs="+")
     ap.add_argument("--s1-json", help="tools/l3_s1_blade.py output: FE GJ interpolated at the row z")
     ap.add_argument("--yaml-bredt-json", help="tools/l3_bredt_yaml.py output at the same stations")
@@ -255,7 +255,7 @@ def main(argv=None) -> int:
         return selftest()
     if not all((args.yaml, args.beamdyn, args.blade_length, args.stations, args.out)):
         ap.error("--yaml, --beamdyn, --blade-length, --stations and --out are required")
-    if args.element_size >= 0.3:
+    if args.element_size is not None and args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
 
     etas, ks = load_beamdyn_6x6(args.beamdyn)

@@ -6,7 +6,7 @@ Runs four static load cases on the IEA 15 MW blade (clamped root):
   LC3  tip load, edge-ish      (+1, 0, 0) × 1 MN at tip
   LC4  distributed load        (0, +1, 0) × 5 kN/m uniform over the span
 
-Both models share the SAME geometry source (the AeroElast BladeMesh): the
+Both models share the SAME geometry source (the AeroElast GmshBladeMesh, windIO 2.x yaml): the
 beam reference derives its node positions and section orientation from the
 shell mesh, while its stiffness/mass come from the official ElastoDyn +
 BeamDyn distributed properties.  This isolates shell-vs-beam discretization.
@@ -17,7 +17,7 @@ Output:
 
 Usage (SDumont):
   module load glu gcc/14.2.0_sequana
-  python tools/run_s2_static_cases.py [--element-size 0.5] [--n-slices 60]
+  python tools/run_s2_static_cases.py [--element-size 0.25] [--n-slices 60]
 """
 
 from __future__ import annotations
@@ -78,10 +78,9 @@ def run_shell_case(mesh, properties, load) -> np.ndarray:
     if load["type"] == "gravity":
         solver.add_body_forces([BodyForce(list(load["value"]))])
     elif load["type"] == "tip":
-        coords = mesh.coords_array
-        z = coords[:, 2]
-        tip_mask = z >= z.max() - 1e-6
-        tip_idxs = np.nonzero(tip_mask)[0]
+        from production_rings import tip_ring
+
+        tip_idxs = tip_ring(mesh)  # TipNodes: the gmsh mesh has no constant-z rows, the tip row is a node set
         force = np.asarray(load["value"], dtype=np.float64)
         if load.get("distribution", "equal") == "arc":
             # work-equivalent uniform line traction on the free tip edge: a line load stays finite on a
@@ -169,19 +168,28 @@ def nodal_areas(mesh) -> np.ndarray:
 
 
 def ring_mean_at(mesh, u: np.ndarray, z_target: float, weighting="node") -> tuple[float, np.ndarray, int]:
-    """Mean translation of the node ring on the mesh z-plane nearest ``z_target``: (z, mean u, node count).
+    """Mean translation of the production node ring whose mean z is nearest ``z_target``: (ring mean z, mean u, node count).
 
-    ``weighting="node"`` is the arithmetic node mean (biased toward dense parts of the ring, and stepping where the
-    ring node count changes: T10b); ``"arc"`` weights each node by its arc length (``ring_arc_weights``).
+    The rings are the production ones (``tools/production_rings``: ``physical_ring_labels``), not constant-z planes: the gmsh
+    mesh has none.  ``weighting="node"`` is the arithmetic node mean; ``"arc"`` weights each node by its tributary wall length
+    (``section_contour.ring_tributary_lengths``).
     """
-    z = mesh.coords_array[:, 2]
-    z_s = float(z[np.argmin(np.abs(z - z_target))])
-    ring = np.nonzero(np.abs(z - z_s) < 1e-6)[0]
+    from production_rings import cached_rings
+
+    from aeroelast.solvers.bem.force_projection import mesh_corner_edges
+    from aeroelast.solvers.bem.section_contour import ring_tributary_lengths
+
+    coords = np.asarray(mesh.coords_array, float)
+    rings = cached_rings(mesh)
+    means = np.array([coords[r, 2].mean() for r in rings])
+    ring = rings[int(np.argmin(np.abs(means - z_target)))]
     uu = np.asarray(u).reshape(-1, 6)
     if weighting == "arc":
-        ring, w = ring_arc_weights(mesh, ring)
-        return z_s, (uu[ring, :3] * w[:, None]).sum(axis=0) / w.sum(), len(ring)
-    return z_s, uu[ring, :3].mean(axis=0), len(ring)
+        w = ring_tributary_lengths(ring, mesh_corner_edges(mesh), coords)
+        keep = w > 0
+        ring, w = ring[keep], w[keep]
+        return float(coords[ring, 2].mean()), (uu[ring, :3] * w[:, None]).sum(axis=0) / w.sum(), len(ring)
+    return float(coords[ring, 2].mean()), uu[ring, :3].mean(axis=0), len(ring)
 
 
 def saint_venant_tip(mesh, u: np.ndarray, scale: float, depths=(1.0, 1.5, 2.0, 2.5, 3.0), degree=3,
@@ -202,8 +210,9 @@ def saint_venant_tip(mesh, u: np.ndarray, scale: float, depths=(1.0, 1.5, 2.0, 2
 
 def tip_ring_scale(mesh) -> float:
     """Largest in-plane extent of the tip ring [m] (the chord at a blade tip)."""
-    c = mesh.coords_array
-    ring = c[c[:, 2] >= c[:, 2].max() - 1e-6, :2]
+    from production_rings import tip_ring
+
+    ring = np.asarray(mesh.coords_array)[tip_ring(mesh), :2]
     return float(np.max(np.linalg.norm(ring[:, None, :] - ring[None, :, :], axis=-1)))
 
 
@@ -221,26 +230,20 @@ def beam_tip_displacement(beam: BeamReference, load) -> np.ndarray:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--out-csv", default=None, help="default: docs/validation_data/generated/s2_static_prescribed.csv")
     ap.add_argument("--ei-source", choices=("elastodyn", "beamdyn"), default="elastodyn")
     ap.add_argument("--n-slices", type=int, default=60)
-    ap.add_argument("--blade-xlsx", default=str(REPO_ROOT / "tests" / "NuMAD_utd_iea15mw.xlsx"))
-    ap.add_argument("--blade-yaml", default=None,
-                    help="WindIO blade yaml (overrides --blade-xlsx)")
-    ap.add_argument("--airfoil-dir", default=str(REPO_ROOT / "tests" / "airfoils"))
+    ap.add_argument("--blade-yaml", default=str(REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"),
+                    help="windIO 2.x blade yaml")
     args = ap.parse_args()
 
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import blade_generator
+
     from aeroelast.models.blade.model import build_rust_properties
 
-    print("[S2] generating blade mesh (element_size=%.2f)..." % args.element_size)
-    generator = BladeMesh(
-        excel_file=args.blade_xlsx if not args.blade_yaml else None,
-        yaml_file=args.blade_yaml,
-        airfoil_dir=args.airfoil_dir,
-        element_size=args.element_size,
-    )
+    print(f"[S2] generating blade mesh (element_size={args.element_size or 'reference N20 AR1'})...")
+    generator = blade_generator(args.blade_yaml, args.element_size)
     mesh = generator.generate(renumber="rcm")
     properties = build_rust_properties(generator.numad_mesh_data)
     print(f"[S2] mesh: {mesh.coords_array.shape[0]} nodes")

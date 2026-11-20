@@ -41,7 +41,7 @@ SPAN = np.array([0.0, 0.0, 1.0])
 
 Node._id_counter = 0
 MeshElement._id_counter = 0
-model = Blade(str(t.YAML), element_size=1.0)
+model = Blade(str(t.YAML), element_size=0.25)
 model.generate_mesh()
 mesh = model.mesh
 if mesh is None:

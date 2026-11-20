@@ -182,16 +182,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rpm", type=float, default=RPM_DEFAULT)
     ap.add_argument("--n-modes", type=int, default=20)
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     args = ap.parse_args()
 
     from aeroelast.core.assembler import MeshAssembler
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import blade_generator
+
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=args.element_size,
-                    yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"))
+    gen = blade_generator(REPO / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml", args.element_size)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {"elements": {"element_family": ElementFamily.SHELL,

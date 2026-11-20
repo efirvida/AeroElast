@@ -125,8 +125,8 @@ def yaml_events(zlo=64.0, zhi=94.0, L=117.0):
     changes slope, plus start / end of its support, inside [zlo, zhi] (L = blade length; eta = z / L as in ``A.eta_for``)."""
     import yaml
 
-    d = yaml.safe_load(open(A.REPO / "tests" / "IEA-15-240-RWT.yaml"))
-    s = d["components"]["blade"]["internal_structure_2d_fem"]
+    d = yaml.safe_load(open(A.REPO / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"))
+    s = d["components"]["blade"]["structure"]
     out = []
     for item in list(s["webs"]) + list(s["layers"]):
         for k, f in item.items():

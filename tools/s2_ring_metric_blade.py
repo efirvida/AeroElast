@@ -15,8 +15,8 @@ of each node ring within ``--profile-depth`` metres of the tip, so ``tools/s2_st
 the BeamDyn output nodes' z. The tip cases run with ``distribution: arc`` and ``equal``, LC4 with ``area`` and
 ``equal`` (keys ``LC2_tip_flap``, ``LC2_tip_flap@equal``, ...); node / ring / sv are kept for the record.
 
-Usage:  scripts/aeroenv.sh python tools/s2_ring_metric_blade.py --yaml tests/IEA-15-240-RWT.yaml \\
-            --element-size 0.25 --out logs/check/l3/t10b/iea15-es025.json
+Usage:  scripts/aeroenv.sh python tools/s2_ring_metric_blade.py --yaml tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml \\
+            --out logs/check/l3/t10b/iea15-n20.json
 """
 
 from __future__ import annotations
@@ -60,34 +60,14 @@ DEPTHS_FAR = (3.0, 4.0, 5.0, 6.0)  # stability check: a longer distortional deca
 
 
 def ring_profile(mesh, z_min):
-    """Arc-length weights of every node ring with z >= ``z_min``: (ring z, node indices, weights) per ring.
+    """Wall-length weights of every production node ring with mean z >= ``z_min``: (ring z, node indices, weights).
 
-    Same weights as ``ring_arc_weights`` (half of each element side with both corners on the ring), built from one
-    pass over the elements instead of one per ring.
+    The rings are the production ones (``tools/production_rings``: ``physical_ring_labels`` + ``ring_tributary_lengths``); the
+    gmsh mesh has no constant-z rings, so grouping by rounded z (the NuMAD-era rule) does not see a section.
     """
-    coords = mesh.coords_array
-    zr = np.round(coords[:, 2], 6)
-    levels = np.unique(zr[zr >= z_min - 1e-6])
-    ring_of = np.full(len(zr), -1)
-    sel = zr >= z_min - 1e-6
-    ring_of[sel] = np.searchsorted(levels, zr[sel])
-    idx = mesh.node_id_to_index
-    edges = set()
-    for e in mesh.elements:
-        nodes = [idx[n.id] for n in e.nodes]
-        for a, b in zip(nodes, nodes[1:] + nodes[:1], strict=True):
-            if ring_of[a] >= 0 and ring_of[a] == ring_of[b]:
-                edges.add((min(a, b), max(a, b)))
-    e = np.array(sorted(edges), dtype=int)
-    half = 0.5 * np.linalg.norm(coords[e[:, 0]] - coords[e[:, 1]], axis=1)
-    w = np.zeros(len(zr))
-    np.add.at(w, e[:, 0], half)
-    np.add.at(w, e[:, 1], half)
-    rings = []
-    for k, zk in enumerate(levels):
-        nodes = np.nonzero((ring_of == k) & (w > 0))[0]
-        rings.append((float(zk), nodes, w[nodes]))
-    return rings
+    from production_rings import ring_profile as production_ring_profile
+
+    return production_ring_profile(mesh, z_min)
 
 
 def profile_means(rings, u):
@@ -99,20 +79,22 @@ def profile_means(rings, u):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--yaml", required=True)
-    ap.add_argument("--element-size", type=float, default=0.25)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--out", required=True)
     ap.add_argument("--profile-depth", type=float, default=6.0, help="ring profile kept within this distance of the tip [m]")
     ap.add_argument("--cases", nargs="+", help="run only these case names (default: all), e.g. LC1_gravity LC4_distributed")
     args = ap.parse_args()
     if args.cases and not set(args.cases) <= {name for name, _ in CASES}:
         raise SystemExit(f"--cases: unknown {sorted(set(args.cases) - {name for name, _ in CASES})}")
-    if args.element_size >= 0.3:
+    if args.element_size is not None and args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
 
-    from aeroelast.core.mesh.generators import BladeMesh
+    from production_rings import tip_ring
+    from v2_blade_mesh import blade_generator
+
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(yaml_file=args.yaml, element_size=args.element_size, skin_reference="mid")
+    gen = blade_generator(args.yaml, args.element_size)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     z = mesh.coords_array[:, 2]
@@ -124,7 +106,7 @@ def main():
         "element_size": args.element_size,
         "n_nodes": int(len(z)),
         "tip_z": z_tip,
-        "tip_ring_nodes": int(np.sum(z >= z_tip - 1e-6)),
+        "tip_ring_nodes": int(len(tip_ring(mesh))),
         "tip_scale_m": scale,
         "sv_stations": [{"z": s[0], "nodes": s[2]} for s in stations],
         "profile_depth_m": args.profile_depth,

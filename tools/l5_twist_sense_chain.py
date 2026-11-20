@@ -11,7 +11,7 @@ The chain is built from physical definitions and measured in the generated gmsh 
   4. angle of attack the MESH chord sees in the BEM inflow vs the BEM's own alpha (phi - theta): the decisive number
   5. pitch-to-feather direction in the mesh, thrust and torque signs of the production BEM nodal loads
   6. AeroDyn Fn/Ft frame vs tools/run_s5_oneway.apply_ad_loads
-  7. v1 (NuMAD) vs v2 (windIO frames) chord angle, geometry only
+  7. v2 (windIO frames) chord angle of the gmsh mesh against the design twist
 
 Pure helpers (unit-tested by tests/software/test_l5_twist_sense_chain.py) sit above ``# --- views``.
 
@@ -247,26 +247,10 @@ def view_ad_frame(out):
     out["ad_frame"] = res
 
 
-def view_v1_v2(rows, out):
-    """Link 7: the legacy NuMAD (v1) and the windIO-frames (v2) chord angle, geometry only."""
-    from aeroelast.models.blade.numad.io.yaml_to_blade import yaml_to_blade
-    from aeroelast.models.blade.numad.objects.blade import Blade
-
-    b = Blade()
-    yaml_to_blade(b, str(REPO / "tests/IEA-15-240-RWT.yaml"))
-    g = b.geometry
-    v1 = []
-    for k in np.linspace(5, len(g.ispan) - 5, 8).astype(int):
-        xy = g.coordinates[:, :2, k]
-        le = xy[g.LEindex]
-        te = 0.5 * (xy[0] + xy[-1])
-        d = le - te
-        v1.append({"z": float(g.ispan[k]), "twist_deg": float(g.idegreestwist[k]),
-                   "psi_deg": float(np.degrees(np.arctan2(d[1], d[0])))})
-    out["v1_v2"] = {"v1_numad_rotorspin": int(b.definition.rotorspin), "v1": v1,
-                    "v1_psi_equals_minus_twist": all(abs(q["psi_deg"] + q["twist_deg"]) < 0.05 for q in v1),
-                    "v2_gmsh_psi_equals_plus_twist": all(abs(r["psi_deg"] - r["bl_twist_deg"]) < 0.4
-                                                         for r in rows if 10.0 < r["z"] < 110.0)}
+def view_v2(rows, out):
+    """Link 7: the windIO-frames (v2) chord angle of the gmsh mesh against the design twist (the NuMAD v1 comparison is retired)."""
+    out["v2"] = {"v2_gmsh_psi_equals_plus_twist": all(abs(r["psi_deg"] - r["bl_twist_deg"]) < 0.4
+                                                      for r in rows if 10.0 < r["z"] < 110.0)}
 
 
 def flipped_yaml(src, dst):
@@ -366,9 +350,8 @@ def markdown(out):
     for k in ("physical_minus_theta", "apply_ad_loads_plus_theta"):
         L.append(f"- AD Fn/Ft {k}: Fx {ad[k]['Fx_N']:+.0f} N, Fy {ad[k]['Fy_N']:+.0f} N, torque {ad[k]['torque_Nm']:.4e} N m, "
                  f"3-blade power {ad[k]['power_3_blades_MW']:.2f} MW")
-    v = out["v1_v2"]
-    L.append(f"- v1 NuMAD (rotorspin {v['v1_numad_rotorspin']}): psi = -twist {v['v1_psi_equals_minus_twist']}; "
-             f"v2 gmsh/windIO frames: psi = +twist {v['v2_gmsh_psi_equals_plus_twist']}")
+    v = out["v2"]
+    L.append(f"- v2 gmsh/windIO frames: psi = +twist {v['v2_gmsh_psi_equals_plus_twist']}")
     return "\n".join(L) + "\n"
 
 
@@ -393,7 +376,7 @@ def main():
     view_loads(mesh, f0, "bem_tilt0_precone0", out)
     view_aoa(part0, rows, out)
     view_ad_frame(out)
-    view_v1_v2(rows, out)
+    view_v2(rows, out)
     out["elapsed_s"] = time.time() - t0
     (args.out / "chain.json").write_text(json.dumps(out, indent=1))
     (args.out / "chain.md").write_text(markdown(out))

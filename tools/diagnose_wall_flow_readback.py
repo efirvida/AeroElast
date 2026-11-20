@@ -21,7 +21,7 @@ from tests.support.openfast_bem import build_blade_aero_from_aerodyn
 SPAN = np.array([0.0, 0.0, 1.0])
 T_REF = 1.0e6
 
-blade = Blade(str(t.YAML), element_size=1.0)
+blade = Blade(str(t.YAML), element_size=0.25)
 blade.generate_mesh()
 mesh = blade.mesh
 if mesh is None:

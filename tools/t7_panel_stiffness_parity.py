@@ -250,11 +250,11 @@ def section_json_value(value):
 
 
 def panel(out, ccx, checked):
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=.25, skin_reference='oml',
-                    yaml_file=str(REPO / 'tests/IEA-15-240-RWT.yaml'))
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
+    gen = blade_generator(V2_IEA15, .25, 'oml')
     source = gen.generate(renumber='rcm')
     mesh, fixed, force = prepare_patch(source, PANEL)
     props = {PANEL: build_rust_properties(gen.numad_mesh_data)[PANEL]}

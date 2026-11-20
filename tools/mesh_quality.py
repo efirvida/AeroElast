@@ -4,9 +4,9 @@ Measurement only: nothing here changes a mesh, a tolerance or the physics.
 
 Usage (always through ``scripts/aeroenv.sh python``)::
 
-    tools/mesh_quality.py v2 <yaml> <out_dir> [--eta LO HI] [--element-size 0.25] [--tag NAME]
+    tools/mesh_quality.py v2 <yaml> <out_dir> [--element-size 0.25] [--tag NAME]   # gmsh on a windIO 2.x yaml; default sizing N20 AR 1
     tools/mesh_quality.py v2 --from-npz <raw.npz> <out_dir> [--tag NAME]
-    tools/mesh_quality.py v1 <yaml> <out_dir> [--element-size 0.25]
+    tools/mesh_quality.py summary <out_dir> <tag> [<tag> ...]
 
 Writes ``<out_dir>/<tag>.vtu`` (ParaView) and ``quality_<tag>.json``.
 
@@ -222,14 +222,19 @@ def run_v2(args):
         z = np.load(args.from_npz, allow_pickle=False)
         nodes, elems, surf = z["nodes_f64"], z["elements"], z["surfaces"].astype(str)
     else:
-        from aeroelast.models.blade.numad.mesh_gen.windio2_mesh import generate_mesh
+        from aeroelast.models.blade.numad.mesh_gen.gmsh_skin import generate_mesh_gmsh
         from aeroelast.models.blade.numad.objects.blade import Blade
+        from v2_blade_mesh import REFERENCE_CHORD_DIVISIONS, REFERENCE_SPAN_ASPECT
 
-        blade = Blade().read_yaml(args.yaml)
-        kw = {"eta_bounds": tuple(args.eta)} if args.eta else {}
+        if args.element_size is not None and args.element_size >= 0.3:
+            raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
+        blade = Blade()
+        blade.read_yaml(args.yaml)
+        sizing = ({"element_size": args.element_size, "h_range": (0.05, 0.25)} if args.element_size is not None
+                  else {"chord_divisions": REFERENCE_CHORD_DIVISIONS, "span_aspect": REFERENCE_SPAN_ASPECT})
         t0 = time.time()
-        raw = generate_mesh(blade.windio2_topology, element_size=args.element_size, **kw)
-        print(f"generate_mesh: {time.time() - t0:.0f} s")
+        raw = generate_mesh_gmsh(blade.windio2_topology, **sizing)
+        print(f"generate_mesh_gmsh: {time.time() - t0:.0f} s")
         nodes = np.asarray(raw.nodes, np.float64)
         elems = np.asarray(raw.elements)
         surf = np.asarray(raw.surfaces).astype(str)
@@ -242,38 +247,6 @@ def run_v2(args):
     legend = dict(enumerate(names))
     lab = np.array([names.index(s) for s in surf], np.int32)
     return _finish(args.tag, out, nodes, elems, np.empty((0, 3), int), lab, np.empty(0, int), legend)
-
-
-def run_v1(args):
-    from aeroelast.core.mesh.generators import BladeMesh
-
-    out = Path(args.out_dir)
-    t0 = time.time()
-    mesh = BladeMesh(args.yaml, element_size=args.element_size).generate(verbose=False)
-    print(f"v1 generate: {time.time() - t0:.0f} s; sets: "
-          f"{ {k: len(v.element_ids) for k, v in mesh.element_sets.items()} }")
-    idx = mesh.node_id_to_index
-    nodes = mesh.coords_array
-    set_of = {}
-    # v1 has one set per stack segment (~11.7k) plus two aggregates: use the aggregates as surfaces.
-    agg = [n for n in ("allOuterShellEls", "allShearWebEls") if n in mesh.element_sets]
-    names = agg or list(mesh.element_sets)
-    for n in names:
-        for eid in mesh.element_sets[n].element_ids:
-            set_of.setdefault(eid, []).append(n)
-    legend = dict(enumerate(names))
-    legend[-1] = "unassigned"
-    quads, tris, ql, tl = [], [], [], []
-    for el in mesh.elements:
-        conn = [idx[i] for i in el.node_ids][: 4 if len(el.node_ids) >= 4 else 3]
-        s = set_of.get(el.id, [])
-        lab = names.index(s[0]) if s else -1
-        (quads if len(conn) == 4 else tris).append(conn)
-        (ql if len(conn) == 4 else tl).append(lab)
-    multi = sum(1 for v in set_of.values() if len(v) > 1)
-    return _finish("iea15_v1", out, nodes, np.array(quads, int), np.array(tris, int),
-                   np.array(ql), np.array(tl), legend,
-                   {"elements_in_multiple_sets": multi})
 
 
 def write_summary(out_dir, tags):
@@ -303,25 +276,21 @@ def write_summary(out_dir, tags):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="ver", required=True)
-    for v in ("v2", "v1"):
-        p = sub.add_parser(v)
-        p.add_argument("yaml", nargs="?")
-        p.add_argument("out_dir")
-        p.add_argument("--element-size", type=float, default=0.25)
-        if v == "v2":
-            p.add_argument("--eta", nargs=2, type=float)
-            p.add_argument("--from-npz")
-            p.add_argument("--tag", default="iea15_v2_full")
+    p = sub.add_parser("v2")
+    p.add_argument("yaml", nargs="?")
+    p.add_argument("out_dir")
+    p.add_argument("--element-size", type=float, default=None,
+                   help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
+    p.add_argument("--from-npz")
+    p.add_argument("--tag", default="iea15_v2_full")
     ps = sub.add_parser("summary")
     ps.add_argument("out_dir")
     ps.add_argument("tags", nargs="+")
     args = ap.parse_args(argv)
     if args.ver == "summary":
         write_summary(args.out_dir, args.tags)
-    elif args.ver == "v2":
-        run_v2(args)
     else:
-        run_v1(args)
+        run_v2(args)
 
 
 if __name__ == "__main__":
