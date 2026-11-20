@@ -168,7 +168,7 @@ def solve_mesh(element_size: float, n_modes: int, workdir: Path, ccx_bin: str) -
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--meshes", type=float, nargs="+", default=[0.5, 0.35, 0.25])
+    parser.add_argument("--meshes", type=float, nargs="+", default=[0.25, 0.177, 0.125])
     parser.add_argument("--modes", type=int, default=10)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()

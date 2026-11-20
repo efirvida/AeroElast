@@ -73,7 +73,7 @@ def _case_for(element_size, out_path, ad_blade_path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sizes", type=float, nargs="+", default=[1.0, 0.5, 0.25])
+    ap.add_argument("--sizes", type=float, nargs="+", default=[0.25, 0.177, 0.125])
     ap.add_argument("--out", type=Path,
                     default=Path("/scratch/leahk/eduardo.donestevez/ofruns/OpenFAST/"
                                  "IEA-15-240-RWT-Monopile/IEA-15-240-RWT-Monopile.out"))
