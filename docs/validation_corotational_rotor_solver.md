@@ -1,5 +1,7 @@
 # Informe de validacion del solver corrotacional de rotor - AeroElast
 
+> **Superseded method (note 2026-11-20):** measurements below used the NuMAD mesher and the windIO v1 / UTD xlsx blade, now retired; the current mesher is gmsh on the windIO v2 yaml (`odd/tasks/gmsh-official-mesher.md`, S9). Recorded numbers and tolerances are unchanged.
+
 > Informe consolidado de validacion de la rama corrotacional del solver de rotor AeroElast sobre el rotor IEA 15 MW. Ultima actualizacion: 2026-05-19.
 >
 > **Campaña y ventana de analisis**: este informe usa la campaña corrotacional extendida `frontiersin_results_corotational_100s/` (T_sim = 100 s para los 5 yaws, completada) y la ventana estadistica definitiva `t ∈ [40, 100] s` (60 s = ~7.5 revoluciones a $\Omega = 7.518$ RPM, regimen permanente asegurado sin interferencia del transitorio inicial). Las metricas estadisticas usan bootstrap por bloques con $K = 6$ sub-ventanas no superpuestas de 10 s. **Todos los scripts de postproceso (incluyendo proxies de trabajo, plegado azimutal, presupuesto radial seccional, canal energetico aero-estructural, sub-banda espectral, Rainflow/DEL, espectros FFT y cargas spanwise) fueron re-ejecutados con esta ventana y propagados al informe.**

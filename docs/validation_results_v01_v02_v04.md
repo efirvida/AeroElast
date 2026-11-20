@@ -1,4 +1,6 @@
 # Resultados de validación calculados — AeroElast
+
+> **Superseded method (note 2026-11-20):** results below were measured on the windIO v1 / UTD xlsx blade and the NuMAD mesher, both retired (`odd/tasks/gmsh-official-mesher.md`, S9). Current runs use the upstream windIO v2 yaml and the gmsh reference mesh (N20, AR 1); numbers that move on migration are logged there, never re-banded. Nothing below is edited.
 > Generado a partir de corridas con `module load gcc/14.2.0_sequana` y análisis de CSVs existentes.  
 > Este archivo **no modifica** `article_draft_wind_energy.md`. Es la fuente de datos para la redacción final.  
 > Última actualización: 2026-05-18 (revisión integral A1+A2+A3+A4+A7+sub-banda incorporada: §5.2.1 nueva, §5.12.2 nueva (rainflow/DEL), §5.12.3 nueva (varianza sub-banda — cierre del debate inercial), §5.18 nueva, §5.3 IC95, §5.12 cross-baseline, §5.12.1 reformulación multi-pala, §7-§8 con 4 evidencias convergentes que localizan la divergencia inercial en B_high sin contraparte modal).

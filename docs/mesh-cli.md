@@ -1,6 +1,7 @@
 # `aeroelast mesh` — Mesh Generation CLI
 
-Generate blade, rotor, nacelle and tower meshes from a WindIO turbine YAML
+Generate blade, rotor, nacelle and tower meshes from a windIO v2 turbine YAML
+(`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`; windIO v1 yaml and Excel input are rejected)
 and write STL / VTK / OBJ / MSH files. The command is a subcommand of the main
 `aeroelast` entry point:
 
@@ -10,7 +11,7 @@ aeroelast mesh <component> [INPUT] [OPTIONS]
 
 | Component | Description |
 |-----------|-------------|
-| `blade` | Single blade shell mesh (with or without shear webs) |
+| `blade` | Single blade shell mesh, built by gmsh (`GmshBladeMesh`; the key `BladeMesh` is an alias). Without a size option it is the reference mesh (chord divisions 20, span aspect 1); with `--element-size` use 0.15-0.25 m |
 | `rotor` | Multi-blade rotor (blades rotated about the rotor axis) |
 | `nacelle` | Nacelle **single body**: hemispherical hub cap + constant-radius cylinder + rear hemisphere |
 | `tower` | Tapered tower lofted from the WindIO outer-shape profile |
@@ -22,12 +23,16 @@ extension; `--format` is the fallback when the path has no extension.
 
 ## Blade without shear webs (CFD surface)
 
+> **Status 2026-11-20:** the blade mesher is gmsh. `--no-webs` (`include_webs=False`) is
+> not implemented on gmsh yet and raises `NotImplementedError` (task T7 of
+> `odd/tasks/gmsh-official-mesher.md`). The examples below show the intended interface.
+
 `--no-webs` omits the shear webs and returns only the blade outer-mold-line
 surface — the wall boundary a CFD case needs. It is the default for
 `aeroelast mesh turbine`; use `--webs` there to include the internal structure.
 
 ```bash
-aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.vtk --element-size 0.1
+aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.vtk --element-size 0.25
 aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
 ```
 
@@ -140,7 +145,7 @@ Run `aeroelast mesh <component> --help` for the complete list.
 from aeroelast.core.mesh import BladeMesh, NacelleMesh, TowerMesh, write_mesh
 from aeroelast.core.mesh.turbine import TurbineMesh
 
-blade = BladeMesh("turbine.yaml", element_size=0.1, include_webs=False).generate()
+blade = BladeMesh("turbine.yaml", element_size=0.25, include_webs=False).generate()
 write_mesh(blade, "blade.stl")
 
 tower = TowerMesh.from_windio("turbine.yaml").generate()

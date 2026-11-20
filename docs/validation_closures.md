@@ -1,5 +1,7 @@
 # Log de cierres de validación
 
+> **Superseded method (note 2026-11-20):** closures citing NuMAD, the UTD xlsx blade or the windIO v1 yaml were measured on inputs retired by `odd/tasks/gmsh-official-mesher.md` (S9); the current mesher is gmsh (`GmshBladeMesh`, key `BladeMesh` kept as alias) on the windIO v2 yaml. Recorded numbers are unchanged; re-measurements are logged in that task.
+
 Registro de los ítems de validación **cerrados**, con su evidencia y el
 **disparador de re-ejecución** (qué cambio de código o de input invalida el
 cierre). Este archivo es la fuente para el capítulo de validación del

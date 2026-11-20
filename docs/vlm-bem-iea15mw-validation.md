@@ -1,5 +1,7 @@
 # Reduced-Order VLM vs BEM Validation for IEA-15 MW
 
+> **Superseded method (note 2026-11-20):** this is a historical record. The VLM/SHARPy path is not part of the current validation order (BEM, then one-way/two-way FSI). Its input fixture now resolves to the upstream windIO v2 yaml (L-S53: rotor radius 121.118878 m -> 120.675323 m, -0.37 %); numbers below were measured on the earlier v1 input and are not re-measured.
+
 This note records the current validation status of the quasi-steady VLM backend
 against the existing BEM reference path on the IEA-15 MW rotor.
 

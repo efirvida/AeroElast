@@ -69,7 +69,11 @@ turnkey installers, or broad industrial validation.
 ### Mesh and model utilities
 
 - built-in mesh generators such as `SquareShapeMesh`, `BoxSurfaceMesh`,
-  `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`
+  `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`; the blade mesher is gmsh
+  (`GmshBladeMesh`; the YAML key `BladeMesh` is kept as an alias) and reads the
+  windIO v2 blade definition (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`).
+  The reference mesh is chord-scaled N20, aspect ratio 1; element-size meshes
+  use 0.15-0.25 m. windIO v1 yaml and Excel (xlsx) blade input are rejected.
 - turbine component meshers (`TowerMesh`, `NacelleMesh`) and a
   full `TurbineMesh` assembly of blades + nacelle + tower
 - mesh import/export utilities for common engineering formats
@@ -129,7 +133,9 @@ pip install -e .[bem]
 > own. See the `bem` extra comments in `pyproject.toml` for the manual
 > two-step build, or use `make -f Makefile.sdumont ccblade` on SDumont.
 
-If you want the SHARPy aerodynamic backend, install the optional extra:
+The SHARPy aerodynamic backend is a legacy optional extra, outside the
+validation path (BEM is the validated aerodynamic model); install it only if
+you need it:
 
 ```bash
 pip install -e .[sharpy]
@@ -190,14 +196,15 @@ Generate meshes with the `mesh` subcommand (see
 [docs/mesh-cli.md](docs/mesh-cli.md)):
 
 ```bash
-# Blade CFD surface (no shear webs)
-aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
+# Blade shell mesh (gmsh reference mesh N20, AR 1), windIO v2 input
+aeroelast mesh blade tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out blade.stl
+# (--no-webs, the CFD outer surface, is not implemented on gmsh yet: task T7)
 
 # Tower and nacelle body from the WindIO definition
-aeroelast mesh tower IEA-15-240-RWT.yaml --out tower.obj
+aeroelast mesh tower tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out tower.obj
 
 # Whole turbine, one file per component
-aeroelast mesh turbine IEA-15-240-RWT.yaml --out-dir meshes/ --format stl
+aeroelast mesh turbine tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out-dir meshes/ --format stl
 ```
 
 ## CLI Commands
@@ -219,7 +226,8 @@ Generic Aero-FSI report consumers should also read
 [docs/aero-fsi-report-schema.md](docs/aero-fsi-report-schema.md), which explains
 the generated CSV files and the accompanying schema manifest.
 
-The current IEA-15 MW VLM-versus-BEM validation status is documented in
+A historical IEA-15 MW VLM-versus-BEM record (not part of the current
+validation order) is kept in
 [docs/vlm-bem-iea15mw-validation.md](docs/vlm-bem-iea15mw-validation.md).
 
 ## Repository Layout
@@ -291,8 +299,9 @@ involved.
 
 ### Embedded / vendored code
 
-- **pyNuMAD** (Sandia National Laboratories) — a modified copy is vendored
-  under `src/aeroelast/models/blade/numad/` for blade meshing, under the
+- **pyNuMAD** (Sandia National Laboratories) — a modified copy of its blade
+  definition objects and I/O is vendored (attribution kept; its mesher was
+  retired in favour of gmsh) under `src/aeroelast/models/blade/numad/`, under the
   **BSD 3-Clause License**. See the [LICENSE](src/aeroelast/models/blade/numad/LICENSE)
   and [NOTICE](src/aeroelast/models/blade/numad/NOTICE) files shipped with it.
   Upstream: <https://github.com/sandialabs/pyNuMAD>

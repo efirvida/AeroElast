@@ -1,5 +1,7 @@
 # AeroElast: A validated shell finite element solver for aeroelastic simulation of large wind turbine rotors
 
+> **Superseded method (note 2026-11-20):** the NuMAD mesher and the xlsx blade input cited below are retired; the current mesher is gmsh on the windIO v2 yaml. Draft numbers were measured earlier and are not updated here.
+
 > **BORRADOR — versión 0.4 (mayo 2026)**  
 > Destino: *Wind Energy* (Wiley, ISSN 1099-1824)  
 > Idioma definitivo: inglés — este draft está en español, para revisión y ajuste de contenido antes de la traducción.
