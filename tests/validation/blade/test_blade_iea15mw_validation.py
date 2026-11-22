@@ -83,12 +83,12 @@ from aeroelast.core.mesh.generators import BladeMesh  # noqa: E402
 from aeroelast.models.blade.model import build_rust_properties  # noqa: E402
 
 from tests.support.modal_pairing import match_reference_by_shape  # noqa: E402
-from tests.support.paths import DATA_DIR, REPO_ROOT  # noqa: E402
+from tests.support.paths import DATA_DIR, REPO_ROOT, V2_BLADE_YAML  # noqa: E402
+from tests.support.production_rings import ring_ids_and_weights  # noqa: E402
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import l3_mode_shapes  # noqa: E402
-from s2_ring_metric_blade import ring_profile  # noqa: E402
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 
 #: Working mesh of the blade (docs/blade_mesh_size_rule.md): 1.0 m is not converged.
 ELEMENT_SIZE = 0.25
@@ -397,11 +397,9 @@ def _beamdyn_p20_shape_matches(mesh, free: np.ndarray, modes: np.ndarray):
 
     full = np.zeros((len(modes), mesh.node_count, 6))
     full[:, free // 6, free % 6] = modes
-    ring_id = np.full(mesh.node_count, -1)
-    weights = np.zeros(mesh.node_count)
-    for k, (_z, nodes, wk) in enumerate(ring_profile(mesh, -1e9)):
-        ring_id[nodes] = k
-        weights[nodes] = wk
+    # gmsh-official-mesher T14: the production rings (physical_ring_labels) weighted by the skin tributary wall length
+    # (section_contour.ring_tributary_lengths); the NuMAD-era ring_profile (unique z levels) has no rings on a gmsh mesh.
+    ring_id, weights = ring_ids_and_weights(mesh)
     ux, uy, th, bad = l3_mode_shapes.shell_station_modes(mesh.coords_array, full, ring_id, weights, None, z)
     assert bad == 0, f"{bad} shell modes have a station outside the rings"
     return match_reference_by_shape(

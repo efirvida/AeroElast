@@ -58,13 +58,12 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 import tests.validation.blade.test_blade_section_torsion_stiffness as torsion  # noqa: E402
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
-from tests.validation.blade.test_blade_rated_twist import (  # noqa: E402
-    STATION_GAP_TOLERANCE, _physical_stations)
+from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE  # noqa: E402
 from tests.validation.bem.test_force_projection_load_frame import (  # noqa: E402
     _angle_deg, _orient_leading_to_trailing)
-from tests.support.paths import DATA_DIR, SOURCES_DIR  # noqa: E402
+from tests.support.paths import SOURCES_DIR, V2_BLADE_YAML  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 ELASTODYN = (SOURCES_DIR / "openfast" / "iea15mw" / "IEA-15-240-RWT"
              / "IEA-15-240-RWT_ElastoDyn_blade.dat")
 L_BLADE = 117.0           # reference_axis z end [m]
@@ -100,9 +99,20 @@ def _edge_maps(mesh):
     return [edge for edge, n in count.items() if n == 1], adj
 
 
+def _outer_shape_bem():
+    """The official windIO 2.x blade in the legacy ``outer_shape_bem`` view (twist [rad], pitch_axis = offset_y / chord).
+
+    gmsh-official-mesher T14: the v1 file this test read has no v2 twin with that key, so the project's own normaliser
+    (``normalize_windio``, the one ``load_blade_aero`` uses) gives the same declared values from the v2 file.
+    """
+    from aeroelast.models.blade.windio import normalize_windio
+
+    return normalize_windio(_yaml.safe_load(YAML.read_text()))["components"]["blade"]["outer_shape_bem"]
+
+
 def _declared_frame(stations):
     """Turbine definition interpolated to the stations: chord, pitch axis, twist, prebend."""
-    outer = _yaml.safe_load(YAML.read_text())["components"]["blade"]["outer_shape_bem"]
+    outer = _outer_shape_bem()
 
     def at(key):
         return np.interp(stations, np.asarray(outer[key]["grid"], dtype=float) * L_BLADE,
@@ -117,8 +127,7 @@ def _declared_frame(stations):
 
 def _circular_blend_end():
     """Span [m] of the first non-``circular`` airfoil label: the circular blend ends there."""
-    position = _yaml.safe_load(YAML.read_text())["components"]["blade"]["outer_shape_bem"][
-        "airfoil_position"]
+    position = _outer_shape_bem()["airfoil_position"]
     first = next(i for i, label in enumerate(position["labels"]) if label != "circular")
     return float(position["grid"][first]) * L_BLADE
 
@@ -188,8 +197,8 @@ def blade():
     model.generate_mesh()
     mesh, props = model.mesh, model.get_element_properties()
     coords = np.array([[nd.x, nd.y, nd.z] for nd in mesh.nodes], dtype=float)
-    stations = np.asarray(_physical_stations(coords), dtype=float)
-    rings = {zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in stations}
+    stations, rings = torsion.production_stations(mesh, coords)  # production rings (gmsh-official-mesher T14)
+    stations = np.asarray(stations, dtype=float)
     free, adj = _edge_maps(mesh)
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props), props,

@@ -60,9 +60,9 @@ from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Production defaults of the standalone / FSI projectors.  ``+x`` is the measured
@@ -138,17 +138,42 @@ def _cluster_by_span(span_values, tolerance):
     return groups
 
 
-def _station_ring_points(coords, strip, blade_aero, k, span_dir, tolerance):
+_RINGS_MEMO: dict = {}
+
+
+def _PRODUCTION_RINGS(mesh):  # noqa: N802 - memoised accessor
+    """The mesh's physical rings with >= 3 nodes (tests/support/production_rings: ``physical_ring_labels``)."""
+    from tests.support.production_rings import mesh_rings
+
+    if id(mesh) not in _RINGS_MEMO:
+        _RINGS_MEMO[id(mesh)] = mesh_rings(mesh, SPAN_DIR, min_nodes=3)
+    return _RINGS_MEMO[id(mesh)]
+
+
+def _station_ring_points(coords, strip, blade_aero, k, span_dir, tolerance, rings=None):
     """The mesh physical ring nearest the aero deck's own station radius.
 
     The target radius is ``blade_aero.r[k] - blade_aero.hub_radius`` - the
     blade-local station radius read from the deck, not ``strip.r_center`` or any
-    projector ring group - and the ring is found by clustering **this strip's**
-    mesh span coordinates here.  The station ring is therefore determined by
-    inputs the projector does not supply.  A group of fewer than three nodes
-    cannot bound a section and is skipped.
+    projector ring group.  With ``rings`` (gmsh-official-mesher T14: the production physical rings of the whole
+    mesh, ``physical_ring_labels``) the ring is the one with a node in this strip whose mean span is nearest the
+    target, taken whole.  Without it (a NuMAD-style mesh with constant-z rings) the ring is found by clustering
+    **this strip's** span coordinates with ``tolerance``.  A group of fewer than three nodes cannot bound a
+    section and is skipped.
     """
     target = float(blade_aero.r[k] - blade_aero.hub_radius)
+    if rings is not None:
+        in_strip = np.zeros(len(coords), dtype=bool)
+        in_strip[strip.node_indices] = True
+        best, best_distance = None, np.inf
+        for group in rings:
+            if not in_strip[group].any():
+                continue
+            distance = abs(float((coords[group] @ span_dir).mean()) - target)
+            if distance < best_distance:
+                best, best_distance = group, distance
+        assert best is not None, f"strip {k}: no production ring with a node in the strip near {target:.4f} m"
+        return coords[best]
     pts = coords[strip.node_indices]
     span = pts @ span_dir
     best = None
@@ -262,10 +287,10 @@ def station_rings(blade_case):
     mesh span coordinates here, so ``projector._strip_ring_groups`` is never
     read.  See :func:`_station_ring_points`.
     """
-    _, coords, blade_aero, projector = blade_case
+    mesh, coords, blade_aero, projector = blade_case
     tolerance = MESH_RING_GAP_ELEMENT_FRACTION * ELEMENT_SIZE
     return [
-        _station_ring_points(coords, strip, blade_aero, k, SPAN_DIR, tolerance)
+        _station_ring_points(coords, strip, blade_aero, k, SPAN_DIR, tolerance, rings=_PRODUCTION_RINGS(mesh))
         for k, strip in enumerate(projector._strips)
     ]
 

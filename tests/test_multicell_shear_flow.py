@@ -610,22 +610,21 @@ def test_ring_section_on_iea15mw_midspan_ring():
     pytest.importorskip("_aeroelast", reason="Rust backend not available")
     from aeroelast.core.mesh.entities import MeshElement, Node
     from aeroelast.models.blade.model import Blade
-    from aeroelast.solvers.bem.force_projection import RING_GAP_FRACTION
-    from aeroelast.solvers.bem.section_contour import rings_in_band
-    from tests.support.paths import DATA_DIR
+    from tests.support.paths import V2_BLADE_YAML
+    from tests.support.production_rings import mesh_rings
 
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=0.25)
+    model = Blade(str(V2_BLADE_YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None
     properties = model.get_element_properties()
 
     coords = mesh.coords_array
-    span = coords @ SPAN_Z
-    tolerance = RING_GAP_FRACTION * float(span.max() - span.min())
-    groups = rings_in_band(span, tolerance)
+    # gmsh-official-mesher T14: the production ring grouping (physical_ring_labels, span gap + in-ring edges), not the
+    # span-gap-only rings_in_band, which cuts a gmsh row (no constant-z rings) into loose pieces
+    groups = mesh_rings(mesh, SPAN_Z)
     ring_nodes = groups[len(groups) // 2]
 
     cells, _, edge_length, edge_shear = ring_section(mesh, ring_nodes, SPAN_Z, properties)

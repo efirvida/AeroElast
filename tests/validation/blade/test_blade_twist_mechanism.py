@@ -58,9 +58,11 @@ from scipy.sparse.linalg import spsolve  # noqa: E402
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests import _production_arbiter as arbiter  # noqa: E402
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
+from tests.support.production_rings import skin_wall_edges, strip_station_rings  # noqa: E402
+from aeroelast.solvers.bem.section_contour import ring_section_rotation, ring_tributary_lengths  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 ELEMENT_SIZE = 0.25
 #: Article DLC 1.4 maximum root moment, the load level the validation suite uses.
 ROOT_MOMENT_NM = 90.4e6
@@ -97,16 +99,25 @@ def solved(blade_model):
     x = np.array([nd.x for nd in mesh.nodes])
     y = np.array([nd.y for nd in mesh.nodes])
     load_idx = np.array([i for i in range(len(mesh.nodes)) if i not in root])
-    tip = np.where(z >= z.max() - 1e-6)[0]
+    # gmsh-official-mesher T14: the tip is the ring production reads at the last strip (BEMFSIParticipant._find_strip_rings), not
+    # ``z >= z.max() - 1e-6``, which on a gmsh mesh (tip ring z 117 +/- 0.005 m) is one node.  The twist is the production
+    # section rotation (section_contour.ring_section_rotation, skin tributary-length weights), not a mean of the nodal theta_z
+    # drilling DOF.
+    tip = strip_station_rings(mesh)[-1]
+    coords = mesh.coords_array
+    tip_weights = ring_tributary_lengths(tip, skin_wall_edges(mesh), coords)
 
     def solve(force):
         u = np.zeros(n)
         u[free] = np.asarray(spsolve(Kff, force[free])).ravel()
         flap = float(np.mean([u[6 * nd + blade_validation.FLAPWISE_DOF] for nd in tip]))
-        twist = float(np.mean([u[6 * nd + 5] for nd in tip]))
-        return flap, twist
+        twist = ring_section_rotation(
+            coords[tip], u.reshape(-1, 6)[tip, :3], np.asarray(blade_validation.SPAN_DIRECTION), tip_weights
+        )
+        return flap, float(twist)
 
     return {
+        "mesh": mesh,
         "n": n,
         "solve": solve,
         "z": z,
@@ -141,13 +152,13 @@ def test_blade_laminates_have_no_bend_twist_coupling(blade_model):
         plies = []
         for name, thickness, angle in section["layup"]:
             e = materials[name]["elastic"]
-            mat = OrthotropicMaterial(
-                name,
-                E=(e["E"][0], e["E"][1], e["E"][2]),
-                G=(e["G"][0], e["G"][1], e["G"][2]),
-                nu=(e["nu"][0], e["nu"][1], e["nu"][2]),
-                rho=float(materials[name]["density"]),
-            )
+            # gmsh tables (numad_data): an isotropic material gives scalar E / nu and G None; broadcast and derive G
+            # (gmsh-official-mesher T14; the NuMAD tables always carried 3-vectors).
+            E3 = tuple(np.broadcast_to(np.asarray(e["E"], float), 3))
+            nu3 = tuple(np.broadcast_to(np.asarray(e["nu"], float), 3))
+            G3 = (tuple(np.broadcast_to(np.asarray(e["G"], float), 3)) if e.get("G") is not None
+                  else (E3[0] / (2.0 * (1.0 + nu3[0])),) * 3)
+            mat = OrthotropicMaterial(name, E=E3, G=G3, nu=nu3, rho=float(materials[name]["density"]))
             plies.append(Ply(mat, float(thickness), float(angle)))
         D = Laminate(plies).D
         offdiag = abs(D[0, 2]) + abs(D[1, 2])
@@ -175,16 +186,25 @@ def test_blade_laminates_have_no_bend_twist_coupling(blade_model):
 def _station_load(solved, selector):
     """Apply the root moment with the resultant of each station placed by ``selector``."""
     n, z, load_idx = solved["n"], solved["z"], solved["load_idx"]
-    stations: dict[float, list[int]] = {}
+    # gmsh mesh (gmsh-official-mesher T14): no constant-z node rings, so a "station" is a production physical ring
+    # (tests/support/production_rings.mesh_rings = physical_ring_labels); the arm of each loaded node is its own z.
+    from tests.support.production_rings import ring_labels
+
+    labels = ring_labels(solved["mesh"])
+    stations: dict[int, list[int]] = {}
     for nd in load_idx:
-        stations.setdefault(round(z[nd], 6), []).append(nd)
-    picks = {zz: selector(np.array(nds)) for zz, nds in stations.items()}
-    total = sum(zz * len(sel) for zz, sel in picks.items())
-    per_node = ROOT_MOMENT_NM / total
+        stations.setdefault(int(labels[nd]), []).append(nd)
+    picks = {k: selector(np.array(nds)) for k, nds in stations.items()}
+    # One resultant per station, whatever the node count of its ring: the NuMAD rings all carried the same number of nodes, so a
+    # force per node was a force per station; a chord-scaled gmsh ring carries 66 nodes at the root and 14 at the tip, and a force
+    # per node would move the spanwise load distribution (not only the line of action) between the three cases.
+    # The station resultant F_k is shared by its picked nodes; its arm is their mean z.
+    arms = {k: float(np.mean(z[sel])) for k, sel in picks.items()}
+    per_station = ROOT_MOMENT_NM / sum(arms.values())
     force = np.zeros(n)
     for sel in picks.values():
         for nd in sel:
-            force[6 * nd + blade_validation.FLAPWISE_DOF] = per_node
+            force[6 * nd + blade_validation.FLAPWISE_DOF] = per_station / len(sel)
     return force
 
 

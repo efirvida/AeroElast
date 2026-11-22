@@ -54,12 +54,12 @@ import tests.validation.blade.test_blade_iea15mw_validation as blade_validation 
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
 
-from tests.support.paths import DATA_DIR, SOURCES_DIR  # noqa: E402
+from tests.support.paths import DATA_DIR, SOURCES_DIR, V2_BLADE_YAML  # noqa: E402
 
 _SOURCES = SOURCES_DIR / "openfast" / "iea15mw" / "IEA-15-240-RWT"
 BEAMDYN_BLADE = _SOURCES / "IEA-15-240-RWT_BeamDyn_blade.dat"
 ELASTODYN_BLADE = _SOURCES / "IEA-15-240-RWT_ElastoDyn_blade.dat"
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 V_RATED, RPM_RATED, PITCH_RATED = 10.59, 7.56, 0.0

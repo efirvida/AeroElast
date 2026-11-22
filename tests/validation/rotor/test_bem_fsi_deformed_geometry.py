@@ -47,11 +47,11 @@ from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E40
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
-from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
+from tests.support.production_rings import strip_station_rings  # noqa: E402
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Rated point.  ``bem_config["omega"]`` is rad/s and ``_compute_forces`` converts back to
@@ -139,7 +139,10 @@ def fsi():
     u = np.zeros(n)
     u[free] = np.asarray(spsolve(K[np.ix_(free, free)], load[free]))
 
-    phys_stations = _physical_stations(coords)
+    # gmsh-official-mesher T14: the ring a strip's twist is measured on is the production physical ring at the strip centre
+    # (ForceProjector._strip_ring_groups, as BEMFSIParticipant._find_strip_rings picks it), not a z-bucket merge: a gmsh mesh has
+    # no constant-z rings, so a z strip is a different node set than the one production fits.  Built here from its own projector.
+    strip_rings = strip_station_rings(mesh, blade_aero)
     return {
         "participant": participant,
         "participant_prod": participant_prod,
@@ -148,11 +151,7 @@ def fsi():
         "u": u,
         "displacements": np.column_stack([u[0::6], u[1::6], u[2::6]]),
         "bem_rigid": bem_rigid,
-        "phys_stations": phys_stations,
-        "phys_rings": {
-            zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0]
-            for zz in phys_stations
-        },
+        "strip_rings": strip_rings,
     }
 
 
@@ -279,7 +278,7 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
 
     rows = []
     for k in outer:
-        ring = fsi["phys_rings"][_nearest_station(fsi["phys_stations"], mesh_station[k])]
+        ring = fsi["strip_rings"][k]
         rows.append(
             (
                 k,

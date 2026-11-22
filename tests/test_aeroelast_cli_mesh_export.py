@@ -91,7 +91,7 @@ def test_aeroelast_cli_exports_rotor_hub_mesh_without_solver_yaml(
         "--mesh-generator",
         "RotorHubMesh",
         "--blade-yaml",
-        "tests/IEA-15-240-RWT.yaml",
+        "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml",
         "--n-blades",
         "3",
         "--hub-length",
@@ -105,7 +105,7 @@ def test_aeroelast_cli_exports_rotor_hub_mesh_without_solver_yaml(
     assert exit_code == 0
     assert output_path.exists()
     assert calls["kwargs"] == {
-        "yaml_file": str(Path.cwd() / "tests/IEA-15-240-RWT.yaml"),
+        "yaml_file": str(Path.cwd() / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"),
         "airfoil_dir": None,
         "n_blades": 3,
         "hub_radius": None,

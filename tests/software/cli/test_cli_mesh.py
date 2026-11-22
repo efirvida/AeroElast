@@ -8,8 +8,11 @@ from aeroelast.cli.aeroelast import main as cli_main
 from aeroelast.cli.mesh import main as mesh_main
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
+# tower/nacelle read their components from the windIO 1.x layout only (src/aeroelast/core/mesh/components.py): the v1 file
+# stays for those two subcommands until that reader moves; blade/rotor/turbine mesh with gmsh and need the v2 file.
 _YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+_V2 = str(V2_BLADE_YAML)
 
 _SURFACE = ["--n-circ", "8"]
 
@@ -118,9 +121,9 @@ def test_blade_no_webs(tmp_path):
     rc = mesh_main(
         [
             "blade",
-            _YAML,
-            "--element-size",
-            "15",
+            _V2,
+            "--chord-divisions",  # was --element-size 15 (NuMAD); gmsh-official-mesher T14, rule 9: nothing >= 0.3 m
+            "10",
             "--no-webs",
             "--quiet",
             "--out",
@@ -136,12 +139,11 @@ def test_rotor(tmp_path):
     rc = mesh_main(
         [
             "rotor",
-            _YAML,
+            _V2,
             "--n-blades",
             "2",
-            "--element-size",
-            "20",
-            "--no-webs",
+            "--chord-divisions",  # was --element-size 20 --no-webs (NuMAD); --no-webs on gmsh is task T7
+            "10",
             "--quiet",
             "--out",
             str(out),
@@ -156,15 +158,16 @@ def test_turbine_writes_every_component(tmp_path):
     rc = mesh_main(
         [
             "turbine",
-            _YAML,
+            _V2,
             "--out-dir",
             str(out_dir),
             "--format",
             "stl",
             "--n-blades",
             "1",
-            "--element-size",
-            "20",
+            "--chord-divisions",  # was --element-size 20 (NuMAD); --webs because the surface-only mesh on gmsh is task T7
+            "10",
+            "--webs",
             "--tower-n-axial",
             "4",
             "--tower-n-circ",
@@ -191,15 +194,16 @@ def test_turbine_rotor_axis_is_configurable(tmp_path):
     rc = mesh_main(
         [
             "turbine",
-            _YAML,
+            _V2,
             "--out-dir",
             str(out_dir),
             "--format",
             "stl",
             "--n-blades",
             "1",
-            "--element-size",
-            "20",
+            "--chord-divisions",  # was --element-size 20 (NuMAD); --webs because the surface-only mesh on gmsh is task T7
+            "10",
+            "--webs",
             "--rotor-axis",
             "1,0,0",
             "--quiet",

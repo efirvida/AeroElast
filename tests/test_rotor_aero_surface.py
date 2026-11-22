@@ -161,8 +161,7 @@ def test_build_full_rotor_aero_surface_from_rotormesh(iea_blade_yaml: str):
         yaml_file=iea_blade_yaml,
         n_blades=3,
         hub_radius=None,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,  # was element_size=12.0, n_samples=60 (NuMAD-only, rejected by BladeMesh S7b); gmsh-official-mesher T14
     )
     mesh = rotor.generate(renumber=None, verbose=False)
 

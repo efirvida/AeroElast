@@ -24,7 +24,7 @@ import pytest
 petsc4py = pytest.importorskip("petsc4py", reason="PETSc not available")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SRC_YAML = REPO_ROOT / "tests" / "IEA-15-240-RWT.yaml"
+SRC_YAML = REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"  # windIO 2.x (gmsh-official-mesher T14)
 KEYS_MOD = {"offset_y_pa", "thickness", "fiber_orientation", "width", "start_nd_arc", "end_nd_arc"}
 S_MID, S_A, S_B, LSEG, NODES, ES = 62.91 / 117.0, 51.38 / 117.0, 74.67 / 117.0, 24.0, 25, 0.25
 WINDOW = (0.3, 0.7)  # fraction of the segment length; clear of the clamp and the tip load introduction
@@ -52,55 +52,70 @@ def _at(gv, s, full, modified):
 
 
 def write_prismatic_yaml(out: Path, prebend: float) -> None:
-    """Official yaml cropped to a 24 m prismatic segment (r = 62.91 m values), prebend slope x ``prebend``.
+    """Official windIO 2.x yaml cropped to a 24 m prismatic segment (r = 62.91 m values), prebend slope x ``prebend``.
 
-    Same construction as logs/check/l3-prismatic/flatten_crop.py (A: ``prebend=0``, F1: ``prebend=1``).
+    Same construction as logs/check/l3-prismatic/flatten_crop.py (A: ``prebend=0``, F1: ``prebend=1``), ported from the
+    windIO 1.x layout to the v2 layout (gmsh-official-mesher T14): every spanwise ``{grid, values}`` of the blade
+    (chord, twist, section_offset_y, rthick, layer thickness / fibre angle / width / arcs, anchors, web attachment) is
+    frozen at the mid-segment value; ``prebend`` only scales the reference-axis x slope.
     """
     import yaml
 
-    d = yaml.load(open(SRC_YAML), Loader=yaml.Loader)
+    d = yaml.load(open(SRC_YAML), Loader=yaml.CSafeLoader)
     b = d["components"]["blade"]
-    o, st = b["outer_shape_bem"], b["internal_structure_2d_fem"]
-    full = np.asarray(o["reference_axis"]["z"]["grid"], float)
+    o, st = b["outer_shape"], b["structure"]
+    full = np.asarray(b["reference_axis"]["z"]["grid"], float)
     u = np.linspace(0.0, 1.0, NODES)
     s = S_A + u * (S_B - S_A)
 
     def const(gv, mod):
         return {"grid": [float(x) for x in u], "values": [_at(gv, S_MID, full, mod)] * NODES}
 
-    for k in ("chord", "twist", "pitch_axis"):
+    def freeze(node):
+        if isinstance(node, dict):
+            if "grid" in node and "values" in node and "anchors_nd_grid" not in node:
+                return const(node, False)
+            return {k: (const(v, k in KEYS_MOD) if isinstance(v, dict) and "grid" in v and "values" in v
+                        else freeze(v)) for k, v in node.items()}
+        if isinstance(node, list):
+            return [freeze(v) for v in node]
+        return node
+
+    for k in ("chord", "twist", "section_offset_y", "rthick"):
         o[k] = const(o[k], False)
-    label = o["airfoil_position"]["labels"][int(np.argmin(np.abs(np.asarray(o["airfoil_position"]["grid"]) - S_MID)))]
-    o["airfoil_position"] = {"grid": [0.0, 1.0], "labels": [label] * 2}
-    xr = o["reference_axis"]["x"]
+    # o["airfoils"] stays whole: the v2 loft needs >= 2 distinct master airfoils; the section shape comes from the
+    # frozen ``rthick`` through the rthick loft, not from the airfoil positions.
+    xr = b["reference_axis"]["x"]
     x_mid = np.interp(S_MID, xr["grid"], xr["values"])
-    ra = {
+    b["reference_axis"] = {
         "x": {"grid": [float(v) for v in u],
               "values": [float(np.interp(x, xr["grid"], xr["values"]) - x_mid) * prebend for x in s]},
         "y": {"grid": [0.0, 1.0], "values": [0.0, 0.0]},
         "z": {"grid": [float(v) for v in u], "values": [LSEG * float(v) for v in u]},
     }
-    o["reference_axis"] = ra
-    st["reference_axis"] = ra
-    for part in ("layers", "webs"):
-        for layer in st[part]:
-            for key, gv in list(layer.items()):
-                if isinstance(gv, dict) and "grid" in gv and "values" in gv:
-                    layer[key] = const(gv, key in KEYS_MOD)
-                elif isinstance(gv, dict) and "fixed" in gv:
-                    layer[key] = {"fixed": gv["fixed"], **const({"grid": gv["grid"], "values": gv["values"]}, False)}
+    st.pop("elastic_properties", None)  # the beam-property table of the full blade has no meaning on the crop
+    for part in ("layers", "webs", "anchors"):
+        st[part] = freeze(st[part])
     yaml.dump(d, open(out, "w"), Dumper=yaml.Dumper, default_flow_style=None, sort_keys=False)
 
 
 def build(yaml_file: Path):
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.models.blade.model import build_rust_properties
-    from aeroelast.postprocess.sectional import SectionalExtractor
+    from tests.support.v2_sectional import V2SectionalExtractor
 
     gen = BladeMesh(yaml_file=str(yaml_file), element_size=ES, skin_reference="mid")
     mesh = gen.generate(renumber="rcm", verbose=False)
     props = build_rust_properties(gen.numad_mesh_data)
-    return mesh, props, SectionalExtractor(mesh, props)
+    # gmsh mesh: unstructured, no constant-z rings; the stations are the production physical rings
+    return mesh, props, V2SectionalExtractor(mesh, props, ring_ids=_ring_ids(mesh))
+
+
+def _ring_ids(mesh) -> np.ndarray:
+    """Production physical-ring index per node (tests/support/production_rings: ``physical_ring_labels``, mesh order)."""
+    from tests.support.production_rings import ring_ids_and_weights
+
+    return ring_ids_and_weights(mesh)[0]
 
 
 def pure_moment_ei(mesh, ext):
@@ -114,9 +129,9 @@ def pure_moment_ei(mesh, ext):
     coords = np.asarray(mesh.coords_array, float)
     nn, n_dof = len(coords), ext.K.shape[0]
     root = np.array(sorted(mesh.node_id_to_index[n] for n in mesh.get_node_set("RootNodes").nodes))
-    order = np.argsort(coords[:, 2])
-    cut = np.where(np.diff(coords[order, 2]) > 0.08)[0] + 1
-    rings = [order[a:b] for a, b in zip(np.r_[0, cut], np.r_[cut, nn], strict=True)]
+    from tests.support.production_rings import mesh_rings  # was: split the sorted z at gaps > 0.08 m (NuMAD node rings)
+
+    rings = mesh_rings(mesh)
     rz = np.array([coords[g, 2].mean() for g in rings])
     tip = rings[-1]
     free = np.setdiff1d(np.arange(n_dof), (root[:, None] * 6 + np.arange(6)).ravel())

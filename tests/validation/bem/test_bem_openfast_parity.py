@@ -122,9 +122,9 @@ TOL_A2_TORQUE = 0.015  # measured -0.27% (yaw) / 0.33% (shear)
 
 #: A3: the repository's own WindIO polars (`tests/IEA-15-240-RWT.yaml`) instead
 #: of the official AeroDyn tables.  This is a sensitivity, not a parity claim.
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
 
-YAML_BLADE = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML_BLADE = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 TOL_POLAR_SET = 0.03  # measured worst 2.12% (torque at 12 m/s)
 
 #: A3 (Viterna): the repository's NeuralFoil + Viterna extrapolation, compared

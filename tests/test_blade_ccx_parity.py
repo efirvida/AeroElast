@@ -75,7 +75,7 @@ from tests.validation.blade.test_blade_iea15mw_validation import (  # noqa: E402
 from tests.support.ccx_io import fail_ccx, run_ccx  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
-BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
+BLADE_YAML = REPO / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"  # windIO 2.x (gmsh-official-mesher T14)
 # The converged mesh. 1.0 m and 0.5 m are both unconverged, so a comparison there
 # measures two unfinished discretisations (6.32/3.86/7.57% and 3.68/1.51/4.88%); at
 # 0.25 m the cases read 1.74/0.53/3.29% and the 5% suite rule is what holds. That is

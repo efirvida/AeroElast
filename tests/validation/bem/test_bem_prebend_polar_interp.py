@@ -29,9 +29,9 @@ from aeroelast.models.blade.aerodynamics import (
 )
 from aeroelast.solvers.bem.engine import BEMSolver
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
 
-IEA_YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+IEA_YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 
 
 def _wiggly_airfoil() -> AirfoilAero:

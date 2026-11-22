@@ -16,10 +16,10 @@ from aeroelast.models.blade.aerodynamics import (
     load_blade_aero,
 )
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
 from tests.support.assertions import assert_residual_below  # noqa: E402
 
-IEA_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+IEA_YAML = str(V2_BLADE_YAML)  # windIO 2.x official file (gmsh-official-mesher T14)
 
 
 # =====================================================================

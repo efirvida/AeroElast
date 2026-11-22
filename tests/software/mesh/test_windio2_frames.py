@@ -220,23 +220,6 @@ def test_positive_twist_moves_leading_edge_upwind(oblique_free_straight):
     assert (twist > 0) == (d_le_y < 0) and (twist > 0) == (d_te_y > 0)
 
 
-def test_v1_public_reader_retains_parallel_frame_and_original_twist():
-    blade = Blade()
-    blade.read_yaml(str(ROOT / "tests/IEA-15-240-RWT.yaml"))
-    g = blade.geometry
-    for k in range(len(g.ispan)):
-        p = g.profiles[:, :, k]
-        x = -(p[:, 0] - g.ichordoffset[k]) * g.ichord[k]
-        y = p[:, 1] * g.ichord[k]
-        angle = np.deg2rad(-g.idegreestwist[k])
-        expected = np.column_stack((
-            np.cos(angle) * x - np.sin(angle) * y - g.isweep[k],
-            np.sin(angle) * x + np.cos(angle) * y + g.iprebend[k],
-            np.full(len(x), g.ispan[k]),
-        ))
-        np.testing.assert_array_equal(g.coordinates[:, :, k], expected)
-
-
 def test_v2_blade_cache_key_follows_the_section_frame_source(tmp_path, monkeypatch):
     """The on-disk v2 mesh cache must not survive a change of geometry.py (which builds the section frames and twist):
     before the pretwist fix its digest did not cover that file and stale mirrored meshes would be reused silently."""
@@ -246,7 +229,7 @@ def test_v2_blade_cache_key_follows_the_section_frame_source(tmp_path, monkeypat
     import v2_blade
 
     assert v2_blade.GEOMETRY.name == "geometry.py" and v2_blade.GEOMETRY.exists()
-    for mesher in ("windio2", "gmsh"):
+    for mesher in ("gmsh",):  # the windio2 mesher is retired (gmsh-official-mesher T12)
         before = v2_blade.cache_key(0.25, mesher=mesher)
         edited = tmp_path / f"geometry_{mesher}.py"
         edited.write_bytes(v2_blade.GEOMETRY.read_bytes() + b"\n# edit\n")
