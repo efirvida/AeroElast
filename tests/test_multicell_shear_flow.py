@@ -1246,6 +1246,7 @@ def test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_
     from aeroelast.solvers.bem.engine import BEMSolver
     import tests.validation.blade.test_blade_iea15mw_validation as blade_validation
     import tests.validation.blade.test_blade_rated_twist as rated
+    from tests.support.production_rings import strip_station_rings
     from tests.support.openfast_bem import build_blade_aero_from_aerodyn
 
     from aeroelast.core.mesh.entities import MeshElement, Node
@@ -1272,8 +1273,8 @@ def test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_
         dtype=np.int64,
     )
     coords = mesh.coords_array
-    phys = rated._physical_stations(coords)
-    tip = np.where(np.abs(coords[:, 2] - phys[-1]) < rated.STATION_GAP_TOLERANCE)[0]
+    # gmsh-official-mesher T14: the tip ring production reads (last BEM strip), not a z bucket
+    tip = strip_station_rings(mesh)[-1]
 
     aero = build_blade_aero_from_aerodyn(rated.AD_PRIMARY)
     bem = BEMSolver(aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0).compute(

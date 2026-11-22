@@ -34,9 +34,17 @@ def mesh_rings(mesh, span_dir=SPAN_Z, min_nodes: int = 1) -> list[np.ndarray]:
 
 
 def skin_wall_edges(mesh) -> np.ndarray:
-    """Corner edges of the skin: every element edge except the shear webs' (``*_SW`` sets), as the torsion guard builds them."""
+    """Corner edges of the skin: every element edge except the shear webs'.
+
+    The webs are the elements of the sets ``allWebEls`` (gmsh / windIO v2 meshes; ``web0``, ``web1`` are subsets of it) and
+    ``*_SW`` (NuMAD stacks).  Until 2026-11-22 only ``*_SW`` was matched, which on a gmsh mesh matches nothing: the "skin"
+    edges then included every web wall (4 junction nodes of degree 3 on a ring at z 19 m) and the tributary weights were
+    skin+web ones (gmsh-official-mesher T14, L-S64).
+    """
     edges = mesh_corner_edges(mesh)
-    web_elements = [e for name, members in mesh.element_sets.items() if name.endswith("_SW") for e in members.elements]
+    web_elements = [
+        e for name, members in mesh.element_sets.items() if name.endswith("_SW") or name == "allWebEls" for e in members.elements
+    ]
     web = mesh_corner_edges(mesh, web_elements)
     if web.size == 0:
         return edges
@@ -89,3 +97,23 @@ def strip_station_rings(mesh, blade_aero=None, span_dir=SPAN_Z) -> list[np.ndarr
         group = next(g for g in groups if anchor in g)
         rings.append(idx[np.sort(group)])
     return rings
+
+
+def production_stations(mesh, blade_aero=None, min_nodes: int = 3, span_dir=SPAN_Z):
+    """``(stations, {station: ring})`` for the rings production reads, a station being the mean span coordinate of its ring.
+
+    Replaces the ad-hoc z buckets (``STATION_GAP_TOLERANCE``) of the rated-twist guards: ``strip_station_rings`` minus any ring
+    of fewer than ``min_nodes`` nodes (a section cannot be fitted on fewer).
+    """
+    coords = np.asarray(mesh.coords_array, float)
+    span = np.asarray(span_dir, float)
+    rings = [g for g in strip_station_rings(mesh, blade_aero, span_dir) if len(g) >= min_nodes]
+    stations = [float((coords[g] @ span).mean()) for g in rings]
+    return stations, dict(zip(stations, rings, strict=True))
+
+
+def ring_edges(edges: np.ndarray, ring) -> np.ndarray:
+    """The rows of ``edges`` (node-index pairs) whose two end nodes both belong to ``ring``."""
+    ring = np.asarray(ring)
+    return edges[np.isin(edges[:, 0], ring) & np.isin(edges[:, 1], ring)]
+

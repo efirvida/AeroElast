@@ -58,7 +58,9 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 import tests.validation.blade.test_blade_section_torsion_stiffness as torsion  # noqa: E402
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
-from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE  # noqa: E402
+# z-cluster gap of the free-edge location below (a free-edge position is a z coordinate, not a section); formerly imported from
+# test_blade_rated_twist, which no longer groups nodes by z (gmsh-official-mesher T14).  Same value, not a moved tolerance.
+STATION_GAP_TOLERANCE = 0.02  # [m]
 from tests.validation.bem.test_force_projection_load_frame import (  # noqa: E402
     _angle_deg, _orient_leading_to_trailing)
 from tests.support.paths import SOURCES_DIR, V2_BLADE_YAML  # noqa: E402

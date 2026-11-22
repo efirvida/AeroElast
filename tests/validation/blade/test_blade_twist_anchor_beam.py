@@ -43,7 +43,6 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
-import tests.validation.blade.test_blade_section_torsion_stiffness as torsion  # noqa: E402
 from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E402
 from aeroelast.solvers.bem.section_contour import (  # noqa: E402
     ring_section_rotation,
@@ -52,7 +51,7 @@ from aeroelast.solvers.bem.section_contour import (  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
-from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
+from tests.support.production_rings import production_stations, skin_wall_edges  # noqa: E402
 
 from tests.support.paths import DATA_DIR, SOURCES_DIR, V2_BLADE_YAML  # noqa: E402
 
@@ -180,10 +179,8 @@ def production():
         load[dof::6] = forces_rigid[:, dof]
     u = np.zeros(n)
     u[free] = np.asarray(spsolve(K[np.ix_(free, free)], load[free]))
-    phys_stations = _physical_stations(coords)
-    phys_rings = {
-        zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in phys_stations
-    }
+    # gmsh-official-mesher T14: the rings production reads (one per BEM strip), not z buckets (tests/support/production_rings)
+    phys_stations, phys_rings = production_stations(mesh, blade_aero)
     return {
         "blade_aero": blade_aero,
         "coords": coords,
@@ -192,7 +189,7 @@ def production():
         "bem_rigid": bem_rigid,
         "phys_stations": phys_stations,
         "phys_rings": phys_rings,
-        "edges": torsion._skin_wall_edges(mesh),
+        "edges": skin_wall_edges(mesh),
     }
 
 

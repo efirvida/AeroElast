@@ -53,7 +53,16 @@ from scipy.sparse.linalg import spsolve  # noqa: E402
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
+from aeroelast.solvers.bem.section_contour import ring_section_rotation, ring_tributary_lengths  # noqa: E402
+
 from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
+from tests.support.production_rings import (  # noqa: E402
+    aerodyn_blade_aero,
+    production_stations,
+    ring_edges,
+    skin_wall_edges,
+    strip_station_rings,
+)
 
 YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
@@ -74,13 +83,11 @@ ZHOU_TIP_FLAP_M = 13.86
 ZHOU_TIP_EDGE_M = -1.22
 ZHOU_TIP_TORSION_DEG = -3.60
 
-#: The blade is prebent: a physical ring's nodes span ~1e-3 m in z, so the raw unique-z set
-#: splits each ring into near-duplicate buckets. This merges them (and detects an element edge
-#: as in-plane when its endpoints are within it). It must stay well above the prebend skew and
-#: well below the spanwise element length (~0.3 m).
+# gmsh-official-mesher T14: the stations of this module are the rings production reads (one per BEM strip,
+# ``tests/support/production_rings.strip_station_rings`` = ``BEMFSIParticipant._find_strip_rings``), not z buckets: the gmsh
+# mesh has no constant-z rings (24 952 distinct z of 25 012 nodes).  The former z-bucket merge tolerance
+# ``STATION_GAP_TOLERANCE`` and ``_physical_stations`` are gone.
 from tests.support.assertions import assert_residual_below  # noqa: E402
-
-STATION_GAP_TOLERANCE = 0.02  # [m]
 
 
 @pytest.fixture(scope="module")
@@ -159,30 +166,57 @@ def blade_shell():
     fixed = {6 * i + d for i in root for d in range(6)}
     free = np.array([i for i in range(n) if i not in fixed], dtype=np.int64)
     coords = np.array([[nd.x, nd.y, nd.z] for nd in mesh.nodes])
-    stations = sorted({round(zz, 6) for zz in coords[:, 2]})
-    rings = {zz: np.where(np.abs(coords[:, 2] - zz) < 1e-6)[0] for zz in stations}
-    # The blade is prebent, so a physical ring's nodes span ~1e-3 m in z and the raw 1e-6
-    # buckets are only slices of a ring. The load path and the ring kinematics both need the
-    # merged physical stations (see _physical_stations); the raw sets stay for the tests that
-    # were already measuring on them.
-    phys_stations = _physical_stations(coords)
-    phys_rings = {
-        zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in phys_stations
-    }
+    # gmsh-official-mesher T14: one ring per BEM strip, as production reads them (BEMFSIParticipant._find_strip_rings).  Ring k
+    # is the section of BEM station k; its station coordinate is the ring's mean z.  The load weights are the trapezoid weights of
+    # the BEM radial grid, so sum(Np_k * w_k) is exactly the BEM's own integral (test_rated_aero_loads_reproduce_the_bem_resultants).
+    if not AD_PRIMARY.exists():
+        pytest.skip(f"AeroDyn reference not present: {AD_PRIMARY}")
+    blade_aero = aerodyn_blade_aero()
+    rings = strip_station_rings(mesh, blade_aero)
+    r_span = np.asarray(blade_aero.r, dtype=float) - float(blade_aero.hub_radius)
+    assert len(rings) == len(r_span), f"{len(rings)} strip rings for {len(r_span)} BEM stations"
+    weights = np.empty_like(r_span)
+    weights[0] = 0.5 * (r_span[1] - r_span[0])
+    weights[-1] = 0.5 * (r_span[-1] - r_span[-2])
+    weights[1:-1] = 0.5 * (r_span[2:] - r_span[:-2])
+    phys_stations, phys_rings = production_stations(mesh, blade_aero)
     return {
         "n": n,
         "Kff": K[np.ix_(free, free)],
         "free": free,
         "coords": coords,
-        "stations": stations,
-        "rings": rings,
-        "tip": rings[stations[-1]],
-        "phys_stations": phys_stations,
+        "blade_aero": blade_aero,
+        "rings": rings,  # one per BEM station, in BEM order
+        "station_weights": weights,  # [m] trapezoid tributary length of BEM station k
+        "edges": skin_wall_edges(mesh),
+        "phys_stations": phys_stations,  # rings of >= 3 nodes, by mean z
         "phys_rings": phys_rings,
-        "phys_tip": phys_rings[phys_stations[-1]],
+        "phys_tip": rings[-1],
         "mesh": mesh,
         "props": props,
     }
+
+
+def _section_omega(shell, u, ring):
+    """Section rotation of ``ring`` under displacement ``u``: ``section_contour.ring_section_rotation`` with skin weights.
+
+    The blade guards weight the antisymmetric part of the ring's affine fit by skin tributary length (AGENTS.md 'section
+    rotation'); production keeps equal nodal weights until L5 decides its definition.
+    """
+    ring = np.asarray(ring)
+    weights = ring_tributary_lengths(ring, shell["edges"], shell["coords"])
+    return float(
+        ring_section_rotation(
+            shell["coords"][ring], u.reshape(-1, 6)[ring, :3], np.asarray(blade_validation.SPAN_DIRECTION), weights
+        )
+    )
+
+
+def _kinematics(shell, u, ring):
+    """``_ring_kinematics`` with ``omega`` replaced by the production-estimator rotation (``_section_omega``)."""
+    kin = _ring_kinematics(shell["coords"], u, ring)
+    kin["omega"] = _section_omega(shell, u, ring)
+    return kin
 
 
 def _section_couples(shell, moment_by_station):
@@ -206,8 +240,9 @@ def _section_couples(shell, moment_by_station):
     force = np.zeros(shell["n"])
     coords = shell["coords"]
     arms = []
-    for zz, moment in zip(shell["stations"], moment_by_station, strict=True):
-        ring = shell["rings"][zz]
+    for ring, moment, weight in zip(shell["rings"], moment_by_station, shell["station_weights"], strict=True):
+        # ``moment_by_station`` is a moment per metre of span (BEM ``Mp``); the ring's resultant couple is moment * weight, so
+        # the load is the BEM's own spanwise distribution whatever the node count of the ring (66 nodes at the root, 14 at the tip)
         xs = coords[ring, 0]
         i_max, i_min = ring[np.argmax(xs)], ring[np.argmin(xs)]
         arm = coords[i_max, 0] - coords[i_min, 0]
@@ -217,7 +252,7 @@ def _section_couples(shell, moment_by_station):
         if abs(moment) < 1e-12 or arm < 0.05:
             continue
         # M_z = +Mp: the BEM's Mp is positive nose-up and nose-up is a positive M_z
-        f = moment / arm
+        f = moment * weight / arm
         force[6 * i_max + 1] += f
         force[6 * i_min + 1] -= f
     print(f"  couple arms: {min(arms):.3f} .. {max(arms):.3f} m")
@@ -237,23 +272,21 @@ def test_section_moment_as_a_couple_sets_the_physical_sign(blade_shell, rated_be
     sense and sign* as a negative theta_z in this mesh.
     """
     bem, blade_aero = rated_bem
-    span = blade_aero.r - blade_aero.hub_radius
-    moments = np.interp(np.asarray(blade_shell["stations"]), span, bem.Mp, left=0.0, right=0.0)
+    moments = np.asarray(bem.Mp, dtype=float)  # one ring per BEM station, in BEM order
 
     # as a couple (the honest application)
     u = np.zeros(blade_shell["n"])
     u[blade_shell["free"]] = spsolve(
         blade_shell["Kff"], _section_couples(blade_shell, moments)[blade_shell["free"]]
     )
-    tip = blade_shell["tip"]
+    tip = blade_shell["phys_tip"]
     couple_twist = float(np.mean([u[6 * i + 5] for i in tip]))
 
     # as nodal rotations (the wrong application, pinned so it cannot return unnoticed)
     force = np.zeros(blade_shell["n"])
-    for zz, moment in zip(blade_shell["stations"], moments, strict=True):
-        ring = blade_shell["rings"][zz]
+    for ring, moment, weight in zip(blade_shell["rings"], moments, blade_shell["station_weights"], strict=True):
         for i in ring:
-            force[6 * i + 5] += moment / len(ring)
+            force[6 * i + 5] += moment * weight / len(ring)
     u2 = np.zeros(blade_shell["n"])
     u2[blade_shell["free"]] = spsolve(blade_shell["Kff"], force[blade_shell["free"]])
     nodal_twist = float(np.mean([u2[6 * i + 5] for i in tip]))
@@ -264,10 +297,7 @@ def test_section_moment_as_a_couple_sets_the_physical_sign(blade_shell, rated_be
         f"  as nodal z-rotations  : {np.rad2deg(nodal_twist):+10.4f} deg "
         f"(drilling DOF, not section torsion)"
     )
-    profile = [
-        float(np.mean([u[6 * i + 5] for i in blade_shell["rings"][zz]]))
-        for zz in blade_shell["stations"]
-    ]
+    profile = [float(np.mean([u[6 * i + 5] for i in ring])) for ring in blade_shell["rings"]]
     step = max(1, len(profile) // 6)
     print("  theta_z along the span [deg]:", [f"{np.rad2deg(v):+.3f}" for v in profile[::step]])
     print(f"  Zhou Table 4 tip torsion: {ZHOU_TIP_TORSION_DEG} deg (same physical sense)")
@@ -306,7 +336,7 @@ def test_the_two_moment_applications_agree_in_sign(blade_shell, rated_bem):
     # a pure, uniform-per-metre pitching moment over the loaded span, nose-down in the BEM's
     # sign (negative), which is the rated case's sense
     mp = np.where(span >= 0.15 * span[-1], -1.0e4, 0.0)
-    moments = np.interp(np.asarray(shell["stations"], dtype=float), span, mp, left=0.0, right=0.0)
+    moments = mp  # one ring per BEM station
 
     # A) the production projector, on a load whose only component is that moment
     bem = BEMResult(
@@ -341,7 +371,7 @@ def test_the_two_moment_applications_agree_in_sign(blade_shell, rated_bem):
     def tip_omega(force):
         u = np.zeros(shell["n"])
         u[shell["free"]] = np.asarray(spsolve(shell["Kff"], force[shell["free"]]), dtype=float)
-        return float(np.rad2deg(_ring_kinematics(shell["coords"], u, shell["phys_tip"])["omega"]))
+        return float(np.rad2deg(_section_omega(shell, u, shell["phys_tip"])))
 
     omega_projected = tip_omega(force_projected)
     omega_coupled = tip_omega(force_coupled)
@@ -365,55 +395,59 @@ def test_the_two_moment_applications_agree_in_sign(blade_shell, rated_bem):
     )
 
 
-def _physical_stations(coords, gap_tolerance=STATION_GAP_TOLERANCE):
-    """Merge the raw unique-z buckets into physical spanwise stations.
+def _directed_loops(coords, edges):
+    """The undirected ``edges`` as directed pairs, every simple closed loop run counter-clockwise (positive shoelace area).
 
-    The blade is **prebent**, so a physical ring's nodes span a small z range (~1e-3 m) instead
-    of lying in one plane; the raw ``unique(z)`` set therefore splits each ring into
-    near-duplicate buckets (2369 buckets for 671 physical stations at element_size 0.25, measured 2026-10-22; 272 for 186 at the old 1.0 m). Values closer than
-    ``gap_tolerance`` are one station. This is what lets the load application cover every ring
-    instead of skipping the split ones - without it the consistent-traction and shear-flow paths
-    apply nothing at 62 buckets, 14% of the normal force.
+    Nodes of degree != 2 (an open or branched piece of wall) keep the stored ``(min, max)`` direction: they carry no closed flow.
     """
-    raw = np.unique(np.round(coords[:, 2], 9))
-    groups: list[list[float]] = []
-    for value in raw:
-        if groups and value - groups[-1][-1] <= gap_tolerance:
-            groups[-1].append(float(value))
-        else:
-            groups.append([float(value)])
-    return [float(np.mean(group)) for group in groups]
+    adjacency: dict[int, list[int]] = {}
+    for a, b in np.asarray(edges, dtype=int):
+        adjacency.setdefault(int(a), []).append(int(b))
+        adjacency.setdefault(int(b), []).append(int(a))
+    directed: list[tuple[int, int]] = []
+    seen: set[int] = set()
+    for start in adjacency:
+        if start in seen:
+            continue
+        loop, previous, current = [start], None, start
+        closed = True
+        while True:
+            seen.add(current)
+            options = [x for x in adjacency[current] if x != previous]
+            if len(adjacency[current]) != 2 or not options:
+                closed = False
+                break
+            nxt = options[0]
+            if nxt == start:
+                break
+            if nxt in seen:
+                closed = False
+                break
+            loop.append(nxt)
+            previous, current = current, nxt
+        if not closed:
+            members = set(loop)
+            directed += [(int(a), int(b)) for a, b in np.asarray(edges, dtype=int) if int(a) in members and int(b) in members]
+            continue
+        pts = coords[loop, :2]
+        area = 0.5 * float(np.sum(pts[:, 0] * np.roll(pts[:, 1], -1) - np.roll(pts[:, 0], -1) * pts[:, 1]))
+        if area < 0.0:
+            loop = loop[::-1]
+        directed += [(loop[i], loop[(i + 1) % len(loop)]) for i in range(len(loop))]
+    return directed
 
 
-def _in_plane_edges(mesh, coords, stations, z_tolerance=STATION_GAP_TOLERANCE):
-    """The chordwise edges of every station, deduplicated, with their direction.
+def _unit_shear_flow(coords, edges, n_dof):
+    """A unit shear flow along a ring's skin walls: returns (force vector, realised moment).
 
-    Needed for both a consistent traction (each edge carries its share by length, not each
-    node an equal force) and a shear flow (a torque enters a closed thin-walled tube as a
-    tangential flow along the walls, ``q = M / 2A``, never as a force pair at two nodes).
-
-    ``z_tolerance`` must exceed the blade's prebend skew (a ring's nodes span ~1e-3 m in z) and
-    stay below the spanwise element length (~0.3 m). Each edge is assigned to the station nearest
-    its midpoint, so a prebent ring is not split between near-duplicate z buckets.
+    ``edges`` are the node-index pairs of the ring's skin (``production_rings.ring_edges``): the flow is assembled per
+    wall edge, so it does not depend on how many nodes the ring carries.  The pairs are undirected (``(min, max)``) and a
+    closed flow has zero net force only if every edge runs the same way round its loop, so the edges are chained into their
+    loops (``_directed_loops``) and each loop is run counter-clockwise.  (An orientation by the sign of the cross product about
+    the ring centroid was tried first and fails on one edge of the section at z 33-52 m: net force 0.48 N per unit flow.)
     """
-    z = coords[:, 2]
-    stations_arr = np.asarray(stations, dtype=float)
-    out = {zz: {} for zz in stations}
-    for element in mesh.elements:
-        ids = [nd.id for nd in element.nodes]
-        for a, b in zip(ids, ids[1:] + ids[:1], strict=True):
-            za, zb = z[mesh.node_id_to_index[a]], z[mesh.node_id_to_index[b]]
-            if abs(za - zb) < z_tolerance:
-                key = stations[int(np.argmin(np.abs(stations_arr - 0.5 * (za + zb))))]
-                out[key][tuple(sorted((a, b)))] = (a, b)
-    return out
-
-
-def _unit_shear_flow(mesh, coords, edges):
-    """A unit shear flow along a station's walls: returns (force vector, realised moment)."""
-    force = np.zeros(6 * len(coords))
-    for a, b in edges.values():
-        ia, ib = mesh.node_id_to_index[a], mesh.node_id_to_index[b]
+    force = np.zeros(n_dof)
+    for ia, ib in _directed_loops(coords, edges):
         pa, pb = coords[ia], coords[ib]
         length = float(np.hypot(pb[0] - pa[0], pb[1] - pa[1]))
         if length < 1e-9:
@@ -451,75 +485,56 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
     """
     n = shell["n"]
     coords = shell["coords"]
-    # Merge the raw z buckets into physical stations; a prebent ring is not planar, and the
-    # raw unique-z set splits it (see _physical_stations). Without this the edge-based paths
-    # skip the split stations and the applied resultant is 14% short of the BEM's integral.
-    stations = _physical_stations(coords)
-    rings = {zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in stations}
-    edges = _in_plane_edges(mesh, coords, stations)
-    flows = {zz: _unit_shear_flow(mesh, coords, edges[zz]) for zz in stations}
-    span = blade_aero.r - blade_aero.hub_radius
-    Np = np.interp(np.asarray(stations), span, bem.Np, left=0.0, right=0.0)
-    Tp = np.interp(np.asarray(stations), span, bem.Tp, left=0.0, right=0.0)
-    Mp = np.interp(np.asarray(stations), span, bem.Mp, left=0.0, right=0.0)
-
-    # Spanwise tributary lengths. The mesh stations are non-uniform (tip-refined), so a
-    # per-metre load must be multiplied by the station's own tributary length. The two end
-    # stations carry half a cell (the trapezoid weights), which makes sum(dz) exactly the
-    # blade length.
-    station_z = np.asarray(stations, dtype=float)
-    dz = np.empty_like(station_z)
-    dz[0] = 0.5 * (station_z[1] - station_z[0])
-    dz[-1] = 0.5 * (station_z[-1] - station_z[-2])
-    dz[1:-1] = 0.5 * (station_z[2:] - station_z[:-2])
-    blade_length = station_z[-1] - station_z[0]
-    assert abs(dz.sum() - blade_length) < 1e-9 * blade_length, (
-        f"tributary lengths sum to {dz.sum():.6f} m, not the blade length {blade_length:.6f} m"
-    )
+    # gmsh-official-mesher T14: the stations are the production strip rings (one per BEM station, shell["rings"]) and the
+    # spanwise tributary length of each is the trapezoid weight of the BEM radial grid, so the applied resultants are the BEM's own
+    # integrals by construction and independent of the ring node count (66 nodes at the root, 14 at the tip).  The load of
+    # station k is the BEM value at station k (no interpolation onto a z grid).
+    rings = shell["rings"]
+    edges = [ring_edges(shell["edges"], ring) for ring in rings]
+    flows = [_unit_shear_flow(coords, e, n) for e in edges]
+    Np, Tp, Mp = (np.asarray(v, dtype=float) for v in (bem.Np, bem.Tp, bem.Mp))
+    dz = shell["station_weights"]
 
     names = ("mp_only", "uniform", "at_ac", "uniform_plus_mp")
     vectors = {name: np.zeros(n) for name in names}
-    for k, zz in enumerate(stations):
-        ring = rings[zz]
+    open_rings: list[int] = []
+    for k, ring in enumerate(rings):
         xs = coords[ring, 0]
-        edge_list = edges[zz]
-        total = sum(
-            float(
-                np.hypot(
-                    coords[mesh.node_id_to_index[b]][0] - coords[mesh.node_id_to_index[a]][0],
-                    coords[mesh.node_id_to_index[b]][1] - coords[mesh.node_id_to_index[a]][1],
-                )
-            )
-            for a, b in edge_list.values()
+        edge_list = edges[k]
+        lengths = np.hypot(
+            coords[edge_list[:, 1], 0] - coords[edge_list[:, 0], 0],
+            coords[edge_list[:, 1], 1] - coords[edge_list[:, 0], 1],
         )
+        total = float(lengths.sum())
         if total > 1e-12:
-            for a, b in edge_list.values():
-                ia, ib = mesh.node_id_to_index[a], mesh.node_id_to_index[b]
-                share = (
-                    float(np.hypot(coords[ib][0] - coords[ia][0], coords[ib][1] - coords[ia][1]))
-                    / total
-                )
+            for (ia, ib), length in zip(edge_list, lengths, strict=True):
+                share = float(length) / total
                 for name in ("at_ac", "uniform_plus_mp"):
                     vectors[name][6 * ia + 1] += 0.5 * share * Np[k] * dz[k]  # normal -> flapwise
-                    vectors[name][6 * ia + 0] += (
-                        0.5 * share * Tp[k] * dz[k]
-                    )  # tangential -> chordwise
+                    vectors[name][6 * ia + 0] += 0.5 * share * Tp[k] * dz[k]  # tangential -> chordwise
                     vectors[name][6 * ib + 1] += 0.5 * share * Np[k] * dz[k]
                     vectors[name][6 * ib + 0] += 0.5 * share * Tp[k] * dz[k]
         for i in ring:  # the previous one-way convention, kept as the sensitivity reference
             vectors["uniform"][6 * i + 1] += Np[k] * dz[k] / len(ring)
             vectors["uniform"][6 * i + 0] += Tp[k] * dz[k] / len(ring)
-        flow, moment = flows[zz]
+        flow, moment = flows[k]
+        net = max(abs(float(flow[0::6].sum())), abs(float(flow[1::6].sum())))
+        if abs(moment) > 1e-12 and net > 1e-6 * abs(moment):
+            # The skin of this ring is not one closed loop (the web-entry ring at z 9.61 m merges two sections; the tip ring is an
+            # open chain), so its wall flow carries a net force and is not a pure moment.  The unit moment is then a couple of
+            # forces +-1/arm at the chordwise extremes (``_section_couples``): the same moment, no net force.
+            arm = float(xs.max() - xs.min())
+            flow = np.zeros(n)
+            flow[6 * ring[np.argmax(xs)] + 1] = 1.0 / arm
+            flow[6 * ring[np.argmin(xs)] + 1] = -1.0 / arm
+            moment = 1.0
+            open_rings.append(k)
         if abs(moment) > 1e-12:
             # the resultant of a CONSISTENT traction sits at the edge-length-weighted
             # centroid of the perimeter, not at the mean of the node positions
-            weighted = 0.0
-            for a, b in edge_list.values():
-                ia, ib = mesh.node_id_to_index[a], mesh.node_id_to_index[b]
-                length = float(
-                    np.hypot(coords[ib][0] - coords[ia][0], coords[ib][1] - coords[ia][1])
-                )
-                weighted += 0.5 * (coords[ia][0] + coords[ib][0]) * length
+            weighted = float(
+                np.sum(0.5 * (coords[edge_list[:, 0], 0] + coords[edge_list[:, 1], 0]) * lengths)
+            )
             x_c = weighted / total if total > 1e-12 else float(xs.mean())
             # The leading edge is at the HIGH-x end of the ring, measured by
             # `tools/diagnose_leading_edge.py` (two independent methods agree at nine
@@ -539,6 +554,7 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
             vectors["at_ac"] += flow * (
                 Np[k] * dz[k] * (x_ac - x_c) / moment
             )  # move the resultant TO x_ac
+    print(f"  rings whose skin is not one closed loop (moment applied as a couple instead of a wall flow): {open_rings}")
     return vectors
 
 
@@ -572,7 +588,7 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
     for name, force in vectors.items():
         u = np.zeros(blade_shell["n"])
         u[blade_shell["free"]] = spsolve(blade_shell["Kff"], force[blade_shell["free"]])
-        tip = blade_shell["tip"]
+        tip = blade_shell["phys_tip"]
         twists[name] = float(np.mean([u[6 * i + 5] for i in tip]))
 
     print("\nrated tip twist (rotation about the blade axis), IEA 15 MW at V=10.59, 7.56 rpm:")
@@ -776,24 +792,11 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
         return stations[min(max(pos, 0), len(stations) - 1)]
 
     probe = {"50%": nearest(0.5 * z_tip), "80%": nearest(0.8 * z_tip), "tip": z_tip}
-    raw_stations = shell["stations"]
-
-    def nearest_raw(target):
-        pos = int(np.searchsorted(raw_stations, target))
-        return raw_stations[min(max(pos, 0), len(raw_stations) - 1)]
-
-    raw_counts = {key: len(shell["rings"][nearest_raw(zz)]) for key, zz in probe.items()}
     ring_counts = {key: len(rings[zz]) for key, zz in probe.items()}
-    print(
-        f"\nring node counts at the probes - nearest raw 1e-6 bucket {raw_counts}, "
-        f"merged physical rings {ring_counts}"
-    )
+    print(f"\nproduction strip-ring node counts at the probes: {ring_counts}")
     for key, zz in probe.items():
-        assert len(rings[zz]) >= max(10, raw_counts[key]), (
-            f"the {key} ring ({zz:.3f} m) has {len(rings[zz])} nodes after the merge while the "
-            f"nearest raw 1e-6 bucket has {raw_counts[key]}: the merged physical ring must be a "
-            f"superset of the raw bucket, never a slice of it, or the affine fit silently runs on "
-            f"a partial section"
+        assert len(rings[zz]) >= 10, (
+            f"the {key} ring ({zz:.3f} m) has {len(rings[zz])} nodes: the affine fit needs a complete section"
         )
 
     order = ("mp_only", "uniform", "uniform_plus_mp", "at_ac")
@@ -811,7 +814,7 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
         u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
         disp[name] = u
         kin[name] = {
-            key: _ring_kinematics(shell["coords"], u, rings[zz]) for key, zz in probe.items()
+            key: _kinematics(shell, u, rings[zz]) for key, zz in probe.items()
         }
         twist[name] = float(np.mean([u[6 * i + 5] for i in tip]))
         energy[name] = float(0.5 * force @ u)
@@ -1149,7 +1152,7 @@ def test_rated_twist_under_production_loads_is_nose_down(
     u = np.zeros(shell["n"])
     u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
     tip = np.asarray(shell["phys_tip"])
-    omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
+    omega = _section_omega(shell, u, tip)
     assert omega < 0.0, (
         f"the production load path gives a non-negative tip section rotation "
         f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega < 0 "
@@ -1184,7 +1187,7 @@ def test_rated_twist_under_multi_cell_production_loads_is_nose_down(blade_shell,
     u = np.zeros(shell["n"])
     u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
     tip = np.asarray(shell["phys_tip"])
-    omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
+    omega = _section_omega(shell, u, tip)
     print(
         f"\nmulti-cell load path: tip section omega = {np.rad2deg(omega):+9.4f} deg "
         f"(nose-down; Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
@@ -1233,7 +1236,7 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
     u = np.zeros(shell["n"])
     u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
     tip = np.asarray(shell["phys_tip"])
-    kin = _ring_kinematics(shell["coords"], u, tip)
+    kin = _kinematics(shell, u, tip)
     omega = kin["omega"]
     theta_z = float(np.mean([u[6 * i + 5] for i in tip]))
     d_over_omega = kin["distortion"] / abs(omega) if abs(omega) > 1e-30 else float("inf")
