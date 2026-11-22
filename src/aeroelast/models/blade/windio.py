@@ -22,7 +22,10 @@ def is_windio2(data: dict) -> bool:
 
 
 def normalize_windio(data: dict) -> dict:
-    """Return the legacy reader view of a v2.0 turbine, or v1 data unchanged.
+    """Return the legacy reader view of a windIO 2.x turbine.
+
+    windIO 1.x files are rejected: the v1 reader branches were removed with the NuMAD mesher
+    (odd/tasks/gmsh-official-mesher.md, S8/S9).
 
     This is not a general schema converter. Weighted airfoil blends, nonzero
     normal section offsets and unresolved geometric anchors are not supported.
@@ -30,7 +33,10 @@ def normalize_windio(data: dict) -> dict:
     """
     version = str(data.get("windIO_version", "1.0"))
     if version.startswith("1."):
-        return data
+        raise ValueError(
+            f"windIO 1.x blade files are no longer read (windIO_version {version}); use a windIO 2.x blade yaml "
+            "(e.g. tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)"
+        )
     if version not in WINDIO2_BLADE_VERSIONS:
         raise ValueError(f"Unsupported windIO version: {version}")
     result = deepcopy(data)

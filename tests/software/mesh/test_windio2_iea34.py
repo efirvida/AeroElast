@@ -57,6 +57,7 @@ def test_other_windio_versions_are_still_rejected(version):
         normalize_windio({"windIO_version": version})
 
 
-def test_v1_data_is_returned_unchanged():
+def test_v1_data_is_rejected():
     data = {"windIO_version": "1.0", "components": {}}
-    assert normalize_windio(data) is data
+    with pytest.raises(ValueError, match="windIO 1.x blade files are no longer read"):
+        normalize_windio(data)
