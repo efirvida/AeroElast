@@ -81,3 +81,23 @@ rm -f ccx_2.20_i8
 make -j "$JOBS" -f Makefile_i8_nopastix ccx_2.20_i8 >"$ROOT/make-ccx.log" 2>&1
 install -m 755 ccx_2.20_i8 "$VENV/bin/ccx_i8"
 echo "installed $VENV/bin/ccx_i8"
+
+# 4. Same build with PARDISO (MKL ILP64, static) as the default solver.
+# SPOOLES stays integer*4 and overflows while factoring the es 0.125 m blade
+# (SIGSEGV in I2Ohash_insert <- FrontMtx_splitUpperMatrices, SLURM 11757677, L-S78).
+# Built with -DPARDISO, CalculiX picks PARDISO by default (ini_cal.c), so decks
+# need no SOLVER= change. Skipped when MKL is absent.
+MKL=${MKL:-/opt/intel/oneapi/mkl/2022.0.2/lib/intel64}
+if [ -f "$MKL/libmkl_gf_ilp64.a" ]; then
+  cd "$ROOT/CalculiX/ccx_2.20"
+  rm -rf src_pardiso && mkdir src_pardiso
+  (cd src && cp *.c *.f *.h Makefile.inc date.pl src_pardiso_dummy 2>/dev/null ../src_pardiso/ || true)
+  cd src_pardiso
+  sed -e "s#-DLONGLONG\$#-DLONGLONG -DPARDISO -DMKL_ILP64 -I$MKL/../../include#" \
+      -e "s#^LIBS = \(.*\)\$#LIBS = \1 -Wl,--start-group $MKL/libmkl_gf_ilp64.a $MKL/libmkl_gnu_thread.a $MKL/libmkl_core.a -Wl,--end-group#" \
+      ../src/Makefile_i8_nopastix > Makefile_i8_pardiso
+  grep -q -- '-DPARDISO' Makefile_i8_pardiso && grep -q mkl_core Makefile_i8_pardiso
+  make -j "$JOBS" -f Makefile_i8_pardiso ccx_2.20_i8 >"$ROOT/make-ccx-pardiso.log" 2>&1
+  install -m 755 ccx_2.20_i8 "$VENV/bin/ccx_i8_pardiso"
+  echo "installed $VENV/bin/ccx_i8_pardiso"
+fi
