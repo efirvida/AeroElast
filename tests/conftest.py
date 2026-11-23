@@ -183,35 +183,3 @@ def iea_blade_yaml():
     if path is None:
         pytest.skip(f"official IEA-15-240-RWT.yaml not found at {_OFFICIAL_BLADE_YAML}")
     return path
-
-
-@pytest.fixture(scope="session")
-def iea_numad_blade(iea_blade_yaml):
-    """Return a fully initialised numadBlade for the IEA-15-240-RWT."""
-    import numpy as np
-
-    from aeroelast.models.blade.numad import Blade as numadBlade
-
-    # Same setup sequence used by BladeMesh.generate()
-    blade = numadBlade()
-    blade.read_yaml(iea_blade_yaml)
-    for stat in blade.definition.stations:
-        stat.airfoil.resample(n_samples=150)
-    blade.update_blade()
-    n_stations = blade.geometry.coordinates.shape[2]
-    blade.expand_blade_geometry_te(0.001 * np.ones(n_stations))
-    return blade
-
-
-@pytest.fixture(scope="session")
-def iea_blade_xlsx():
-    """Return the Path to NuMAD_utd_iea15mw.xlsx or skip the test."""
-    from pathlib import Path
-
-    path = Path(__file__).parent / "NuMAD_utd_iea15mw.xlsx"
-    if not path.is_file():
-        pytest.skip(
-            "NuMAD_utd_iea15mw.xlsx not found. "
-            "Place a copy in the tests/ directory."
-        )
-    return path

@@ -1,6 +1,6 @@
 """Blade mechanical validation on the IEA 15 MW reference geometry.
 
-Geometry: ``tests/IEA-15-240-RWT.yaml`` (the official IEA Wind 15 MW reference
+Geometry: ``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`` (the official IEA Wind 15 MW reference
 turbine definition, Gaertner et al. 2020, NREL/TP-5000-75698), meshed and given
 composite shell properties by this repository's own ``Blade`` model.
 

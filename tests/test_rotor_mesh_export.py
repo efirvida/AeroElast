@@ -245,8 +245,7 @@ def test_rotor_hub_mesh_generates_closed_surface(iea_blade_yaml: str):
 
 def test_rotor_mesh_resolves_hub_radius_from_explicit_rotor_diameter_override():
     rotor = RotorMesh(
-        excel_file="blade.xlsx",
-        airfoil_dir="airfoils",
+        yaml_file=V2_YAML,
         n_blades=3,
         rotor_diameter=242.23775645,
     )

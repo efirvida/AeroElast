@@ -2,7 +2,7 @@
 """Thin-wall multi-cell Bredt GJ of our shell mesh section, vs the yaml Bredt, the S-1 FE GJ and the deck (odd/tasks/l3-closure.md, T9).
 
 Discriminates where the S-1 GJ deficit of a blade enters: the mesh geometry/laminate (mesh Bredt below
-the yaml Bredt of ``tools/l3_bredt_yaml.py``) or the element / extraction (mesh Bredt ~ yaml Bredt, FE
+the yaml Bredt of the deleted v1 ``tools/l3_bredt_yaml.py``) or the element / extraction (mesh Bredt ~ yaml Bredt, FE
 below it). Generalises ``model_bredt`` of ``tools/bredt_gj.py`` (branch ``fix/cap-arcs``, IEA-15 only)
 to any windIO v1 yaml. Conventions:
 
@@ -11,9 +11,9 @@ to any windIO v1 yaml. Conventions:
   polygon gives one wall segment on its mid-surface);
 * wall G t = laminate A66 of the element's section layup (Qbar66 per ply; G12 t for 0 deg plies);
 * cells = bounded faces of the planar wall graph, ranked by chordwise position from the TE; regions as
-  in ``l3_bredt_yaml._regions``: exterior wall per cell (TE cell, box, LE cell) and each shared wall
+  in the deleted v1 ``l3_bredt_yaml._regions``: exterior wall per cell (TE cell, box, LE cell) and each shared wall
   (web), with their share of the summed integral ds/(G t);
-* deck GJ_sc = K66 condensed over the two shear strains (``l3_bredt_yaml.condense_shear``).
+* deck GJ_sc = K66 condensed over the two shear strains (``bredt_deck.condense_shear``).
 
   python tools/l3_bredt_mesh.py --yaml tests/IEA34/reference/upstream/IEA-3.4-130-RWT.yaml \\
       --beamdyn tests/IEA34/reference/IEA-3.4-130-RWT_BeamDyn_blade.dat --blade-length 63.0 \\
@@ -33,7 +33,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from l3_bredt_yaml import condense_shear, interp_deck, load_beamdyn_6x6, multicell_bredt  # noqa: E402
+from bredt_deck import condense_shear, interp_deck, load_beamdyn_6x6, multicell_bredt  # noqa: E402
 
 ROW_TOL = 1e-5  # [m] elements of one span row share their centroid z to this tolerance
 
@@ -248,7 +248,7 @@ def main(argv=None) -> int:
     ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--stations", type=float, nargs="+")
     ap.add_argument("--s1-json", help="tools/l3_s1_blade.py output: FE GJ interpolated at the row z")
-    ap.add_argument("--yaml-bredt-json", help="tools/l3_bredt_yaml.py output at the same stations")
+    ap.add_argument("--yaml-bredt-json", help="yaml Bredt JSON at the same stations (the v1 tools/l3_bredt_yaml.py was deleted)")
     ap.add_argument("--out")
     args = ap.parse_args(argv)
     if args.selftest:

@@ -26,5 +26,5 @@ SOURCES_DIR = REPO_ROOT / ".sources"
 EXAMPLES_DIR = REPO_ROOT / "examples"
 OUTPUT_DIR = REPO_ROOT / "output"
 # The only blade definition of the suite: the official windIO 2.x IEA-15-240-RWT file (gmsh-official-mesher S9);
-# the NuMAD-era windIO 1.x tests/IEA-15-240-RWT.yaml is no longer meshed.
+# the NuMAD-era windIO 1.x tests/IEA-15-240-RWT.yaml was deleted (S9).
 V2_BLADE_YAML = TESTS_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"

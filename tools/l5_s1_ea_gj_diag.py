@@ -59,7 +59,7 @@ def cmd_indep(a):
     from tests.support.v2_sectional import bay_centres_v2
     from l3_bredt_mesh import graph_bredt
     from beam_reference import load_beamdyn_blade
-    from l3_bredt_yaml import load_beamdyn_6x6, condense_shear
+    from bredt_deck import load_beamdyn_6x6, condense_shear
     bdp = REPO / "tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat"
     bd = load_beamdyn_blade(bdp)
     etas, ks = load_beamdyn_6x6(bdp)

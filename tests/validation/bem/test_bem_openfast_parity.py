@@ -120,7 +120,7 @@ A2_TMAX = 80.0
 TOL_A2_THRUST = 0.015  # measured 0.33% (yaw) / 0.19% (shear)
 TOL_A2_TORQUE = 0.015  # measured -0.27% (yaw) / 0.33% (shear)
 
-#: A3: the repository's own WindIO polars (`tests/IEA-15-240-RWT.yaml`) instead
+#: A3: the repository's own WindIO polars (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`) instead
 #: of the official AeroDyn tables.  This is a sensitivity, not a parity claim.
 from tests.support.paths import V2_BLADE_YAML  # noqa: E402
 

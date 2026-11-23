@@ -27,7 +27,7 @@ SOLVERS = ["corotational", "inertial"]
 
 # IEA-15 MW asset paths expected inside every YAML (relative to YAML's parent dir)
 # The canonical blade input since 2026-09-08 is the official WindIO yaml
-# (tests/IEA-15-240-RWT.yaml); the UTD excel input is retired from new work.
+# (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml, windIO 2.x); the UTD excel input and the windIO 1.x file are retired.
 # Since T6b (gmsh-official-mesher, S6) the mesh generator is GmshBladeMesh on the windIO 2.x
 # upstream file; the NuMAD-only keys are gone from its params.
 EXPECTED_GENERATOR_TYPE = "GmshBladeMesh"

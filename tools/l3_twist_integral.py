@@ -27,7 +27,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from l3_bredt_mesh import laminate_a66, mesh_section  # noqa: E402,F401
-from l3_bredt_yaml import condense_shear, interp_deck, load_beamdyn_6x6  # noqa: E402
+from bredt_deck import condense_shear, interp_deck, load_beamdyn_6x6  # noqa: E402
 
 BANDS = ((0.3, 0.6), (0.6, 0.85), (0.7, 0.85), (0.4, 0.6))
 SLICE_ETAS = tuple(round(0.05 * k, 2) for k in range(1, 20))

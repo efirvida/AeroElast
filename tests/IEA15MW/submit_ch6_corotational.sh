@@ -7,7 +7,7 @@
 # submit_ch6_corotational.sh — one SLURM job per ch6 DLC prepared case (corotational only).
 #
 # Cases: dlc_1.1 (NTM rated), dlc_6.1 (EWM V50, parked), dlc_6.3 (EWM V1).
-# Official WindIO blade (tests/IEA-15-240-RWT.yaml).
+# Official WindIO 2.x blade (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml).
 #
 # Usage:
 #   bash submit_ch6_corotational.sh

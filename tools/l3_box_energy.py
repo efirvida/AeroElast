@@ -45,7 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
-from l3_bredt_yaml import interp_deck, load_beamdyn_6x6  # noqa: E402
+from bredt_deck import interp_deck, load_beamdyn_6x6  # noqa: E402
 
 ETA_CUTS = (0.85, 0.90, 0.95, 1.0)
 S7_ETA_CUT = 0.9504  # 111.2 m of the 117 m IEA-15 blade: the last valid BeamDyn station of run_s7_torsion

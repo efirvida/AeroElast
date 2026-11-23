@@ -12,7 +12,7 @@ arc-weighted ring fit of the torsion guard (l3-closure T19), not the equal-weigh
 
 **The frame, pinned once.**  ``x = (pitch_axis - f) * c``: ``x = 0`` is the pitch axis, the leading
 edge sits at ``+pitch_axis * c``, the trailing edge at ``-(1 - pitch_axis) * c``; ``pitch_axis`` is a
-chord fraction from the leading edge and agrees exactly between ``tests/IEA-15-240-RWT.yaml`` line 24
+chord fraction from the leading edge and agrees exactly between the official windIO yaml (``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml``)
 and column 2 of the ElastoDyn blade deck.  The blunt end (the larger in-plane spread inside the outer
 quarter of the chord) is the leading edge at ``+x``; the declared load sense is fluid ``+Y`` /
 rotor clockwise viewed from behind.  The frame is derived from the ring outline and the turbine

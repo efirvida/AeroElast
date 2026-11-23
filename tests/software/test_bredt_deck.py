@@ -1,12 +1,11 @@
-"""``tools/l3_bredt_yaml.py``: thin-wall multi-cell Bredt GJ of a windIO v1 yaml section (odd/tasks/l3-closure.md, T9).
+"""``tools/bredt_deck.py``: the mesh-free Bredt core and BeamDyn-deck helpers (odd/tasks/l3-closure.md, T9).
 
-The Bredt core is checked against closed forms (circular tube, two-cell rectangle), the 6x6 shear
-condensation on a hand matrix, and the partial-span rule on a tiny yaml dict.
+Checked against closed forms (circular tube, two-cell rectangle), the 6x6 shear condensation on a hand
+matrix and linear deck interpolation. The windIO 1.x section reader they came with was deleted (S9).
 """
 
 from __future__ import annotations
 
-import copy
 import sys
 from pathlib import Path
 
@@ -15,11 +14,8 @@ import pytest
 
 TOOLS = Path(__file__).resolve().parents[2] / "tools"
 sys.path.insert(0, str(TOOLS))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import l3_bredt_yaml as lb  # noqa: E402
-from audit_blade_input import YamlBlade  # noqa: E402
-from test_audit_blade_input import mini_yaml  # noqa: E402
+import bredt_deck as lb  # noqa: E402
 
 
 def test_single_cell_circular_tube_matches_2_pi_R3_Gt():
@@ -65,15 +61,3 @@ def test_beamdyn_interpolation_is_linear_in_eta():
     etas = np.array([0.0, 1.0])
     ks = np.array([np.eye(6), 3 * np.eye(6)])
     assert lb.interp_deck(etas, ks, 0.25) == pytest.approx(1.5 * np.eye(6))
-
-
-def test_web_absent_outside_its_layer_grid_gives_one_cell():
-    d = copy.deepcopy(mini_yaml())
-    for layer in d["components"]["blade"]["internal_structure_2d_fem"]["layers"]:
-        if layer["name"] == "web0_skin":
-            layer["thickness"] = {"grid": [0.0, 0.5], "values": [0.003, 0.001]}
-    yb = YamlBlade.from_dict(d)
-    inside = lb.yaml_section(yb, 0.25, n=200, offset=False)
-    outside = lb.yaml_section(yb, 0.8, n=200, offset=False)
-    assert inside["n_cells"] == 2 and outside["n_cells"] == 1
-    assert outside["gj"] > 0.0

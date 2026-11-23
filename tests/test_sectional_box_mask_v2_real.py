@@ -1,7 +1,7 @@
 """``sectional.box_node_mask`` on a REAL windIO v2 blade mesh (l3-outboard-section-stiffness T14, S2, D4; L20 risk).
 
 L20 gave ``box_node_mask`` a v2 branch (SEC<n> laminates, no SPAR/_SW names) but pinned it only on synthetic strips.
-This test pins it on the official ``tests/IEA-15-240-RWT.yaml`` meshed with the reference mesher (gmsh chord-scaled
+This test pins it on the official ``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`` meshed with the reference mesher (gmsh chord-scaled
 N20 AR 1, skin reference ``mid``; ``AGENTS.md`` rule 9), via ``tests/support/v2_blade.build_v2_blade`` (disk-cached under
 ``$SCRATCH/tmp/v2_blade_cache``; a cold build is slow, a warm one takes ~3 s).
 
