@@ -2193,7 +2193,7 @@ verdicts:
     verdict: rejected
     audited_rev: 9f72c6b
     files:
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     note: >-
       0.524444 Hz vs NREL/TP-5000-75698 Table 5-2 0.5585 Hz: -6.10 %, 1.10 pp over the ceiling
       (K3a; `regression --write`, SLURM 11619654). The reference describes the v1.0 blade while the
@@ -2208,7 +2208,7 @@ verdicts:
     verdict: rejected
     audited_rev: 9f72c6b
     files:
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     note: >-
       Bound 0.10 -> 0.05 at 19ff1a3 (ADJ-1034 withdraws ADJ-1032). 0.694793 Hz vs NREL 0.6406 Hz:
       +8.46 %, 3.46 pp over the ceiling (K3a; SLURM 11619654). Same reference caveat as 1F (v1.0
@@ -2224,7 +2224,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2243,7 +2243,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2263,7 +2263,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2281,7 +2281,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2300,7 +2300,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2315,7 +2315,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
@@ -2332,7 +2332,7 @@ verdicts:
     audited_rev: f1c9e91
     files:
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
@@ -2352,7 +2352,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
@@ -2368,7 +2368,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/run_s4_rotating_modal.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
     note: >-
@@ -2390,7 +2390,7 @@ verdicts:
     files:
       - tools/run_s4_rotating_modal.py
       - tools/bd_rotating_freevib.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0 (rated 1E)"}
@@ -2415,7 +2415,7 @@ verdicts:
     verdict: trusted
     audited_rev: 64976d8
     files:
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: published_numerical, label: "IEA-15-240-RWT tabular xlsx declared blade mass, 67,921 kg"}
     note: >-
@@ -2860,7 +2860,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2877,7 +2877,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2894,7 +2894,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2912,7 +2912,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2930,7 +2930,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -3054,7 +3054,7 @@ verdicts:
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn summary mass of the official v1.1 deck (66,934.6 kg at p60), matched by the deck integral 66,996.9 kg within 0.093 %"}
     note: >-
@@ -3070,7 +3070,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/bd_static_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 case"}
     note: >-

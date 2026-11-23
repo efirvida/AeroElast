@@ -25,7 +25,7 @@ sesgo no es un artefacto del método de extracción.
 
 ## 2. Verificación de la cadena de entrada
 
-El yaml WindIO (`tests/IEA-15-240-RWT.yaml`) publica **dos representaciones
+El yaml WindIO (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`) publica **dos representaciones
 estructurales lado a lado**:
 
 1. `elastic_properties_mb.six_x_six` — las matrices 6×6 de viga (K y M), y

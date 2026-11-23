@@ -88,7 +88,7 @@ levels:
   - id: L3
     title: IEA 15 MW blade structure against published models and CalculiX
     scope: >-
-      The official WindIO blade (tests/IEA-15-240-RWT.yaml): sectional properties, static,
+      The official WindIO blade (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml): sectional properties, static,
       modal (parked and rotating), torsion and transient response against BeamDyn/BModes/
       OpenFAST decks, published models and CalculiX.
     groups:
@@ -107,7 +107,7 @@ levels:
     depends_on:
       - src/aeroelast/core/mesh
       - src/aeroelast/models/blade
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
       - tests/IEA15MW/reference
       - tools/beam_reference.py
       - src/aeroelast/postprocess/sectional.py
@@ -141,7 +141,7 @@ levels:
     depends_on:
       - src/aeroelast/solvers/bem
       - src/aeroelast/models/blade
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     gaps: []
     # Load-frame identity/classification guards (#15) are declared out_of_scope
     # in groups.yaml; they are not missing independent physics comparisons.

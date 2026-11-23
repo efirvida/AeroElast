@@ -71,11 +71,11 @@ The product of this repository is numbers that survive scrutiny, not code that r
    measuring: it holds the suite before/after counts and the anchors that moved.
 6. **Rebuild before believing a Rust-side number**: `cd crates/aeroelast-py && maturin develop
    --release`. `pip install -e .` does not recompile Rust, and a stale `.so` silently answers.
-7. **Watch the degenerate inputs.** New validation work uses the official
-   `tests/IEA-15-240-RWT.yaml`. The UTD xlsx blade has a 30–75 % thinner TE reinforcement
-   outboard (≈30 % less edgewise stiffness; +40–55 % static tip deflection) and survives only
-   as an input-sensitivity record in `convergence_b1_b2`
-   (`docs/blade_input_divergence_utd_vs_official.md`).
+7. **Watch the degenerate inputs.** The official windIO v2 yaml
+   `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml` is the only blade input; windIO 1.x
+   yamls and the UTD xlsx blade are rejected/deleted. The UTD blade had a 30–75 % thinner TE
+   reinforcement outboard (≈30 % less edgewise stiffness; +40–55 % static tip deflection); that
+   comparison survives only as history in `docs/blade_input_divergence_utd_vs_official.md`.
 8. **Report negative and null results.** A reference that disagrees is the deliverable.
 9. **Reference mesh: gmsh chord-scaled N20 AR 1** (`chord_divisions` 20, `span_aspect` 1;
    converged N15-N30, N > 30 out of range for ring-based BEM quantities, AR 2 rejected by the

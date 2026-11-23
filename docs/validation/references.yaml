@@ -1317,7 +1317,7 @@ references:
       - "Gaertner"
     notes: >-
       March 2020. This is the NREL reference definition of the turbine; the
-      repository ships its WindIO rendering as `tests/IEA-15-240-RWT.yaml`. The
+      repository ships its WindIO rendering as `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`. The
       report states a blade mass about 65 t, which the test suite compares
       against. Cited by the code at
       `tests/validation/blade/test_blade_iea15mw_validation.py` (mass vs the

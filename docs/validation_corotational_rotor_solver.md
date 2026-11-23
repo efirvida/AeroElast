@@ -94,7 +94,7 @@ Interpretacion: el participante BEM reproduce el nivel nominal del rotor dentro 
 
 ### 2.2 Frecuencias naturales de pala {#modal}
 
-**Malla**: `tests/NuMAD_utd_iea15mw.xlsx`, `element_size = 0.25 m`.
+**Malla**: `tests/NuMAD_utd_iea15mw.xlsx` (historico: entrada y mallador NuMAD retirados; hoy yaml v2 oficial + gmsh), `element_size = 0.25 m`.
 
 | Modo | Descripcion | Paquete IEA-15-240-RWT [R1,R2] [Hz] | UTD BModes [R4] [Hz] | Bernardi 2025 [Hz] | AeroElast Shell [Hz] | $\Delta$ vs IEA | $\Delta$ vs UTD |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -948,7 +948,7 @@ Todas estas digitalizaciones deben leerse como activos de trazabilidad metodolog
 |---|---|
 | [R1] | `tests/IEA15MW/IEA-15-240-RWT/Documentation/IEA-15-240-RWT_tabular.xlsx` - curva de potencia, parametros globales y tablas del paquete oficial. |
 | [R2] | NREL/TP-5000-75698 - definicion de la turbina IEA 15 MW, frecuencias de referencia y analisis de cargas DLC. |
-| [R3] | `tests/NuMAD_utd_iea15mw.xlsx` - geometria estructural usada por AeroElast en V-02, V-03 y `bem_0_10`. |
+| [R3] | `tests/NuMAD_utd_iea15mw.xlsx` (retirado, historico) - geometria estructural usada por AeroElast en V-02, V-03 y `bem_0_10`. |
 | [R4] | Escalera Mendoza A.S., Mishra I., Griffith D.T. - *An Open-Source NuMAD Model for the IEA 15 MW Blade with Baseline Structural Analysis*, AIAA Scitech 2023, DOI: 10.2514/6.2023-2093. |
 | [Zhou] | Zhou L., et al. - *Unsteady aeroelastic performance of the 15 MW floating offshore wind turbine under surge condition*, Energy 336 (2025) 136488. |
 | [Ma] | Ma L., Li Y., Zhou L., Yang D., Shen X., Du Z. - *Study on the aeroelastic performance of 15 MW wind turbine under yaw condition*, Frontiers in Energy Research 13:1571567 (2025). |

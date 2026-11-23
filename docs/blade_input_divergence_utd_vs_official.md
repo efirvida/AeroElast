@@ -109,7 +109,7 @@ cuadro completo:
 
 ## 5. Experimento decisivo
 
-El blade oficial existe en formato WindIO v2 en `tests/IEA-15-240-RWT.yaml`
+El blade oficial existe en formato WindIO v2 en `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`
 (layup completa `internal_structure_2d_fem`, polares incluidos) y el importador
 ya existía en AeroElast (`models/blade/numad/io/yaml_to_blade.py` +
 `BladeMesh(yaml_file=...)`). Al correr S-2 con ese blade, el gap edgewise cae

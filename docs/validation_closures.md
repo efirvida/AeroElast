@@ -1733,7 +1733,7 @@ reales).
 ajuste de parámetros).**
 
 - *Métrica*: `twist_deg` de la última franja en `fluid/<t>/bem_sectional.csv` menos la referencia de
-  producción `load_blade_aero(tests/IEA-15-240-RWT.yaml).twist` (sentido del BEM, positivo =
+  producción `load_blade_aero(tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml).twist` (sentido del BEM, positivo =
   nariz abajo, el de Zhou). Media sobre las dos últimas ventanas de período entero
   (T = 7.947 s, [14.11, 30] s, 1590 muestras). Comprobaciones del instrumento: la franja de raíz da
   `+0.000°` y el twist de referencia de punta es `−1.242°`, igual que la tabla oficial.
@@ -1780,7 +1780,7 @@ del deck, mismo convenio (nariz abajo positivo):
   Esto es una hipótesis, no un defecto con causa nombrada: sigue abierta como brecha de magnitud.
 - *Fuente de los polares de esa prueba* (comprobado 2026-10-13): la herramienta reconstruye `Mp` con
   las tablas AeroDyn del deck de OpenFAST, mientras que la BEM acoplada lee los polares del
-  windIO (`tests/IEA-15-240-RWT.yaml`, 8 perfiles con `c_l`, `c_d`, `c_m`). Recalculado con los del
+  windIO (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`, 8 perfiles con `c_l`, `c_d`, `c_m`). Recalculado con los del
   yaml en las 7 estaciones de Zhou, `Mp` cambia entre −2.5 % y +1.1 % por estación y +0.7 % en
   suma (`Mp` solo entra por `Cm`; `q·c` sale de `|F|/√(CL²+CD²)`), así que la fuente de polares no
   explica la brecha de 2.82×. La frase "los polares son nuestros" del docstring de la herramienta

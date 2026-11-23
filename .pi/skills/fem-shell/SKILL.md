@@ -97,7 +97,7 @@ the single worst read in this repo; use the section you need.
 | validation closures and re-run triggers | `docs/validation_closures.md` |
 | consolidated rotor validation report | `docs/validation_corotational_rotor_solver.md` |
 | validation matrix (must stay at 0 errors) | `tools/validation_matrix.py check` |
-| official IEA 15 MW blade input | `tests/IEA-15-240-RWT.yaml` (never the UTD xlsx in new work) |
+| official IEA 15 MW blade input | `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml` (the only blade input; windIO 1.x and the UTD xlsx are rejected) |
 
 ## 5. Session hygiene — the largest lever
 
