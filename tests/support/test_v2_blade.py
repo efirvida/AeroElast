@@ -123,10 +123,11 @@ def test_mesher_is_part_of_the_cache_key_and_digest_covers_the_gmsh_sources(monk
     assert vb.cache_key(0.25) != key
 
 
-def test_gmsh_mesher_rejects_collapse_and_partial_blade_and_unknown_mesher():
+def test_gmsh_mesher_rejects_collapse_and_unknown_mesher_and_accepts_a_patch():
     with pytest.raises(ValueError, match="no collapse"):
         vb.load_raw(0.25, 0.15, mesher="gmsh", generate=False)
-    with pytest.raises(ValueError, match="no collapse"):
+    # a span sub-range is accepted since gmsh_skin plumbs eta_bounds (797542b): it reaches the cache lookup
+    with pytest.raises(FileNotFoundError, match="cold v2 blade cache"):
         vb.load_raw(0.25, None, PATCH, mesher="gmsh", generate=False)
     with pytest.raises(ValueError, match="mesher"):
         vb.load_raw(0.25, mesher="bogus", generate=False)
