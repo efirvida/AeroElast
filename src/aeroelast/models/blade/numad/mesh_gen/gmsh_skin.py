@@ -1887,6 +1887,40 @@ def conformity_report(nodes, elements, tol=1e-9, surfaces=None):
     return rep
 
 
+def weld_coincident_nodes(nodes, elements, attachments=None, tol=1e-9):
+    """Merge distinct node ids that sit at the same position (distance <= ``tol`` m, chained pairs form one group).
+
+    Two surfaces that share an attachment line (IEA-15: web0 and web1 at the root) are meshed independently, so the line carries
+    one node per surface.  Each group keeps its lowest id, the unused ids are dropped (the rest keep their order) and the element
+    connectivity (-1 padding kept) and the ``attachments`` chains ({key: tuple of ids}) are remapped.  Returns
+    ``(nodes, elements, attachments, n_removed)``; with no coincident pair the inputs come back unchanged."""
+    nodes = np.asarray(nodes, float)
+    pairs = cKDTree(nodes).query_pairs(tol, output_type="ndarray")
+    if not len(pairs):
+        return nodes, elements, attachments, 0
+    parent = np.arange(len(nodes))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for a, b in pairs:
+        ra, rb = find(int(a)), find(int(b))
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    rep = np.array([find(i) for i in range(len(nodes))])
+    keep = np.unique(rep)
+    new_id = np.full(len(nodes), -1, dtype=int)
+    new_id[keep] = np.arange(len(keep))
+    final = new_id[rep]
+    elements = np.where(elements >= 0, final[np.where(elements >= 0, elements, 0)], -1)
+    if attachments is not None:
+        attachments = {k: tuple(int(final[i]) for i in v) for k, v in attachments.items()}
+    return nodes[keep], elements, attachments, int(len(nodes) - len(keep))
+
+
 def mesh_web_chart(xyz, start_nodes, end_nodes, rows, active, h, size, length, eta0=0.0, eta1=1.0, *, n_new_first=None, **mesh_opts):
     """Mesh ONE shear web as a chart (span y, height x = q * width) between two skin attachment node chains.
 
@@ -2152,13 +2186,13 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
         web_info[nm].update(elements=int(len(wel)), triangles=int((wel[:, 3] < 0).sum()), patches=wm["info"]["n_patches"],
                             count_changes=wm["info"]["n_count_changes"], nodes_new=int(len(wm["xyz_new"])), gmsh_seconds=wm["info"]["gmsh_seconds"])
 
-    nodes = np.vstack(nodes)
-    elements, params_all = _orient_positive(np.vstack(elements), np.vstack(params))
+    nodes, elements, attachments, n_welded = weld_coincident_nodes(np.vstack(nodes), np.vstack(elements), attachments)
+    elements, params_all = _orient_positive(elements, np.vstack(params))
     mesh = RawMesh(nodes, elements, tuple(cells), tuple(surfaces), params_all, shell_bases(nodes, elements), attachments)
     t0 = time.perf_counter()
     if with_materials:
         mesh = map_mesh_materials_gmsh(topology, mesh)
     info = {"skin_result": res, "webs": web_info, "n_skin_elements": len(skin_el), "gate": res.gate, "seconds_skin_mesh": t_skin,
-            "seconds_cells": t_cells, "te_coating_filled": n_te_filled, "seconds_materials_map": time.perf_counter() - t0, "rows": rows,
+            "seconds_cells": t_cells, "te_coating_filled": n_te_filled, "welded_nodes": n_welded, "seconds_materials_map": time.perf_counter() - t0, "rows": rows,
             "conformity": conformity_report(nodes, elements, surfaces=surfaces)}
     return (mesh, info) if return_info else mesh

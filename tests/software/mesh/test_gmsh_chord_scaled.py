@@ -319,4 +319,6 @@ def test_element_size_path_keeps_the_iea15_counts_at_h_025():
     blade = Blade()
     blade.read_yaml(str(v2_blade.DEFAULT_YAML))
     raw = generate_mesh_gmsh(blade.windio2_topology, 0.25, with_materials=True)
-    assert (len(raw.nodes), len(raw.elements)) == (25012, 26018)
+    # (25012, 26018) until 0c04c36 (windIO-v2 pretwist sign) moved the geometry: 26015 elements, measured
+    # revision by revision (gmsh-official-mesher L-S73); 25012 -> 24996 nodes is the web0/web1 root weld (T19, L-S71).
+    assert (len(raw.nodes), len(raw.elements)) == (24996, 26015)
