@@ -19,7 +19,8 @@ Ring identification
 -------------------
 The mesh handed to the consumers is renumbered (rcm) and the skin moved to the mid-surface, so the eta row of a node is
 recovered from the raw builder arrays by EXACT coordinate match (``ring_ids_for_v2_mesh``: the mid-surface positions
-are recomputed with the builder's own ``_inset``, bit-identical to the mesh).  ``ring_ids_from_z`` is the geometry-only
+are recomputed with the builder's own ``_inset``, bit-identical to the mesh).  For the gmsh mesh (no shared eta row) the rows are the connected components of the row-direction element edges of the
+raw quads/triangles (T20, S11), not z strips.  ``ring_ids_from_z`` is the geometry-only
 fallback (split sorted z at gaps wider than a tolerance) used by the synthetic unit tests.  Rings of the official blade
 are slightly non-planar in z (spread <= 0.063 m against >= 0.043 m to the next ring), so the exact match is the one used
 for the validation test; consecutive rings never overlap in z.
@@ -44,8 +45,8 @@ import numpy as np
 
 from tests.support.paths import REPO_ROOT
 
-#: z strip width [m] of the stations of an unstructured (gmsh) v2 mesh (= the 0.25 m ring pitch of the es 0.25 reference).
-GMSH_STRIP_M = 0.25
+#: legacy z strip width [m] (the pre-T20 gmsh rings); only the tools/l5_s1_*diag.py scripts still set it.
+GMSH_STRIP_M = 0.25  # no longer used by ring_ids_for_v2_mesh (T20); kept for tools/l5_s1_ea_gj_diag.py
 V2_YAML = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 
 
@@ -81,6 +82,37 @@ def is_unstructured_v2_mesh(mesh) -> bool:
     return any(len(np.unique(params[k, : len(e[e >= 0]), 0])) != 2 for k, e in enumerate(el))
 
 
+def _rows_from_quads(elements, eta) -> np.ndarray:
+    """Row index per raw node of a structured quad mesh (see ``ring_ids_for_v2_mesh``); -1 for nodes in no element."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    ia, ib = [], []
+    for e in elements:
+        q = e[e >= 0]
+        if len(q) == 3:  # triangle: its row edge is the one with the smallest eta difference
+            tri = [(0, 1), (1, 2), (2, 0)]
+            i, j = tri[int(np.argmin([abs(eta[q[i]] - eta[q[j]]) for i, j in tri]))]
+            ia.append(q[i])
+            ib.append(q[j])
+            continue
+        if len(q) != 4:
+            raise ValueError("row recovery needs 3- or 4-node elements (found a %d-node element)" % len(q))
+        along_a = abs(eta[q[0]] - eta[q[1]]) + abs(eta[q[2]] - eta[q[3]])
+        along_b = abs(eta[q[1]] - eta[q[2]]) + abs(eta[q[3]] - eta[q[0]])
+        for i, j in (((0, 1), (2, 3)) if along_a <= along_b else ((1, 2), (3, 0))):
+            ia.append(q[i])
+            ib.append(q[j])
+    n = len(eta)
+    _, comp = connected_components(coo_matrix((np.ones(len(ia)), (ia, ib)), shape=(n, n)), directed=False)
+    used = ~np.isnan(eta)
+    ids = np.unique(comp[used])
+    mean_eta = np.array([eta[used & (comp == c)].mean() for c in ids])
+    rank = np.empty(comp.max() + 1, dtype=np.int64)
+    rank[ids[np.argsort(mean_eta)]] = np.arange(len(ids))
+    return np.where(used, rank[comp], -1)
+
+
 def ring_ids_for_v2_mesh(mesh) -> np.ndarray:
     """Eta-row index per mesh node (0 = root ring) for a mesh built by ``tests.support.v2_blade.build_v2_blade``.
 
@@ -98,12 +130,13 @@ def ring_ids_for_v2_mesh(mesh) -> np.ndarray:
         for j, i in enumerate(e[e >= 0]):
             eta[i] = params[k, j, 0]
     if is_unstructured_v2_mesh(mesh):
-        # unstructured mesh (gmsh): ``params`` eta is a per-node parameter, not a row index, so np.unique(eta) gives
-        # ~27 600 one-node "rings" and the stations are meaningless (T14).  Use uniform z strips of GMSH_STRIP_M instead;
-        # elements spanning other than two strips take the centroid branch of ``station_membership``.
-        coords = np.ascontiguousarray(mesh.coords_array, dtype=float)
-        return np.floor((coords[:, 2] - coords[:, 2].min()) / GMSH_STRIP_M).astype(np.int64)
-    _, raw_ring = np.unique(eta, return_inverse=True)
+        # gmsh mesh: ``params`` eta is a per-node parameter (a row spreads over ~1e-4 in eta), so np.unique(eta) gives
+        # hundreds of one-node "rings" (T14).  The rows are the mesher's own: every element is a quad of a structured
+        # chart mesh, whose two row-direction edges join nodes of one row (the pair of opposite edges with the smaller
+        # total eta difference); the rows are the connected components of those edges, ordered by mean eta (S11, T20).
+        raw_ring = _rows_from_quads(el, eta)
+    else:
+        _, raw_ring = np.unique(eta, return_inverse=True)
     lookup = {}
     for i, p in enumerate(x):
         key = p.tobytes()
