@@ -114,17 +114,3 @@ def test_oblique_stations_are_curvilinear_and_keep_native_field_grids(tmp_path):
         windio = local @ basis.T + origin + eta[k] * slope
         np.testing.assert_allclose(g.coordinates[:, :, k], windio[:, [1, 0, 2]] * [-1, 1, 1],
                                    atol=2e-13, rtol=0)
-
-
-def test_v1_public_surface_preserves_chordwise_camber_thickness_recipe():
-    blade = Blade()
-    blade.read_yaml(str(ROOT / "tests/IEA-15-240-RWT.yaml"))
-    g = blade.geometry
-    for k in range(len(g.ispan)):
-        thickness = g.ithickness[:, k]
-        half = .5 * (thickness * (g.ipercentthick[k] / (thickness.max() * 100)))
-        expected = np.column_stack((
-            np.r_[g.ic[-1, k], g.ic[::-1, k], g.ic[1:, k], g.ic[-1, k]],
-            np.r_[0., (g.icamber[:, k] - half)[::-1], (g.icamber[:, k] + half)[1:], 0.],
-        ))
-        np.testing.assert_array_equal(g.profiles[:, :, k], expected)

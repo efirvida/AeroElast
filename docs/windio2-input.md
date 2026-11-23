@@ -157,21 +157,16 @@ from aeroelast.core.mesh.generators import BladeMesh
 mesh = BladeMesh.create_from_yaml(
     "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml",
     element_size=0.25,
-    geometry_only=True,
-    # Optional diagnostic patch; omit for the full blade (currently rejected).
-    eta_bounds=(0.08163265306122448, 0.08173265306122448),
+    # Optional span sub-range (lo, hi) in eta; omit for the full blade.
+    eta_bounds=(0.4, 0.6),
 )
-metadata = mesh.windio2_metadata
-assert metadata.structural_ready is False
 ```
 
 Bootstrap scripts with `scripts/aeroenv.sh python ...`. Instance
-`BladeMesh(...).generate(geometry_only=True, eta_bounds=..., renumber="rcm")`
-provides the same boundary. V2 without the opt-in raises
-`windIO 2.0 requires geometry_only=True; physical FE offsets are not supported`
-before legacy station planning, TE expansion or mesh entity allocation. V1
-calls retain their defaults and legacy geometry/material behavior; the new
-geometry-only option and patch bounds are v2-only.
+`BladeMesh(...).generate(eta_bounds=(lo, hi))` meshes the same sub-range with gmsh
+(0 <= lo < hi <= 1, else `ValueError`); `include_webs=False` keeps the outer skin of the
+webbed mesh and drops the webs. The former `geometry_only=True` option was removed with
+the NuMAD mesher, and windIO 1.x files are rejected (odd/tasks/gmsh-official-mesher.md, S9).
 
 Only `skin_reference="oml"` and `include_webs=True` are supported for this v2
 unit. Sizes remain 0.15–0.25 m. Legacy airfoil resampling, tip refinement,

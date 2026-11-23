@@ -16,9 +16,9 @@ from aeroelast.core.mesh.io.writers import write_mesh
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 from tests.support.paths import DATA_DIR  # noqa: E402
-_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+_YAML = str(DATA_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")  # windIO 2.x
 
-# IEA-15-240-RWT reference values (tests/IEA-15-240-RWT.yaml).
+# IEA-15-240-RWT reference values (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml).
 _TOWER_Z_BASE = 15.0
 _TOWER_Z_TOP = 144.386
 _TOWER_DIAMETER_BASE = 10.0
@@ -74,7 +74,7 @@ def test_read_windio_components_parses_all_blocks():
 
     assert definition.number_of_blades == 3
     assert definition.hub_height == pytest.approx(150.0)
-    assert definition.rotor_diameter == pytest.approx(242.23775645)
+    assert definition.rotor_diameter == pytest.approx(241.35064632)  # the v2 file's own assembly.rotor_diameter (v1: 242.23775645)
 
     tower = definition.tower
     assert tower is not None
@@ -96,23 +96,15 @@ def test_read_windio_components_parses_all_blocks():
     assert nacelle.distance_tt_hub == pytest.approx(5.614)
 
 
-_YAML_V2 = str(DATA_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")
+_YAML_V2 = _YAML
 
 
-def test_windio2_components_match_the_windio1_reading_in_radians():
-    """windIO 2.x moves the nacelle to components.drivetrain (outer_shape, lss, nose), the tower
-    reference axis out of outer_shape, and gives uptilt / cone_angle in degrees.  The reader must
-    return the same definition as for the 1.x file of the same turbine, angles in radians."""
-    v1 = read_windio_components(_YAML)
+def test_windio2_angles_are_read_in_radians():
+    """windIO 2.x gives uptilt / cone_angle in degrees (6.0, 4.0); the definition carries radians."""
     v2 = read_windio_components(_YAML_V2)
     assert v2.nacelle is not None and v2.tower is not None and v2.hub is not None
-    for field in ("body_diameter", "nose_diameter", "length", "uptilt", "overhang", "distance_tt_hub"):
-        assert getattr(v2.nacelle, field) == pytest.approx(getattr(v1.nacelle, field), rel=1e-12), field
     assert v2.nacelle.uptilt == pytest.approx(np.deg2rad(6.0), rel=1e-12)
-    assert v2.hub.diameter == pytest.approx(v1.hub.diameter, rel=1e-12)
     assert v2.hub.cone_angle == pytest.approx(np.deg2rad(4.0), rel=1e-12)
-    np.testing.assert_allclose(v2.tower.z, v1.tower.z, rtol=0, atol=1e-9)
-    np.testing.assert_allclose(v2.tower.diameter, v1.tower.diameter, rtol=0, atol=1e-9)
 
 
 def test_from_windio_raises_when_component_missing(tmp_path):

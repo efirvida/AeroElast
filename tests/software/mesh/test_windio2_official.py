@@ -146,14 +146,3 @@ def test_official_aerodynamic_geometry_and_polar_units():
     assert len(aero.airfoils[0].polars) == 1
     np.testing.assert_allclose(aero.airfoils[0].polars[0].alpha[[0, -1]], [-np.pi, np.pi])
     assert OFFICIAL.read_bytes() == before
-
-
-@pytest.mark.parametrize("name", ["IEA-15-240-RWT.yaml", "IEA-3.4-130-RWT.yaml"])
-def test_legacy_official_inputs_still_load_without_modification(name):
-    path = ROOT / "tests" / name
-    before = path.read_bytes()
-    blade = Blade()
-    blade.read_yaml(str(path))
-    assert blade.definition.ispan[-1] == (117 if "15-240" in name else 63)
-    assert blade.definition.web_nd_arc is not None
-    assert path.read_bytes() == before

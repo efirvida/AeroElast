@@ -8,11 +8,10 @@ from aeroelast.cli.aeroelast import main as cli_main
 from aeroelast.cli.mesh import main as mesh_main
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
-# tower/nacelle read their components from the windIO 1.x layout only (src/aeroelast/core/mesh/components.py): the v1 file
-# stays for those two subcommands until that reader moves; blade/rotor/turbine mesh with gmsh and need the v2 file.
-_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
-_V2 = str(V2_BLADE_YAML)
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
+# windIO 2.x everywhere: the 1.x file is rejected (commit ee28f23); components.py reads the 2.x tower/nacelle layout.
+_YAML = str(V2_BLADE_YAML)
+_V2 = _YAML
 
 _SURFACE = ["--n-circ", "8"]
 
@@ -142,8 +141,9 @@ def test_rotor(tmp_path):
             _V2,
             "--n-blades",
             "2",
-            "--chord-divisions",  # was --element-size 20 --no-webs (NuMAD); --no-webs on gmsh is task T7
+            "--chord-divisions",  # was --element-size 20 --no-webs (NuMAD)
             "10",
+            "--no-webs",
             "--quiet",
             "--out",
             str(out),
@@ -165,9 +165,8 @@ def test_turbine_writes_every_component(tmp_path):
             "stl",
             "--n-blades",
             "1",
-            "--chord-divisions",  # was --element-size 20 (NuMAD); --webs because the surface-only mesh on gmsh is task T7
+            "--chord-divisions",  # was --element-size 20 (NuMAD); the turbine default is the surface-only blade
             "10",
-            "--webs",
             "--tower-n-axial",
             "4",
             "--tower-n-circ",
@@ -201,9 +200,8 @@ def test_turbine_rotor_axis_is_configurable(tmp_path):
             "stl",
             "--n-blades",
             "1",
-            "--chord-divisions",  # was --element-size 20 (NuMAD); --webs because the surface-only mesh on gmsh is task T7
+            "--chord-divisions",  # was --element-size 20 (NuMAD); the turbine default is the surface-only blade
             "10",
-            "--webs",
             "--rotor-axis",
             "1,0,0",
             "--quiet",

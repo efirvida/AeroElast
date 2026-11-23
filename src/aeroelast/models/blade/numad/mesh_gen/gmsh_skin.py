@@ -2017,7 +2017,7 @@ def map_mesh_materials_gmsh(topology, mesh):
 def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=16, structured_options=None, le_landmark=True,
                        with_materials=False, material_dy=0.0, enforce_gate=True, h_range=(0.15, 0.25), loft=None,
                        return_info=False, max_strip_ar=5.0, chord_divisions=None, span_aspect=1.0, min_band_elements=2,
-                       min_band_fraction=1.0, te_coating_fill=True):
+                       min_band_fraction=1.0, te_coating_fill=True, eta_bounds=(0.0, 1.0)):
     """Skin + webs raw mesh with the STRUCTURED gmsh mesher; returns a :class:`gmsh_raw.RawMesh`.
 
     ``chord_divisions`` N (default None: the ``element_size`` path, unchanged) sizes the mesh by the local chord c(eta) instead
@@ -2025,6 +2025,7 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     every material band of width >= ``min_band_fraction`` (default 1.0) * c/N; a narrower band gets its rounded count (>= 1).
     ``te_coating_fill`` (default True) gives a skin element whose source cell is TE coating only the laminate of its edge
     neighbour (:func:`fill_te_coating_cells`); the count is ``info['te_coating_filled']``.
+    ``eta_bounds`` (lo, hi) meshes only the span sub-range between those stations (:func:`source_from_topology`).
     ``min_band_fraction=None`` restores the floor on every band whatever its width.  ``element_size``, ``ring`` and ``h_range``
     are then unused.
 
@@ -2042,7 +2043,7 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     t0 = time.perf_counter()
     h = float(element_size)
     loft = loft or RowLoft(topology, end_spacing=0.1)
-    src = source_from_topology(topology, loft, le_landmark=le_landmark)
+    src = source_from_topology(topology, loft, le_landmark=le_landmark, eta_bounds=eta_bounds)
     L = loft.length
     if chord_divisions is None:
         size = ring_size(h, loft.perimeter, ring)

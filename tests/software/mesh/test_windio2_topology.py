@@ -8,7 +8,7 @@ import yaml
 from scipy.interpolate import PchipInterpolator
 
 from aeroelast.models.blade.numad.objects.blade import Blade
-from tests.software.mesh.test_windio2_official import OFFICIAL, ROOT
+from tests.software.mesh.test_windio2_official import OFFICIAL
 
 
 @pytest.fixture(scope="module")
@@ -205,11 +205,6 @@ def test_distinct_exact_crossings_with_one_float_image_reject_without_mutation(t
     assert path.read_bytes() == before and yaml.safe_dump(source).encode() == before
     assert [a['name'] for a in topology.source['components']['blade']['structure']['anchors']] == [
         'diagonal', 'level', 'scaled_level', 'scaled']
-
-
-def test_v1_has_no_topology():
-    blade = Blade().read_yaml(str(ROOT / "tests/IEA-15-240-RWT.yaml"))
-    assert blade.windio2_topology is None
 
 
 def test_ulp_level_source_events_are_one_event_in_extended_view(official):

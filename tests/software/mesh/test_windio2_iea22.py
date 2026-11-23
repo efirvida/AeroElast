@@ -35,13 +35,3 @@ def test_iea22_topology_follows_the_source_webs(iea22, eta, webs):
     # every web contributes its two shell attachment points to the skin boundary
     assert len(section.points) >= 2 * webs + 2
     assert all(a.nd_arc < b.nd_arc for a, b in section.intervals)
-
-
-def test_v1_input_without_a_uv_layer_is_still_rejected(tmp_path):
-    """The uv role is optional only for windIO 2.0; v1 behaviour is unchanged."""
-    text = (Path(__file__).resolve().parents[2] / "IEA-15-240-RWT.yaml").read_text()
-    assert text.count("UV_protection") > 0
-    renamed = tmp_path / "no_uv.yaml"
-    renamed.write_text(text.replace("UV_protection", "gelcoat"))
-    with pytest.raises(ValueError, match="No uv components found"):
-        Blade().read_yaml(str(renamed))

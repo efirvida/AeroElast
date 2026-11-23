@@ -198,7 +198,7 @@ Generate meshes with the `mesh` subcommand (see
 ```bash
 # Blade shell mesh (gmsh reference mesh N20, AR 1), windIO v2 input
 aeroelast mesh blade tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out blade.stl
-# (--no-webs, the CFD outer surface, is not implemented on gmsh yet: task T7)
+# --no-webs gives the CFD outer surface (the webbed mesh with the web elements and orphan nodes dropped)
 
 # Tower and nacelle body from the WindIO definition
 aeroelast mesh tower tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out tower.obj

@@ -9,7 +9,7 @@ from aeroelast.core.mesh.turbine import TurbineMesh
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 from tests.support.paths import DATA_DIR  # noqa: E402
-_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")  # windIO v1: tower/nacelle/hub components only
+_YAML = str(DATA_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")  # windIO 2.x
 # T6c: the blades are meshed with gmsh (BladeMesh) and need the windIO v2 yaml; chord_divisions 10 keeps them cheap.
 # include_webs=True everywhere: the surface-only default (include_webs=False) is task T7.
 _V2 = str(DATA_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")
@@ -138,10 +138,12 @@ def test_blades_are_azimuthally_distributed_about_y(turbine):
     np.testing.assert_allclose(gaps, 2.0 * np.pi / 3.0, atol=0.05)
 
 
-def test_no_webs_by_default_is_t7():
-    # was: the default blade mesh has no shear webs.  The surface-only gmsh blade is task T7 (S7e): it must surface, not be dropped.
-    with pytest.raises(NotImplementedError, match="T7"):
-        TurbineMesh(_V2, chord_divisions=10, n_blades=1).generate(verbose=False)
+def test_no_webs_by_default():
+    # the default blade mesh has no shear webs (surface only)
+    result = TurbineMesh(_V2, chord_divisions=10, n_blades=1).generate(verbose=False)
+    for blade in result.blade_meshes.values():
+        assert not any("web" in name.lower() for name in blade.element_sets)
+        assert any(name.startswith("allOuterShellEls") for name in blade.element_sets)
 
 
 def test_include_webs_is_forwarded():

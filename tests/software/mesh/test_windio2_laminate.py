@@ -6,7 +6,6 @@ import pytest
 import yaml
 
 from aeroelast.models.blade.numad.objects.blade import Blade
-from tests.software.mesh.test_windio2_official import ROOT
 
 
 def expected(source, eta, surface, lo, hi):
@@ -121,8 +120,3 @@ def test_native_dropoff_web_local_and_wrap(tmp_path, official):
     assert path.read_bytes() == before
     np.testing.assert_array_equal(blade.geometry.coordinates, coords)
     assert topology.source["components"]["blade"]["structure"]["layers"][-1]["name"] == "zero"
-
-
-def test_v1_none_preserved():
-    blade = Blade().read_yaml(str(ROOT / "tests/IEA-15-240-RWT.yaml"))
-    assert blade.windio2_topology is None

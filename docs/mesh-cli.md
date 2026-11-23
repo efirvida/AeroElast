@@ -23,17 +23,14 @@ extension; `--format` is the fallback when the path has no extension.
 
 ## Blade without shear webs (CFD surface)
 
-> **Status 2026-11-20:** the blade mesher is gmsh. `--no-webs` (`include_webs=False`) is
-> not implemented on gmsh yet and raises `NotImplementedError` (task T7 of
-> `odd/tasks/gmsh-official-mesher.md`). The examples below show the intended interface.
-
 `--no-webs` omits the shear webs and returns only the blade outer-mold-line
-surface — the wall boundary a CFD case needs. It is the default for
+surface (the gmsh mesh is built with webs and the web elements, web sets and orphan nodes are
+dropped, so the outer shell is identical to the webbed mesh) — the wall boundary a CFD case needs. It is the default for
 `aeroelast mesh turbine`; use `--webs` there to include the internal structure.
 
 ```bash
 aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.vtk --element-size 0.25
-aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
+aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs --chord-divisions 20
 ```
 
 ## Nacelle (hub and body are one mesh)

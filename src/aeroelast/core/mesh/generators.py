@@ -1040,8 +1040,8 @@ class BladeMesh:
     Input: a windIO 2.x blade yaml (``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml``).  A windIO v1 yaml or an
     ``excel_file`` raises ``ValueError`` naming that v2 file; the NuMAD-only options ``n_samples``, ``airfoil_spacing``,
     ``span_grading``, ``airfoil_dir``, ``refine_tip``, ``max_bay_length`` and ``laminate_per_row`` raise ``ValueError`` even at
-    their old default values (never dropped silently).  ``include_webs=False`` and ``generate(geometry_only=True)`` raise
-    ``NotImplementedError`` until T7.
+    their old default values (never dropped silently).  ``include_webs=False`` meshes with the webs and drops them (outer-shell
+    surface for CFD; identical to the webbed outer shell).
 
     Attributes
     ----------
@@ -1113,8 +1113,6 @@ class BladeMesh:
         if not yaml_file:
             raise ValueError(f"BladeMesh requires yaml_file (a windIO v2 yaml such as {self._V2_REFERENCE})")
         self._require_windio2(yaml_file)
-        if not include_webs:
-            raise NotImplementedError("BladeMesh(include_webs=False) (CFD outer-shell surface) on gmsh is task T7 and is not implemented yet")
         self.skin_reference = skin_reference
         self.yaml_file = yaml_file
         self.excel_file = None
@@ -1146,7 +1144,7 @@ class BladeMesh:
 
     def generate(
         self, renumber: str | None = None, verbose: bool = True, *,
-        geometry_only: bool = False, eta_bounds: tuple[float, float] = (0., 1.),
+        eta_bounds: tuple[float, float] = (0., 1.),
     ) -> "MeshModel":
         """
         Build the blade mesh with ``GmshBladeMesh``.
@@ -1157,14 +1155,9 @@ class BladeMesh:
             ``None`` or ``"rcm"`` (as ``GmshBladeMesh.generate``).
         verbose : bool, optional
             Accepted for compatibility; ignored.
-        geometry_only, eta_bounds
-            The windIO 2 geometry-only adapter is task T7: ``geometry_only=True`` or a non-default ``eta_bounds`` raise
-            ``NotImplementedError``.
+        eta_bounds : (float, float), optional
+            Spanwise sub-range of the blade to mesh (normalised ``eta``; default the whole blade).
         """
-        if geometry_only or tuple(eta_bounds) != (0., 1.):
-            raise NotImplementedError(
-                "BladeMesh.generate(geometry_only=True / eta_bounds) on gmsh is task T7 and is not implemented yet"
-            )
         from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh  # noqa: PLC0415
 
         chord_divisions, span_aspect = self.chord_divisions, self.span_aspect
@@ -1178,12 +1171,14 @@ class BladeMesh:
             "min_band_elements": self.min_band_elements,
             "min_band_fraction": self.min_band_fraction,
         }
+        if tuple(eta_bounds) != (0., 1.):
+            kwargs["eta_bounds"] = tuple(eta_bounds)
         if self.element_size is not None:
             kwargs["element_size"] = self.element_size
         if self.h_range is not None:
             kwargs["h_range"] = self.h_range
         gmsh_mesher = GmshBladeMesh(**kwargs)
-        mesh = gmsh_mesher.generate(renumber=renumber)
+        mesh = gmsh_mesher.generate(renumber=renumber, **({} if self.include_webs else {"include_webs": False}))
         self._numad_mesh = gmsh_mesher.numad_mesh_data
         self._numad_blade = gmsh_mesher.numad_blade
         return mesh
@@ -1230,21 +1225,19 @@ class BladeMesh:
         renumber: str = None,
         include_webs: bool = True,
         *,
-        geometry_only: bool = False,
         eta_bounds: tuple[float, float] = (0., 1.),
     ) -> "MeshModel":
         """
         Build the blade mesh directly from a windIO 2.x yaml (see the class docstring).
 
-        ``n_samples`` is NuMAD-only and raises ``ValueError`` when given; ``geometry_only`` and ``eta_bounds`` are T7 and raise
-        ``NotImplementedError`` from ``generate``.
+        ``n_samples`` is NuMAD-only and raises ``ValueError`` when given; ``eta_bounds`` is the spanwise sub-range to mesh.
         """
         return cls(
             yaml_file=yaml_file,
             element_size=element_size,
             n_samples=n_samples,
             include_webs=include_webs,
-        ).generate(renumber=renumber, geometry_only=geometry_only, eta_bounds=eta_bounds)
+        ).generate(renumber=renumber, eta_bounds=eta_bounds)
 
 
 class RotorMesh:

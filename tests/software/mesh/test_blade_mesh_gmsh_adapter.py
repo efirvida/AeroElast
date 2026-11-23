@@ -19,15 +19,16 @@ from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh
 
 ROOT = Path(__file__).resolve().parents[3]
 V2_YAML = ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"
-V1_YAML = ROOT / "tests" / "IEA-15-240-RWT.yaml"
 V2_NAME = "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 
 
-def test_s7a_windio_v1_yaml_is_rejected_naming_input_and_v2_file():
+def test_s7a_windio_v1_yaml_is_rejected_naming_input_and_v2_file(tmp_path):
+    v1 = tmp_path / "v1_blade.yaml"  # no windIO_version key: a windIO 1.x layout
+    v1.write_text("components:\n  blade:\n    outer_shape_bem: {}\n")
     with pytest.raises(ValueError) as exc:
-        BladeMesh(yaml_file=str(V1_YAML)).generate()
+        BladeMesh(yaml_file=str(v1)).generate()
     msg = str(exc.value)
-    assert str(V1_YAML) in msg and V2_NAME in msg and "windIO" in msg
+    assert str(v1) in msg and V2_NAME in msg and "windIO" in msg
 
 
 def test_s7a_excel_file_is_rejected_naming_input_and_v2_file():
@@ -96,16 +97,6 @@ def test_s7d_adapter_exposes_the_gmsh_contract(monkeypatch):
         gen.numad_mesh_data  # noqa: B018
     gen.generate()
     assert gen.numad_mesh_data is data and gen.numad_blade is blade
-
-
-def test_s7e_no_webs_is_t7():
-    with pytest.raises(NotImplementedError, match="T7"):
-        BladeMesh(yaml_file=str(V2_YAML), include_webs=False).generate()
-
-
-def test_s7e_geometry_only_is_t7():
-    with pytest.raises(NotImplementedError, match="T7"):
-        BladeMesh(yaml_file=str(V2_YAML)).generate(geometry_only=True)
 
 
 def test_blade_wrapper_forwards_no_numad_key_and_has_no_blocks_sections(monkeypatch):
