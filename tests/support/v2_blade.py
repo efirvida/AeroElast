@@ -161,6 +161,7 @@ def _generate_raw(element_size, collapse_ratio, eta_bounds, yaml_file, min_strip
     topology = blade.windio2_topology
     extra = {} if es_range is None else {"h_range": tuple(es_range)}  # the mesher has its own range check
     extra.update(chord or {})
+    extra["eta_bounds"] = tuple(float(e) for e in eta_bounds)  # span sub-range (gmsh_skin plumbs it since T7)
     raw = generate_mesh_gmsh(topology, element_size, with_materials=True, **extra)  # quality gate REJECTS, never repairs
     ne = len(raw.elements)
     params = np.full((ne, 4, 2), np.nan)
@@ -261,8 +262,8 @@ def load_raw(element_size=0.25, collapse_ratio=None, eta_bounds=(0.0, 1.0), *, y
     collapse_ratio = _resolve_collapse(collapse_ratio)
     chord_divisions = _resolve_chord_divisions(chord_divisions)
     if mesher == "gmsh":
-        if collapse_ratio or tuple(eta_bounds) != (0.0, 1.0):
-            raise ValueError("the gmsh mesher builds the full blade and takes no collapse ratio")
+        if collapse_ratio:
+            raise ValueError("the gmsh mesher takes no collapse ratio")
     # ``es_range`` lets a blade whose converged size is outside the IEA-15 window (IEA-3.4: 0.1 m) say so explicitly
     rng = ES_RANGE if es_range is None else tuple(es_range)
     chord = None

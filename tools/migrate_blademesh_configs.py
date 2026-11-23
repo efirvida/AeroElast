@@ -465,8 +465,10 @@ def apply(plan: Plan, root: Path) -> None:
     elif plan.action == "archived":
         assert plan.target is not None
         plan.target.parent.mkdir(parents=True, exist_ok=True)
-        moved = subprocess.run(["git", "-C", str(root), "mv", str(plan.path), str(plan.target)], capture_output=True, text=True)
-        if moved.returncode != 0:  # not a git tree (or untracked): plain move
+        git = shutil.which("git")  # a SLURM compute node has no git (job 11756685)
+        moved = (subprocess.run([git, "-C", str(root), "mv", str(plan.path), str(plan.target)], capture_output=True, text=True)
+                 if git else None)
+        if moved is None or moved.returncode != 0:  # no git, not a git tree, or untracked: plain move
             shutil.move(str(plan.path), str(plan.target))
         base = next(root / b for b in (ARCHIVE, ARCHIVE_W1) if plan.target.is_relative_to(root / b))
         if not (base / "README.md").exists():

@@ -214,7 +214,7 @@ def blade():
                                      -torsion.TORQUE)
     u = tube._solve_rigid_removed(K, f, tube._rigid_modes(coords))
     del K, f
-    edges = torsion._skin_wall_edges(mesh)
+    edges = torsion.skin_wall_edges(mesh)
     return {"mesh": mesh, "coords": coords, "stations": stations, "rings": rings, "free": free,
             "adj": adj, "declared": _declared_frame(stations), "u": u,
             "phi": np.array([torsion._ring_section_rotation(coords, u, rings[zz], edges) for zz in stations]),

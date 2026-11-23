@@ -199,10 +199,10 @@ def bin_rows(X, f3, kp_bd):
 def shell_sections(mesh, part, U, kp_bd):
     """Per production ring: z, deflection at the reference axis (affine fit), twist (equal and skin weights)."""
     from aeroelast.solvers.bem.section_contour import ring_section_rotation, ring_tributary_lengths
-    from tests.validation.blade.test_blade_section_torsion_stiffness import _skin_wall_edges
+    from tests.support.production_rings import skin_wall_edges
 
     X = part._ref_coords
-    edges = _skin_wall_edges(mesh)
+    edges = skin_wall_edges(mesh)
     rows = []
     for ring in part._strip_ring_indices:
         ring = np.asarray(ring)

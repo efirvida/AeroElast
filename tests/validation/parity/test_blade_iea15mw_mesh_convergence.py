@@ -64,7 +64,10 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_val  # noqa: E402
 
-MESHES = (0.5, 0.35, 0.25)
+#: Since the gmsh mesher became the only blade mesher (gmsh-official-mesher T17) element sizes
+#: outside [0.05, 0.25] m are rejected, so the 0.5 / 0.35 / 0.25 m study quoted above can no
+#: longer be built; it runs on the rule-9 ladder 0.25 / 0.177 / 0.125 m (same bounds, finer).
+MESHES = (0.25, 0.177, 0.125)
 N_MODES = 8
 #: Low modes where refinement resolves the gap: finest-mesh bound (measured
 #: 0.08-0.19% at CCX 2.23).
