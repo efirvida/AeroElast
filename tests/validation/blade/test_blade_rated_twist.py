@@ -1219,9 +1219,23 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
       rated (deck leading edge at +x, load-frame downwind at +y, a +z rotation moves the
       leading edge downwind, toward stall), the sign of Zhou's -3.60 deg.
 
-    The magnitude against Zhou is **reported, not asserted**: our steady one-way BEM loads are
-    being compared with a coupled aeroelastic solution, so no numeric bound is defensible. The
-    promotion guard fires the moment the ratio enters 5 %.
+    * **The magnitude against Zhou** (promoted 2026-11-22, user decision, odd/tasks/gmsh-official-mesher.md
+      L-S69): ``|1 - omega/omega_Zhou| <= 5 %``. Justification:
+
+      - the 5 % band is not chosen after the fact: it is the promotion threshold this test declared
+        while the row was report-only ("the promotion guard fires the moment the ratio enters 5 %"),
+        and it equals the 5 % acceptance band S-4 applies to the rotating modes against OpenFAST;
+      - the guard fired on the first measurement through the production estimator (strip rings of
+        ``BEMFSIParticipant._find_strip_rings`` + ``ring_section_rotation`` with skin weights, gmsh
+        v2 blade, es 0.25): omega -3.517 deg = 0.977 of Zhou's -3.60 deg, with the load invariant
+        (ratio 1.019, bound 2 %) and direction (flap share 0.991, bound 0.95) both held;
+      - the remaining modelling gap is stated, not hidden: steady one-way BEM loads on a parked-
+        geometry shell vs Zhou's coupled aeroelastic tip torsion. The bound therefore claims
+        agreement of the rated torsional response within 5 %, not identity of the two models.
+
+      Open caveat (rule 3): the ratio is one mesh (es 0.25); the es 0.125 point of the trend is
+      not yet measured, so a move of more than the 0.35 % S-4 sees between the two sizes is a
+      finding to report, never a reason to widen this band.
     """
     shell = blade_shell
     bem, blade_aero = rated_bem
@@ -1306,12 +1320,14 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
         f"not merely of the right magnitude"
     )
     # Physical sense (nose-down, omega < 0 on this frame) is asserted by its own test
-    # below.  Everything above stays live: the load invariant, the direction and the
-    # promotion guard.
-    # Promotion guard, in the style of the existing test: the magnitude stays a reported
-    # residual while the comparison against Zhou stays outside 5 %.
-    assert abs(1.0 - ratio_to_zhou) > 0.05, (
-        f"the production-path tip rotation is now inside 5 % of Zhou "
-        f"(ratio_to_zhou = {ratio_to_zhou:.4f}): the row must be promoted to an asserted "
-        f"magnitude and this guard removed"
+    # below.  Everything here stays live: the load invariant, the direction and the
+    # promoted magnitude.
+    # Promoted magnitude (L-S69): the former promotion guard fired at ratio 0.977, so the
+    # comparison against Zhou is now asserted inside the 5 % band that guard declared.
+    assert_residual_below(
+        abs(1.0 - ratio_to_zhou),
+        tol=0.05,
+        kind="paper",
+        reference_name="Zhou et al. 2025, Energy 336:138488, Table 6, tip torsion -3.60 deg",
+        what="rated tip section rotation under the production load path",
     )
