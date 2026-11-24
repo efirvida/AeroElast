@@ -161,7 +161,7 @@ rows:
   validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC2.
   comparisons:
   - label: Interior-station (S12) displacement relative error
-    asserted: false
+    asserted: true
     reference:
       kind: code
       label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC2 node 56 (z 114.845 m, 4.35 tip chords), uy, m
@@ -174,9 +174,8 @@ rows:
     measured:
       status: not_measured
       margin_pct: null
-  flags:
-  - info_only
-  notes: 'New row from the v2 twin (L-S85): the interior-station comparison of S-2 (S12) has no v1 counterpart in the store. measured = not_measured; re-measure with `tools/validation_matrix.py regression --group 39`. Staged text: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.'
+  flags: []
+  notes: 'New row from the v2 twin (L-S85): the interior-station comparison of S-2 (S12) has no v1 counterpart in the store. measured = not_measured; re-measure with `tools/validation_matrix.py regression --group 39`. Staged text: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %. Corrected (L-S87): the test asserts LC2 at the station (_STATION_ASSERTED = LC1, LC2, LC4; test_v2_iea15mw_s2_static_prescribed.py:64), so the comparison is asserted and not info_only; the staged history value was taken when it was printed only.'
   history:
   - rev: 0da03be+worktree
     note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 0.6437 %, 2026-11-03. S-2 v2 LC2 station uy: shell 74.085445 m vs BeamDyn p60 node 56 73.611629 m, +0.6437 % (not asserted, S13); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'

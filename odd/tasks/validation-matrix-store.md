@@ -971,3 +971,23 @@ reference*, not as the same measurement:
 - **Re-measure** with `tools/validation_matrix.py regression --group G` (hand-driven groups 38-42 and 72
   need `--scope <file>`); `--write` only when the residuals are new baselines for these `not_measured`
   comparisons, never over a moved one.
+
+### 19.1 Residual patterns for the repointed groups (L-S87)
+
+SLURM regressions of 38-42 and 68-72 stopped with "declares no residual patterns". Patterns now exist for
+38, 39, 40, 41, 42 and 71 (`residual-patterns.json`), proven on the helpers' real output by
+`test_the_residual_patterns_of_the_v2_blade_and_rotor_groups_read_the_real_prints` and, for 71, by a real
+`regression --group 71` (12 `new_baseline`, nothing written). `compare_row` pairs the Nth asserted print with the
+Nth asserted comparison of a row, so a pattern is only usable where each asserted comparison prints one line:
+
+- 39 tip tests print `... (signed error: -1.8176%, bound: 5.0000%)` through an f-string, not a helper; the pattern
+  reads the unsigned magnitude (`margin_pct` has minimum 0) and excludes the `LC2_`/`LC3_` cases, whose rows are
+  not asserted and whose prints are `unasserted`. The station LC3 diagnostic is not read (informational only).
+  The station LC2 comparison was `asserted: false` by mistake (the test asserts it, `_STATION_ASSERTED`); corrected.
+- 68, 69, 70 compare with `np.testing.assert_allclose` and print nothing; 72 prints its masses without a bound and
+  asserts one comparison per material, so its prints cannot be paired one-to-one. These four groups stay without
+  a pattern: they need a test-side change (route the comparison through `assert_residual_below` /
+  `assert_relative_error`), which is outside the store's surfaces.
+- Group 7: a pre-refreshed citation (`label: rtol at line 200`, `source: ...:200`) makes `coherence` pair the
+  comparison and keep the measured block and the hand justification; what it still rewrites is the row id
+  (`..._beam_th.single` -> `..._beam_the.single`), which orphans `contract.yaml:1681`. Left as is.

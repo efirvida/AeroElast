@@ -1241,6 +1241,137 @@ def test_l4_groups_read_percent_degree_and_unitless_residuals(group: str) -> Non
     assert [(item["error"], item["bound"]) for item in asserted] == expected
 
 
+def _helper_line(helper: str, *args: Any, **kwargs: Any) -> str:
+    """The line the suite's own assertion helper prints (the helper raises after printing)."""
+    import contextlib
+    import io
+
+    sys.path.insert(0, str(REPO_ROOT))
+    from tests.support import assertions
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.suppress(AssertionError):
+        getattr(assertions, helper)(*args, **kwargs)
+    return buffer.getvalue().strip()
+
+
+@pytest.mark.parametrize(
+    ("group", "line", "error"),
+    [
+        (
+            "38",
+            _helper_line(
+                "assert_residual_below",
+                0.086534,
+                tol=0.05,
+                kind="code",
+                reference_name="BeamDyn blade deck",
+                what="S-1 EI_edge mid-span mean |rel err| (windIO v2 mesh)",
+            ),
+            "8.6534",
+        ),
+        (
+            "39",
+            "S-2 v2 LC1_gravity uy [m]: shell -2.190924 vs OpenFAST BeamDyn p60 -2.231483 "
+            "(signed error: -1.8176%, bound: 5.0000%)",
+            "1.8176",
+        ),
+        (
+            "39",
+            _helper_line(
+                "assert_residual_below",
+                0.0156,
+                tol=0.05,
+                kind="code",
+                reference_name="OpenFAST v5.0.0 BeamDyn p60 node 56 (z 114.845 m, 4.35 chords)",
+                what="S-2 v2 LC1 station uy [m] shell z-slab mean (|dz|<0.5 m, area weighted) "
+                "-2.124655 (BeamDyn -2.158325, signed -1.5600%)",
+            ),
+            "1.5600",
+        ),
+        (
+            "40",
+            _helper_line(
+                "assert_relative_error",
+                0.5,
+                0.51,
+                tol=0.05,
+                kind="code",
+                reference_name="OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first flap, Hz",
+                what="S-4 v2 parked 1F",
+            ),
+            "1.9608",
+        ),
+        (
+            "41",
+            _helper_line(
+                "assert_relative_error",
+                67150.0,
+                67921.0,
+                tol=0.05,
+                kind="code",
+                reference_name="IEA-15-240-RWT_tabular.xlsx, Overview declared mass, 67,921 kg",
+                what="V-03 v2 assembled total blade mass [kg]",
+            ),
+            "1.1351",
+        ),
+        (
+            "42",
+            _helper_line(
+                "assert_relative_error",
+                67000.0,
+                66996.9,
+                tol=0.05,
+                kind="code",
+                reference_name="BeamDyn v1.1 deck mass",
+                what="V-05 v2 assembled shell mass [kg]",
+            ),
+            "0.0046",
+        ),
+        (
+            "71",
+            _helper_line(
+                "assert_residual_below",
+                0.0,
+                tol=1e-12,
+                kind="analytical",
+                reference_name="tau_aero * omega",
+                what="aero power",
+            ),
+            "0.0000",
+        ),
+    ],
+)
+def test_the_residual_patterns_of_the_v2_blade_and_rotor_groups_read_the_real_prints(
+    group: str, line: str, error: str
+) -> None:
+    """The line each test prints is read as one asserted residual, with its error as a number.
+
+    The lines come from the suite's own helpers (or, for the S-2 tip tests, the test's f-string),
+    so a change to the print format breaks here and not in a SLURM regression that reads nothing.
+    """
+    module = _load_tool_module()
+    store = module.load_store(REAL_STORE)
+    asserted, _ = module.extract_residuals([line], store.residual_patterns[group])
+    assert len(asserted) == 1, line
+    assert asserted[0]["error"].lstrip("+-") == error
+
+
+def test_the_s2_tip_prints_of_flap_and_edge_load_cases_are_never_asserted() -> None:
+    """LC2 and LC3 tip rows are not asserted, so their prints are informational, not residuals."""
+    module = _load_tool_module()
+    store = module.load_store(REAL_STORE)
+    lines = [
+        "S-2 v2 LC2_tip_flap uy [m]: shell 90.829308 vs OpenFAST BeamDyn p60 82.273278 "
+        "(signed error: +10.3995%, bound: 5.0000%)",
+        "S-2 v2 LC3_tip_edge ux [m]: shell 38.637278 vs OpenFAST BeamDyn p60 34.469441 "
+        "(signed error: +12.0914%, bound: 5.0000%); tip ring mean 38.794224 (node vs ring -0.4000%)",
+    ]
+    asserted, unasserted = module.extract_residuals(lines, store.residual_patterns["39"])
+    assert asserted == []
+    assert [item["error"] for item in unasserted] == ["10.3995", "12.0914"]
+
+
 def test_extract_residuals_uses_the_declared_group_patterns() -> None:
     module = _load_tool_module()
     patterns = json.loads((REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8"))
