@@ -111,11 +111,11 @@ levels:
       - tests/IEA15MW/reference
       - tools/beam_reference.py
       - src/aeroelast/postprocess/sectional.py
-      - tests/test_iea15mw_s1_sectional.py
-      - tests/test_iea15mw_s2_static_prescribed.py
-      - tests/test_iea15mw_s4_rotating_modal.py
-      - tests/test_iea15mw_v03_static_gravity.py
-      - tests/test_iea15mw_v05_structural_properties.py
+      - tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py
+      - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py
+      - tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py
+      - tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py
+      - tests/validation/blade/v2/test_v2_iea15mw_v05_structural_properties.py
       - tests/test_iea15mw_sx_mesh_convergence.py
       - tests/test_iea15mw_sx_campbell.py
     gaps: [rotating_modal_shift]

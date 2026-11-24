@@ -4,7 +4,7 @@ rows:
   group: '41'
   title: V-03 assembled total mass vs declared IEA mass
   tests:
-  - tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct
+  - tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py::TestBladeMassIntegrationV2::test_total_blade_mass_within_5pct
   validates: Integrated blade mass against the IEA tabular declared blade mass.
   comparisons:
   - label: Assembled total blade mass relative error
@@ -15,16 +15,19 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_v03_static_gravity.py:250
+      source: tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py:129
       justified: true
       justification: The test asserts 5 % (the L3 ceiling, maintainer rule 2026-10-16); test name and docstring now say 5 % (19ff1a3). Reference is the IEA tabular declared mass, one published numerical source; deck integrals of the same pipeline are not independent of it.
     measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 67149.994
-      margin_pct: 1.1352
-      text: 'V-03 assembled total mass: 67,149.994 kg vs IEA tabular 67,921 kg (-1.1352 %, bound 5 %) PASS; +211 kg vs ad5f3ac from 4ada981 (TE band to yaml width, fidelity gain, logs/check/t15-mass/REPORT.md); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+      status: not_measured
+      margin_pct: null
     expected: 67921.0
   flags: []
-  notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml. Test name, docstring and assertion all say 5 % since 19ff1a3.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct, deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 41`. Earlier note: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml. Test name, docstring and assertion all say 5 % since 19ff1a3.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Assembled total blade mass relative error'': raw 67149.994, margin 1.1352 %, 2026-10-24. V-03 assembled total mass: 67,149.994 kg vs IEA tabular 67,921 kg (-1.1352 %, bound 5 %) PASS; +211 kg vs ad5f3ac from 4ada981 (TE band to yaml width, fidelity gain, logs/check/t15-mass/REPORT.md); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+    evidence: git show c70247c^:tests/test_iea15mw_v03_static_gravity.py
+  - rev: 0da03be
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 1.2005 %, 2026-11-03. V-03 v2 assembled total blade mass [kg] vs IEA-15-240-RWT_tabular.xlsx, Overview declared mass, 67,921 kg: 67105.6 vs 67921 (error: 1.2005%, bound: 5.0000%)'
+    evidence: docs/validation/_pending/66-v2_blade_total_mass/rows.yaml

@@ -17,6 +17,12 @@ version: 1
 # "out of scope" from "forgotten", and `status` counts only the undeclared ones.
 out_of_scope:
   - files:
+      - tests/validation/blade/test_matched_pairs_order.py
+    reason: >-
+      A synthetic ordering guard of the modal-pair helper (no blade): entry j pairs reference mode j whatever the size
+      of its gap. It tests the logic of our own helper, not a quantity against an independent reference; rule 6
+      leaves this file without rows.
+  - files:
       - tests/test_iea15mw_s0_omega_zero_consistency.py
     reason: >-
       Zero-omega limits, zero-load identities and equivalence with plain
@@ -1021,7 +1027,7 @@ groups:
 
   - id: "32"
     title: >-
-      `tests/validation/blade/test_iea15mw_v02_natural_frequencies.py`
+      `tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py`
       (the IEA 15 MW blade's natural frequencies against the definition report)
     slug: blade_v02_natural_frequencies
     # [R1] is NREL/TP-5000-75698, which resolves in the bibliography as
@@ -1029,11 +1035,15 @@ groups:
     # but one comparison states one reference: the report is the one it names.
     citation: gaertner2020
     source_files:
-      - tests/validation/blade/test_iea15mw_v02_natural_frequencies.py
+      - tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py
     # The two tolerances differ -- 5% for the flap modes and 10% for the 1st
     # edgewise -- so the group declares no common one and each comparison
     # carries its own.
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py`: the v1 test file was deleted
+      at c70247c. Every comparison is not_measured until the twin is re-run; the v1 values survive only as
+      row history. Reference, tolerance and band are those of the v1 test.
       The blade alone, clamped at the root, no rotation and no aerodynamics,
       through the Rust assembler and the SLEPc modal solver over the official
       WindIO blade. Two comparisons become rows: the 1st flapwise against
@@ -1073,7 +1083,7 @@ groups:
 
   - id: "34"
     title: >-
-      `tests/validation/blade/test_iea15mw_s7_torsion.py`
+      `tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py`
       (the shell's global torsional response against the BeamDyn blade deck)
     slug: blade_s7_torsion
     # One comparison, one reference: the BeamDyn blade deck of the official IEA
@@ -1081,29 +1091,14 @@ groups:
     # the kind is declared here instead of left to a keyword guess.
     reference_kind: code
     source_files:
-      - tests/validation/blade/test_iea15mw_s7_torsion.py
-    non_validation_tests:
-      - tests:
-          - test_s7_applied_moment_matches_request
-        reason: >-
-          The applied tip couple is compared against the torque the test itself
-          asked for, which is its own setup constant and not an independent
-          reference. The test documents that the force-couple construction
-          transmits the requested moment, so it is machinery and carries no row;
-          the extractor already reads it as `no_comparison`. The torsional
-          response is the other test in the file, and that one compares against
-          the BeamDyn deck.
-      - tests:
-          - test_s7_beam_reference_integrates_to_the_query_point
-        reason: >-
-          An exact check of the reference's own integral, not a comparison: the
-          beam twist must grow by the trapezoid of 1/GJ up to the query point
-          itself (rel 1e-12) and be strictly increasing between stations. It
-          exists because the reference used to stop at the station below each
-          section, a staircase that under-stated the beam twist by 16 % on
-          average and the +-30 % band could not see (odd/tasks/s7-torsion-ratio.md
-          section E8).
+      - tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py`: the v1 test file was deleted at c70247c.
+      Every comparison is not_measured until the twin is re-run; the v1 values survive only as row
+      history. Reference, tolerance and band are those of the v1 test. The two v1 machinery tests (applied
+      moment equals the request, exact reference integral) are mesher-independent and are not repeated in
+      the twin.
       The shell blade, clamped at the root, under a tip torsional moment of
       1000 N.m applied as transverse force couples, against the BeamDyn blade
       deck's `K[5,5]` per station integrated as a Timoshenko torsion beam
@@ -1327,9 +1322,11 @@ groups:
     title: S-1 IEA 15 MW sectional distributions against BeamDyn
     slug: blade_sectional_distribution
     reference_kind: code
-    physical_test_files:
-      - tests/test_iea15mw_s1_sectional.py
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_s1_sectional.py`: the v1 test file was deleted at
+      c70247c. Every comparison is not_measured until the twin is re-run; the v1 values survive only as
+      row history. Reference, tolerance and band are those of the v1 test.
       Stores the five source assertions comparing mid-span sectional EI-edge,
       EI-flap, mass, GJ and EA distributions with BeamDyn. Source bounds are
       retained without a physical verdict or ceiling exception.
@@ -1338,18 +1335,14 @@ groups:
     title: S-2 official IEA 15 MW static response against BeamDyn
     slug: blade_static_prescribed
     reference_kind: code
-    physical_test_files:
-      - tests/test_iea15mw_s2_static_prescribed.py
-    non_validation_tests:
-      - tests:
-          - test_dominant_component_matches_beam[LC1_gravity-utd]
-          - test_dominant_component_matches_beam[LC2_tip_flap-utd]
-          - test_dominant_component_matches_beam[LC4_distributed-utd]
-          - test_edgewise_ratio_within_band[utd]
-        reason: >-
-          These UTD inputs are retained only as input-sensitivity records and
-          are disowned for physical validation closure; they have no row here.
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py`: the v1 test file was deleted at
+      c70247c. Every comparison is not_measured until the twin is re-run; the v1 values survive only as
+      row history. Reference, tolerance and band are those of the v1 test. The twin asserts the tip uy of
+      LC1 and LC4 and the interior-station displacement (S12) of LC1, LC2 and LC4; the tip LC2 and LC3 are
+      printed only (flag info_only); the four interior-station rows are new (no v1 counterpart) and the
+      UTD inputs are not in the twin.
       Stores only the official blade dominant-displacement comparisons for
       LC1, LC2 and LC4. The official LC3 asymmetric ratio band remains a
       node-level absent item because the row schema cannot encode that interval.
@@ -1358,15 +1351,19 @@ groups:
     title: S-4 parked and rated modal frequencies against OpenFAST MBC3
     slug: blade_rotating_modes
     reference_kind: code
-    physical_test_files:
-      - tests/test_iea15mw_s4_rotating_modal.py
     non_validation_tests:
       - tests:
-          - test_s4_centrifugal_stiffening_increases_first_flap
+          - test_v2_s4_centrifugal_stiffening_increases_first_flap
+          - test_v2_s4_assembly_smoke
         reason: >-
           A monotonic-stiffening direction guard, not a scalar comparison
           against an independent modal-frequency reference.
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py`: the v1 test file was deleted at
+      c70247c. Every comparison is not_measured until the twin is re-run; the v1 values survive only as
+      row history. Reference, tolerance and band are those of the v1 test. The twin names its guards
+      test_v2_s4_*.
       Stores parked and rated modal-frequency comparisons against OpenFAST
       v5.0.0 MBC3, preserving the source 8% limits without a ceiling exception.
 
@@ -1374,8 +1371,6 @@ groups:
     title: V-03 integrated blade mass against the declared IEA table
     slug: blade_total_mass
     reference_kind: code
-    physical_test_files:
-      - tests/test_iea15mw_v03_static_gravity.py
     non_validation_tests:
       - tests:
           - test_tip_edgewise_deflection_in_range
@@ -1386,6 +1381,10 @@ groups:
           and sign guard; none measures the blade against an independent
           quantitative physical reference.
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_v03_static_gravity.py`: the v1 test file was deleted at
+      c70247c. Every comparison is not_measured until the twin is re-run; the v1 values survive only as
+      row history. Reference, tolerance and band are those of the v1 test.
       Stores only the declared-mass comparison. The source test name and prose
       claim 2%, but the assertion uses 10%; that conflict and any L3 exception
       remain unresolved.
@@ -1394,8 +1393,6 @@ groups:
     title: V-05 blade structural-property cross references
     slug: blade_structural_properties
     reference_kind: code
-    physical_test_files:
-      - tests/test_iea15mw_v05_structural_properties.py
     non_validation_tests:
       - tests:
           - test_assembler_creates_valid_matrices
@@ -1403,15 +1400,12 @@ groups:
         reason: >-
           Matrix existence and DOF-size assertions are implementation checks,
           not physical-reference comparisons.
-      - tests:
-          - test_k55_consistent_with_ei_flap
-        reason: >-
-          Deck-vs-deck comparison (BeamDyn K55 vs ElastoDyn FlpStff): no
-          aeroelast code runs, so it validates nothing here. The two official
-          decks of the same blade differ by up to 24 % (flap) and 39 % (edge)
-          at equal eta (tools/v05_deck_consistency.py); kept in the suite as
-          a non-strict xfail record of that reference spread.
     provenance_note: >-
+      Repointed 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) to the windIO v2 + gmsh twin
+      `tests/validation/blade/v2/test_v2_iea15mw_v05_structural_properties.py`: the v1 test file was
+      deleted at c70247c. Every comparison is not_measured until the twin is re-run; the v1 values survive
+      only as row history. Reference, tolerance and band are those of the v1 test. The v1 deck-vs-deck
+      K55/EI_flap record (no aeroelast code) is not repeated in the twin.
       Stores the shell mass-to-BeamDyn table comparison. The K55-to-ElastoDyn
       rows were removed 2026-10-16: they compare two reference decks, not code.
 
@@ -1722,3 +1716,137 @@ groups:
       AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881,
       p. 22), Viterna equations [98]-[102] and the two limits at 90 deg.
       Source absolute bounds are retained; no measurement or verdict recorded.
+
+  - id: '68'
+    title: >-
+      `tests/validation/bem/test_bem_prebend_polar_interp.py` (BEMSolver model inputs of L4 T7: exact polar tables and
+      prebend as CCBlade precurve)
+    slug: bem_model_inputs
+    reference_kind: self
+    source_files:
+      - tests/validation/bem/test_bem_prebend_polar_interp.py
+    non_validation_tests:
+      - tests:
+          - test_smoothed_polars_remain_available_and_differ_from_the_table
+          - test_prebend_is_passed_to_ccblade_as_precurve_with_flipped_sign
+          - test_prebend_changes_outboard_inflow_and_loads
+          - test_use_prebend_false_equals_a_blade_without_prebend
+          - test_blade_without_prebend_is_unchanged_by_the_default
+          - test_official_yaml_blade_carries_prebend_into_the_solver
+        reason: >-
+          Option-plumbing, sign-convention and direction guards on our own BEMSolver (a flag reaches CCBlade, a
+          setting leaves a blade unchanged, an effect exceeds a threshold). None compares a physical quantity
+          against an independent reference.
+    provenance_note: >-
+      Added to the store 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) with every comparison not_measured.
+      The two rows compare BEMSolver's polar evaluation with the tabulated Cl/Cd/Cm it was given (atol 1e-12 at every
+      table node) and its solved Cl with the table value at its own alpha (atol 1e-6). The reference is the input
+      table itself, so these are identity checks of our interpolation, not an independent physical reference
+      (reference kind self).
+
+  - id: '69'
+    title: >-
+      `tests/validation/bem/test_force_projection_strip_edge_ring.py` and `test_gmsh_coupling_mesh.py` (the force
+      projector's ring grouping on the gmsh coupling mesh)
+    slug: bem_force_projection_rings
+    reference_kind: self
+    source_files:
+      - tests/validation/bem/test_force_projection_strip_edge_ring.py
+      - tests/validation/bem/test_gmsh_coupling_mesh.py
+    non_validation_tests:
+      - tests:
+          - test_edge_ring_is_whole_and_realisable
+          - test_non_edge_nodes_and_exact_tip_keep_their_strip
+          - test_a_ring_straddling_a_strip_edge_goes_whole_to_one_strip
+          - test_a_stub_ring_does_not_take_the_wall_flow_from_its_strip
+        reason: >-
+          Structural guards on the ring-to-strip assignment (a ring is not split, a stub ring is left out, a real ring
+          keeps its strip): counts and membership of our own data structure, no physical quantity against a reference.
+      - tests:
+          - test_gmsh_generator_builds_the_coupling_mesh_with_deck_properties
+          - test_projector_rings_are_realisable_on_the_gmsh_mesh
+          - test_cli_forwards_chord_sizing_keys_to_gmsh_blade_mesh
+          - test_runner_forwards_chord_sizing_keys_to_gmsh_blade_mesh
+          - test_cli_without_chord_keys_keeps_the_previous_kwargs
+          - test_runner_without_chord_keys_keeps_the_previous_kwargs
+        reason: >-
+          Wiring and realisability guards of the gmsh coupling mesh (keys forwarded, every ring has a wall-flow section,
+          kwargs unchanged without the keys). No quantity is compared with an independent reference.
+    provenance_note: >-
+      Added to the store 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) with every comparison not_measured. The
+      only comparison is the load realised on a strip with an unrealisable ring against the same strip's own
+      realisation without that ring and against the strip's force and moment resultants (atol 1e-9 / 1e-12): a
+      self-consistency check of the projector, not an independent reference (reference kind self).
+
+  - id: '70'
+    title: >-
+      `tests/validation/rotor/test_bem_*.py` (the BEM participant: finite root station, inertial partner frame,
+      structure-published theta, rebuild at the reference geometry)
+    slug: bem_participant_guards
+    reference_kind: self
+    source_files:
+      - tests/validation/rotor/test_bem_nan_inputs.py
+      - tests/validation/rotor/test_bem_partner_frame.py
+      - tests/validation/rotor/test_bem_rebuild_keeps_prebend.py
+      - tests/validation/rotor/test_bem_theta_from_structure.py
+    non_validation_tests:
+      - tests:
+          - test_rigid_root_station_is_finite
+          - test_rebuild_keeps_station_prebend_and_sweep
+          - test_rotating_partner_frame_is_rejected
+          - test_inertial_partner_frame_still_accepted
+          - test_ccblade_azimuth_is_offset_plus_theta_in_degrees
+          - test_azimuth_increases_with_positive_rotation
+          - test_varying_omega_does_not_move_the_angle
+          - test_theta_and_omega_are_read_from_the_omega_mesh
+          - test_missing_theta_data_fails_at_setup_with_a_clear_message
+          - test_theta_data_present_passes_setup_check
+          - test_nonzero_static_omega_without_omega_mesh_is_rejected
+        reason: >-
+          Finiteness, option-parsing, setup-error, direction and unit-conversion guards on the BEM participant (no NaN,
+          a rejected setting, a clear message, azimuth = offset + theta in degrees). Properties of our own
+          implementation; none compares a physical quantity against an independent reference.
+    provenance_note: >-
+      Added to the store 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) with every comparison not_measured. The
+      rows compare the participant with itself or with a closed-form rotation: the forces written and the
+      displacements read against the rotation R(theta) the Rust solver applies (atol 1e-9 / 1e-12), a root station
+      slightly inside the hub against the rigid one (rtol 1e-3), and the solver rebuilt at the reference geometry
+      against the one built at construction (rtol 1e-12). None is an independent physical reference (reference kind
+      self); the rotation formula is the same one the Rust side implements.
+
+  - id: '71'
+    title: >-
+      `tests/validation/rotor/test_rotor_callback_torque_frame.py` and `test_rotor_power_sign.py` (window torques in
+      the rotating frame; power, CP and CQ of a driving torque)
+    slug: rotor_frame_and_sign
+    reference_kind: analytical
+    source_files:
+      - tests/validation/rotor/test_rotor_callback_torque_frame.py
+      - tests/validation/rotor/test_rotor_power_sign.py
+    provenance_note: >-
+      Added to the store 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) with every comparison not_measured. Both
+      files compare the rotor solver's helpers with a closed form fixed in the test: the torque about the axis
+      sum (X + u - c) x F . axis independent of the azimuth (rtol 1e-12), and CP = tau omega / (q A V), CQ = tau /
+      (q A R), P = tau omega (rtol 1e-12, plus the sign). The closed form is the textbook definition, so the kind is
+      analytical; the bound is round-off, not a physical tolerance.
+
+  - id: '72'
+    title: >-
+      `tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py` (gmsh mesher quality gate and material
+      fidelity on every windIO v2 blade)
+    slug: blade_mesh_fidelity
+    non_validation_tests:
+      - tests:
+          - test_mesh_passes_the_quality_gate
+        reason: >-
+          The mesher's own gate limits (aspect ratio, minimum corner angle, no coincident or unused node) evaluated on
+          its own output. A threshold on our own mesh, no independent reference.
+    provenance_note: >-
+      Hand-driven group: the fidelity assertions are plain asserts the extractor cannot read, so its rows carry no
+      source file. Added to the store 2026-11-23 (L-S85, odd/tasks/gmsh-official-mesher.md) with every comparison not_measured. The
+      material-fidelity test compares, per blade, the skin mass the mesher assigns with the mass of the windIO YAML
+      laminate (total and per material carrying at least 1 % of the blade mass within 0.5 %, at most 1 % of skin
+      elements with more than 5 % areal-mass deviation). The reference is the YAML definition integrated by
+      tests/support/v2_fidelity.py, an analytical (definition) reference; the tolerances were fixed before the first
+      number. IEA-3.4 uses 0.1 m, which is NOT certified (one outlier at 0.07 of unknown cause). The 5 % ceiling does not
+      apply: these are input-fidelity bounds of 0.5 % and 1 %, not physical residuals.

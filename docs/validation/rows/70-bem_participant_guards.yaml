@@ -1,0 +1,552 @@
+group: '70'
+rows:
+- id: bem_participant_guards.test_root_station_slightly_inside_hub_ke.single
+  group: '70'
+  title: test_root_station_slightly_inside_hub_keeps_its_load
+  tests:
+  - tests/validation/rotor/test_bem_nan_inputs.py::test_root_station_slightly_inside_hub_keeps_its_load
+  validates: root_station_slightly_inside_hub_keeps_its_load
+  comparisons:
+  - label: rtol at line 65
+    asserted: true
+    reference:
+      kind: self
+      label: rigid.Np[0]
+    tolerance:
+      kind: rtol
+      value: 0.001
+      source: tests/validation/rotor/test_bem_nan_inputs.py:65
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 66
+    asserted: true
+    reference:
+      kind: self
+      label: rigid.Tp[0]
+    tolerance:
+      kind: rtol
+      value: 0.001
+      source: tests/validation/rotor/test_bem_nan_inputs.py:66
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_forces_written_inertial_by_default.cfg0_90_0
+  group: '70'
+  title: test_forces_written_inertial_by_default[cfg0-90.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_forces_written_inertial_by_default[cfg0-90.0]
+  validates: forces_written_inertial_by_default
+  comparisons:
+  - label: atol at line 52
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:52
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 55
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:55
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_forces_written_inertial_by_default.cfg0_180_0
+  group: '70'
+  title: test_forces_written_inertial_by_default[cfg0-180.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_forces_written_inertial_by_default[cfg0-180.0]
+  validates: forces_written_inertial_by_default
+  comparisons:
+  - label: atol at line 52
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:52
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 55
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:55
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_forces_written_inertial_by_default.cfg1_90_0
+  group: '70'
+  title: test_forces_written_inertial_by_default[cfg1-90.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_forces_written_inertial_by_default[cfg1-90.0]
+  validates: forces_written_inertial_by_default
+  comparisons:
+  - label: atol at line 52
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:52
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 55
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:55
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_forces_written_inertial_by_default.cfg1_180_0
+  group: '70'
+  title: test_forces_written_inertial_by_default[cfg1-180.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_forces_written_inertial_by_default[cfg1-180.0]
+  validates: forces_written_inertial_by_default
+  comparisons:
+  - label: atol at line 52
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:52
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 55
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:55
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_displacements_read_unrotated_by_def.cfg0_90_0
+  group: '70'
+  title: test_displacements_read_unrotated_by_default[cfg0-90.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_displacements_read_unrotated_by_default[cfg0-90.0]
+  validates: displacements_read_unrotated_by_default
+  comparisons:
+  - label: atol at line 64
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:64
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_displacements_read_unrotated_by_def.cfg0_180_0
+  group: '70'
+  title: test_displacements_read_unrotated_by_default[cfg0-180.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_displacements_read_unrotated_by_default[cfg0-180.0]
+  validates: displacements_read_unrotated_by_default
+  comparisons:
+  - label: atol at line 64
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:64
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_displacements_read_unrotated_by_def.cfg1_90_0
+  group: '70'
+  title: test_displacements_read_unrotated_by_default[cfg1-90.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_displacements_read_unrotated_by_default[cfg1-90.0]
+  validates: displacements_read_unrotated_by_default
+  comparisons:
+  - label: atol at line 64
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:64
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_displacements_read_unrotated_by_def.cfg1_180_0
+  group: '70'
+  title: test_displacements_read_unrotated_by_default[cfg1-180.0]
+  tests:
+  - tests/validation/rotor/test_bem_partner_frame.py::test_displacements_read_unrotated_by_default[cfg1-180.0]
+  validates: displacements_read_unrotated_by_default
+  comparisons:
+  - label: atol at line 64
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_partner_frame.py:64
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_rebuild_at_reference_reproduces_con.single
+  group: '70'
+  title: test_rebuild_at_reference_reproduces_construction_loads
+  tests:
+  - tests/validation/rotor/test_bem_rebuild_keeps_prebend.py::test_rebuild_at_reference_reproduces_construction_loads
+  validates: rebuild_at_reference_reproduces_construction_loads
+  comparisons:
+  - label: rtol at line 56
+    asserted: true
+    reference:
+      kind: self
+      label: base.Np
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_rebuild_keeps_prebend.py:56
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 56
+    asserted: true
+    reference:
+      kind: self
+      label: base.Np
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_rebuild_keeps_prebend.py:56
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 57
+    asserted: true
+    reference:
+      kind: self
+      label: base.Tp
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_rebuild_keeps_prebend.py:57
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 57
+    asserted: true
+    reference:
+      kind: self
+      label: base.Tp
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/rotor/test_bem_rebuild_keeps_prebend.py:57
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_frame_rotation_uses_exactly_the_pub.0_0
+  group: '70'
+  title: test_frame_rotation_uses_exactly_the_published_theta[0.0]
+  tests:
+  - tests/validation/rotor/test_bem_theta_from_structure.py::test_frame_rotation_uses_exactly_the_published_theta[0.0]
+  validates: frame_rotation_uses_exactly_the_published_theta
+  comparisons:
+  - label: atol at line 77
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:77
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 78
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:78
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_frame_rotation_uses_exactly_the_pub.0_3
+  group: '70'
+  title: test_frame_rotation_uses_exactly_the_published_theta[0.3]
+  tests:
+  - tests/validation/rotor/test_bem_theta_from_structure.py::test_frame_rotation_uses_exactly_the_published_theta[0.3]
+  validates: frame_rotation_uses_exactly_the_published_theta
+  comparisons:
+  - label: atol at line 77
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:77
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 78
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:78
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_frame_rotation_uses_exactly_the_pub.1_5707963267948966
+  group: '70'
+  title: test_frame_rotation_uses_exactly_the_published_theta[1.5707963267948966]
+  tests:
+  - tests/validation/rotor/test_bem_theta_from_structure.py::test_frame_rotation_uses_exactly_the_published_theta[1.5707963267948966]
+  validates: frame_rotation_uses_exactly_the_published_theta
+  comparisons:
+  - label: atol at line 77
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:77
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 78
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:78
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_frame_rotation_uses_exactly_the_pub.2_5
+  group: '70'
+  title: test_frame_rotation_uses_exactly_the_published_theta[2.5]
+  tests:
+  - tests/validation/rotor/test_bem_theta_from_structure.py::test_frame_rotation_uses_exactly_the_published_theta[2.5]
+  validates: frame_rotation_uses_exactly_the_published_theta
+  comparisons:
+  - label: atol at line 77
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:77
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 78
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:78
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_frame_rotation_uses_exactly_the_pub.3_141592653589793
+  group: '70'
+  title: test_frame_rotation_uses_exactly_the_published_theta[3.141592653589793]
+  tests:
+  - tests/validation/rotor/test_bem_theta_from_structure.py::test_frame_rotation_uses_exactly_the_published_theta[3.141592653589793]
+  validates: frame_rotation_uses_exactly_the_published_theta
+  comparisons:
+  - label: atol at line 77
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta).T
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:77
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 78
+    asserted: true
+    reference:
+      kind: self
+      label: U_ROT
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:78
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_participant_guards.test_restart_with_nonzero_initial_theta.single
+  group: '70'
+  title: test_restart_with_nonzero_initial_theta_is_followed_from_the_first_read
+  tests:
+  - tests/validation/rotor/test_bem_theta_from_structure.py::test_restart_with_nonzero_initial_theta_is_followed_from_the_first_read
+  validates: A Rust restart starts at theta0 != 0; the first iteration already rotates with it.
+  comparisons:
+  - label: atol at line 88
+    asserted: true
+    reference:
+      kind: self
+      label: F_ROT @ _rust_rotation(AXIS_Y, theta0).T
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_bem_theta_from_structure.py:88
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

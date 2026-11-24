@@ -2486,6 +2486,25 @@ def test_the_real_store_status_reports_no_pending_migration() -> None:
     assert payload["ungrouped_validation_files"] == []
 
 
+def test_status_counts_a_file_claimed_by_a_hand_driven_groups_rows_as_grouped(
+    tmp_path: Path,
+) -> None:
+    """A group with no `source_files` is driven by hand; the files its rows' tests name are grouped.
+
+    The twins of the blade anchors (tests/validation/blade/v2/...) sit under tests/validation and
+    their groups carry hand-written rows, so reading only `source_files` reported them as
+    forgotten although a row cites each. A file no group and no row names stays reported.
+    """
+    groups = copy.deepcopy(GROUPS)
+    groups["groups"][0]["source_files"] = []
+    store = write_store(tmp_path, [make_row()], groups=groups)
+    completed = run(store, "status", "--json")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    ungrouped = json.loads(completed.stdout)["ungrouped_validation_files"]
+    assert GROUP_SOURCE not in ungrouped
+    assert ungrouped, "a validation file no group and no row names must still be reported"
+
+
 def test_duplicate_gap_ids_are_reported(tmp_path: Path) -> None:
     store = write_store(tmp_path, [make_row()])
     write_gaps(store, [gap(), gap()])

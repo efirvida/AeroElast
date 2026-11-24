@@ -4,7 +4,7 @@ rows:
   group: '39'
   title: S-2 official LC1 gravity tip displacement vs OpenFAST BeamDyn p60
   tests:
-  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity]
   validates: Official-blade shell tip uy for LC1 gravity against the OpenFAST BeamDyn static driver (K9).
   comparisons:
   - label: Dominant tip displacement relative error
@@ -15,24 +15,27 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:146
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:235
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the OpenFAST BeamDyn static driver on the official deck (K8/K9), not our own beam; the in-house EB beam is printed as a comparison only. BeamDyn p40-p60 move <= 0.13 %.'
     measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.052584
-      margin_pct: 5.2584
-      text: 'S-2 LC1 official blade: shell -2.114143 m vs BeamDyn p60 -2.231483 m, -5.2584 % (FAIL); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+      status: not_measured
+      margin_pct: null
     expected: -2.231483
   flags: []
-  notes: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official], deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 39`. Earlier note: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Dominant tip displacement relative error'': raw 0.052584, margin 5.2584 %, 2026-10-24. S-2 LC1 official blade: shell -2.114143 m vs BeamDyn p60 -2.231483 m, -5.2584 % (FAIL); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+    evidence: git show c70247c^:tests/test_iea15mw_s2_static_prescribed.py
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 1.8176 %, 2026-11-03. S-2 v2 LC1 tip uy: shell -2.190924 m vs BeamDyn p60 -2.231483 m, -1.8176 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
 - id: blade_static_prescribed.s2_official_lc2_tip_displacement
   group: '39'
   title: S-2 official LC2 tip flap tip displacement vs OpenFAST BeamDyn p60
   tests:
-  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap]
   validates: Official-blade shell tip uy for LC2 tip flap against the OpenFAST BeamDyn static driver (K9).
   comparisons:
   - label: Dominant tip displacement relative error
@@ -43,25 +46,28 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:146
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:235
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the OpenFAST BeamDyn static driver on the official deck (K8/K9), not our own beam; the in-house EB beam is printed as a comparison only. BeamDyn p40-p60 move <= 0.13 %.'
     measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.025361
-      margin_pct: 2.5361
-      text: 'S-2 LC2 official blade: shell 80.186786 m vs BeamDyn p60 82.273278 m, -2.5361 % (PASS); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+      status: not_measured
+      margin_pct: null
     expected: 82.273278
   flags:
   - info_only
-  notes: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official], deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 39`. Earlier note: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Dominant tip displacement relative error'': raw 0.025361, margin 2.5361 %, 2026-10-24. S-2 LC2 official blade: shell 80.186786 m vs BeamDyn p60 82.273278 m, -2.5361 % (PASS); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+    evidence: git show c70247c^:tests/test_iea15mw_s2_static_prescribed.py
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 10.3995 %, 2026-11-03. S-2 v2 LC2 tip uy: shell 90.829308 m vs BeamDyn p60 82.273278 m, +10.3995 % (not asserted (as v1)); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
 - id: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
   group: '39'
   title: S-2 official LC3 tip edge tip displacement vs OpenFAST BeamDyn p60
   tests:
-  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official]
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_edgewise_lc3_tip_ux
   validates: Official-blade shell tip ux for LC3 (tip force +1 MN along shell x) against the OpenFAST BeamDyn static driver (K11.3).
   comparisons:
   - label: Edgewise tip displacement relative error
@@ -72,25 +78,28 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:187
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:244
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference admitted by K11.3: p50-p60 0.047 %, scale 1e-4 vs 2e-4 0.0005 %. The 0.9-1.2 band against the in-house EB beam is removed.'
     measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.102553
-      margin_pct: 10.2553
-      text: 'S-2 LC3 official blade: shell 38.004389 m vs BeamDyn p60 34.469441 m, +10.2553 % (not asserted (K11.3)); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+      status: not_measured
+      margin_pct: null
     expected: 34.469441
   flags:
   - info_only
-  notes: Imported by K11.3 (was the absent node id test_edgewise_ratio_within_band[official]). Verdict in contract.yaml.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official], deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 39`. Earlier note: Imported by K11.3 (was the absent node id test_edgewise_ratio_within_band[official]). Verdict in contract.yaml.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Edgewise tip displacement relative error'': raw 0.102553, margin 10.2553 %, 2026-10-24. S-2 LC3 official blade: shell 38.004389 m vs BeamDyn p60 34.469441 m, +10.2553 % (not asserted (K11.3)); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+    evidence: git show c70247c^:tests/test_iea15mw_s2_static_prescribed.py
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 12.0914 %, 2026-11-03. S-2 v2 LC3 tip ux: shell 38.637278 m vs BeamDyn p60 34.469441 m, +12.0914 % (not asserted (K11.3, as v1)); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
 - id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
   group: '39'
   title: S-2 official LC4 distributed tip displacement vs OpenFAST BeamDyn p60
   tests:
-  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed]
   validates: Official-blade shell tip uy for LC4 distributed against the OpenFAST BeamDyn static driver (K9).
   comparisons:
   - label: Dominant tip displacement relative error
@@ -101,16 +110,129 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:146
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:235
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the OpenFAST BeamDyn static driver on the official deck (K8/K9), not our own beam; the in-house EB beam is printed as a comparison only. BeamDyn p40-p60 move <= 0.13 %.'
     measured:
-      status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.054831
-      margin_pct: 5.4831
-      text: 'S-2 LC4 official blade: shell 8.565719 m vs BeamDyn p60 9.062631 m, -5.4831 % (FAIL); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+      status: not_measured
+      margin_pct: null
     expected: 9.062631
   flags: []
-  notes: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official], deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 39`. Earlier note: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Dominant tip displacement relative error'': raw 0.054831, margin 5.4831 %, 2026-10-24. S-2 LC4 official blade: shell 8.565719 m vs BeamDyn p60 9.062631 m, -5.4831 % (FAIL); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
+    evidence: git show c70247c^:tests/test_iea15mw_s2_static_prescribed.py
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 2.5732 %, 2026-11-03. S-2 v2 LC4 tip uy: shell 8.829434 m vs BeamDyn p60 9.062631 m, -2.5732 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
+- id: blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc1
+  group: '39'
+  title: S-2 v2 LC1 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC1]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC1.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC1 node 56 (z 114.845 m, 4.35 tip chords), uy, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:284
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'New row from the v2 twin (L-S85): the interior-station comparison of S-2 (S12) has no v1 counterpart in the store. measured = not_measured; re-measure with `tools/validation_matrix.py regression --group 39`. Staged text: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.'
+  history:
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 1.56 %, 2026-11-03. S-2 v2 LC1 station uy: shell arc ring mean -2.124655 m vs BeamDyn p60 node 56 -2.158325 m, -1.5600 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
+- id: blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc2
+  group: '39'
+  title: S-2 v2 LC2 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC2]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC2.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC2 node 56 (z 114.845 m, 4.35 tip chords), uy, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:284
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags:
+  - info_only
+  notes: 'New row from the v2 twin (L-S85): the interior-station comparison of S-2 (S12) has no v1 counterpart in the store. measured = not_measured; re-measure with `tools/validation_matrix.py regression --group 39`. Staged text: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.'
+  history:
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 0.6437 %, 2026-11-03. S-2 v2 LC2 station uy: shell 74.085445 m vs BeamDyn p60 node 56 73.611629 m, +0.6437 % (not asserted, S13); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
+- id: blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc3
+  group: '39'
+  title: S-2 v2 LC3 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC3]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC3.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 node 56 (z 114.845 m, 4.35 tip chords), ux, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:284
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags:
+  - info_only
+  notes: 'New row from the v2 twin (L-S85): the interior-station comparison of S-2 (S12) has no v1 counterpart in the store. measured = not_measured; re-measure with `tools/validation_matrix.py regression --group 39`. Staged text: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.'
+  history:
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 10.2959 %, 2026-11-03. S-2 v2 LC3 station ux: shell 35.188603 m vs BeamDyn p60 node 56 31.903817 m, +10.2959 % (not asserted, S13); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
+- id: blade_static_prescribed.testv2s2interiorstation_test_station_mat.lc4
+  group: '39'
+  title: S-2 v2 LC4 interior-station displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py::TestV2S2InteriorStation::test_station_matches_beamdyn_node[LC4]
+  validates: Official-blade shell arc ring mean at the BeamDyn p60 station node (predeclared S12 rule) against the OpenFAST BeamDyn static driver, LC4.
+  comparisons:
+  - label: Interior-station (S12) displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC4 node 56 (z 114.845 m, 4.35 tip chords), uy, m
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/v2/test_v2_iea15mw_s2_static_prescribed.py:284
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'New row from the v2 twin (L-S85): the interior-station comparison of S-2 (S12) has no v1 counterpart in the store. measured = not_measured; re-measure with `tools/validation_matrix.py regression --group 39`. Staged text: v2 counterpart of the v1 TestS2InteriorStation case (no v1 row exists). Tolerance K3 5 %.'
+  history:
+  - rev: 0da03be+worktree
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 2.1489 %, 2026-11-03. S-2 v2 LC4 station uy: shell arc ring mean 8.446527 m vs BeamDyn p60 node 56 8.632019 m, -2.1489 % (PASS); v2 mesh (windIO v2 mesher, build_v2_blade es 0.25, skin on mid-surface, no strip collapse), SLURM 11641783 (logs/check/v2_s2/run-11641783.out).'
+    evidence: docs/validation/_pending/64-v2_blade_static_prescribed/rows.yaml
