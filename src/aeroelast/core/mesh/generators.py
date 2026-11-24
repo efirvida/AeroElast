@@ -1832,7 +1832,7 @@ class RotorHubMesh:
         coords = np.asarray(coords, dtype=float).reshape(-1, 3)
 
         node_map = {}
-        for tag, coord in zip(node_tags, coords):
+        for tag, coord in zip(node_tags, coords, strict=False):
             if tag not in used_node_tags:
                 continue
             node = Node(coord, geometric_node=True)

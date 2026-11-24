@@ -32,8 +32,8 @@ ZERO_TOL = 1e-9  # zero mode if |lambda| < ZERO_TOL * lambda_max
 
 _MAT = OrthotropicMaterial(40e9, 10e9, 10e9, 5e9, 4e9, 5e9, 0.3, 0.3, 0.3, 1800.0)
 PROPS = {
-    "iso": dict(type="isotropic", e=70e9, nu=0.3, rho=2700.0, thickness=0.01,
-                shear_correction=5 / 6, drilling_scale=1.0),
+    "iso": {"type": "isotropic", "e": 70e9, "nu": 0.3, "rho": 2700.0, "thickness": 0.01,
+                "shear_correction": 5 / 6, "drilling_scale": 1.0},
     "comp": Laminate([Ply(_MAT, 0.004, 0.0), Ply(_MAT, 0.004, 45.0), Ply(_MAT, 0.004, -45.0)], 0.75),
 }
 SPAN = [1.0, 0.0, 0.0]

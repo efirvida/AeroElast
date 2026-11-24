@@ -25,7 +25,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from aeroelast.core.material import IsotropicMaterial
 from aeroelast.core.mesh.entities import ElementType, MeshElement, Node
 from aeroelast.core.mesh.model import MeshModel
 from scipy.sparse import coo_matrix

@@ -115,7 +115,7 @@ def test_full_rotor_aero_geometry_assembles_global_fields():
     assembled = geometry.assemble_global_nodal_field(blade_fields)
 
     expected = np.zeros((mesh.node_count, 3), dtype=float)
-    for blade, blade_field in zip(geometry.blades, blade_fields):
+    for blade, blade_field in zip(geometry.blades, blade_fields, strict=False):
         expected[blade.parent_node_indices] = blade_field
 
     np.testing.assert_array_equal(assembled, expected)

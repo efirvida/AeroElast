@@ -50,7 +50,7 @@ def _measured_leading_edge(coords):
     return total / np.linalg.norm(total)
 
 
-def test_contradicting_tangential_direction_is_refused(blade_case):
+def test_contradicting_tangential_direction_is_refused(blade_case):  # noqa: F811 (fixtures imported above)
     mesh, _, blade_aero, _, _ = blade_case
     with pytest.raises(ValueError, match="tangential_direction") as err:
         ForceProjector(
@@ -64,7 +64,7 @@ def test_contradicting_tangential_direction_is_refused(blade_case):
     assert "drop the key" in str(err.value).lower()
 
 
-def test_tangential_force_points_to_measured_leading_edge(blade_case, rated_bem):
+def test_tangential_force_points_to_measured_leading_edge(blade_case, rated_bem):  # noqa: F811 (fixtures imported above)
     mesh, coords, blade_aero, _, _ = blade_case
     projector = ForceProjector(mesh, blade_aero, span_direction=SPAN_DIR)
     le = _measured_leading_edge(coords)
@@ -72,7 +72,7 @@ def test_tangential_force_points_to_measured_leading_edge(blade_case, rated_bem)
     assert float(projector._rotor_tangential_dir @ le) > 0.9
 
 
-def test_aerodynamic_torque_about_rotation_axis_is_positive(blade_case, rated_bem):
+def test_aerodynamic_torque_about_rotation_axis_is_positive(blade_case, rated_bem):  # noqa: F811 (fixtures imported above)
     mesh, coords, blade_aero, _, _ = blade_case
     projector = ForceProjector(mesh, blade_aero, span_direction=SPAN_DIR)
     assert float(np.min(rated_bem.Tp)) > -1e-9 or float(np.sum(rated_bem.Tp)) > 0.0

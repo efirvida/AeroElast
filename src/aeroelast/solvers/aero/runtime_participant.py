@@ -1000,7 +1000,7 @@ class RotorAeroFSIParticipant:
                     blade_surface.panel_chordwise_coordinates,
                     blade_surface.panel_areas,
                     blade_surface.panel_chord_lengths,
-                    blade_surface.panel_span_lengths,
+                    blade_surface.panel_span_lengths, strict=False,
                 ),
                 start=1,
             ):

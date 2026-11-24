@@ -294,10 +294,7 @@ def _is_closed(ordered: np.ndarray) -> bool:
     n = ordered.shape[0]
     if n < 3:
         return False
-    for i in range(n):
-        if np.array_equal(ordered[i], ordered[(i + 1) % n]):
-            return False
-    return True
+    return all(not np.array_equal(ordered[i], ordered[(i + 1) % n]) for i in range(n))
 
 
 def contour_report(points: np.ndarray, span_dir: np.ndarray) -> ContourReport:

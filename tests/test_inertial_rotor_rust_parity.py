@@ -21,7 +21,6 @@ import inspect
 import sys
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose
 
 # ---------------------------------------------------------------------------
 # Optional imports — guarded so collection doesn't crash without PETSc

@@ -49,6 +49,8 @@ features = ["pyo3/extension-module"]
 line-length = 100
 target-version = "py312"
 extend-include = ["*.ipynb"]
+# Vendored upstream IEA-15-240-RWT repository: kept byte-identical to upstream, not linted.
+extend-exclude = ["tests/IEA15MW/validation papers"]
 
 [tool.ruff.lint]
 ignore = [

@@ -12,7 +12,6 @@ Each test here compares our MITC4+ shell with a source other than the Ko table t
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
@@ -80,7 +79,7 @@ def test_pinched_cylinder_converges_monotonically_towards_the_reference():
     """The N = 16 gap to the reference is discretisation: the series approaches 1 from below."""
     norms = [_pinched_cylinder_norm(n) for n in (8, 16, 32)]
     print(f"pinched cylinder w/w_ref at N=8/16/32: {norms}")
-    assert all(a < b for a, b in zip(norms, norms[1:])), norms
+    assert all(a < b for a, b in zip(norms, norms[1:], strict=False)), norms
     assert norms[-1] < 1.0, norms
 
 

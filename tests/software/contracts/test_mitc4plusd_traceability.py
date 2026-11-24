@@ -25,7 +25,6 @@ exists, and the test asserts the detector FIRES there.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 import yaml

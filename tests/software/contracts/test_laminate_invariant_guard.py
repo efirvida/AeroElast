@@ -22,7 +22,6 @@ path, and it should be made on purpose, with this list updated in the same commi
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from tests.support.paths import REPO_ROOT  # noqa: E402
 REPO = REPO_ROOT
