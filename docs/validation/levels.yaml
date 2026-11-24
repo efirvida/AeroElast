@@ -104,6 +104,9 @@ levels:
       - '40'
       - '41'
       - '42'
+      # '72' gmsh mesher quality gate and material/mass fidelity; self-referenced
+      # (consistency, not an independent reference). Assigned by the maintainer 2026-11-24.
+      - '72'
     depends_on:
       - src/aeroelast/core/mesh
       - src/aeroelast/models/blade
@@ -135,7 +138,9 @@ levels:
       The built-in CCBlade-based BEM, purely aerodynamic, against AeroDyn on the same deck and
       polars: rotor performance, spanwise loads, yaw and shear, post-stall extrapolation and the
       load frame it hands to the structure.
-    groups: ['11', '59', '60']
+    # '68' (prebend and exact polar inputs, L4 T7) is a self-referenced consistency guard;
+    # assigned by the maintainer 2026-11-24.
+    groups: ['11', '59', '60', '68']
     # Pure aerodynamics: the BEM against AeroDyn does not rest on the shell elements.
     requires: []
     depends_on:
@@ -157,7 +162,9 @@ levels:
       operating points and against published IEA 15 MW FSI results. Coupled numbers older than
       7a84da1 and 6765633 are uncitable, and so is any one-way or coupled number fed by the
       deformed BEM radii before the #33 L5 second-order radii fix (2026-10-11).
-    groups: ['29', '30', '31', '35', '37']
+    # '69'-'71' (force projection on the gmsh mesh, BEM participant, window torque and
+    # power sign) assigned by the maintainer 2026-11-24; 69 and 70 are self-referenced.
+    groups: ['29', '30', '31', '35', '37', '69', '70', '71']
     depends_on:
       - src/aeroelast/solvers/fsi
       - crates/aeroelast-solvers/src/petsc/fsi
