@@ -35,12 +35,17 @@ See docs/rotor_inertial_solver_design.md for full design documentation.
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
 
 from aeroelast.core.mesh import MeshModel
+
+if TYPE_CHECKING:
+    from petsc4py import PETSc
+
+    from aeroelast.core.bc import BoundaryConditionManager
 
 from .corotational import (
     ComputedOmega,
