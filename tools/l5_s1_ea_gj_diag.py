@@ -4,7 +4,7 @@
   scripts/aeroenv.sh python tools/l5_s1_ea_gj_diag.py indep   OUT.json                           (no solves, ~1 min)
   python tools/l5_s1_ea_gj_diag.py report OUT1.json [OUT2.json ...]
 
-extract: the S-1 channels (compute_s1_v2) per z-strip width (GMSH_STRIP_M; windio2 ignores it).
+extract: the S-1 channels (compute_s1_v2) per z-strip width (GMSH_STRIP_M).
 indep:   per station z = const plane cut of the mid-surface mesh (raw builder arrays, no S-1 helper):
            EA   = sum_cut-segments A11_eff(layup) * L,   A11_eff = 1 / (A^-1)[0,0] of the CLT A matrix (own code),
                   L = length of the segment the plane cuts out of the element (skin + web);

@@ -1,6 +1,6 @@
-"""T14 diagnostic: S-1 v2 station membership / mass on gmsh vs windio2 meshes + independent strip-mass cross-check.
+"""T14 diagnostic: S-1 v2 station membership / mass on the gmsh mesh + independent strip-mass cross-check.
 
-usage: scripts/aeroenv.sh python tools/l5_s1_extractor_diag.py {gmsh|windio2}   (V2_BLADE_* env as the S-1 test)
+usage: scripts/aeroenv.sh python tools/l5_s1_extractor_diag.py   (V2_BLADE_* env as the S-1 test; the windio2 mesher is retired, gmsh-official-mesher S9)
 """
 import sys
 from pathlib import Path
