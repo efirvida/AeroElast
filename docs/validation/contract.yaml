@@ -1678,7 +1678,7 @@ verdicts:
     note: >-
       Measured 0.677 % (t=10 mm) and 0.701 % (t=0.5 mm) vs the idealised limit at L=24 m; bound 5 %.
       Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
-  - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
+  - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_the.single
     class: physics
     verdict: trusted
     audited_rev: 96d90d3

@@ -1,13 +1,13 @@
 group: '7'
 rows:
-- id: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
+- id: shell_stress_ccx.test_outer_fibre_stress_matches_beam_the.single
   group: '7'
   title: test_outer_fibre_stress_matches_beam_theory
   tests:
   - tests/validation/parity/test_shell_stress_ccx_parity.py::test_outer_fibre_stress_matches_beam_theory
   validates: AeroElast outer-fibre von Mises at mid-span matches beam theory M(x) c / I.
   comparisons:
-  - label: rtol at mid-span
+  - label: rtol at line 200
     asserted: true
     reference:
       kind: analytical
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_shell_stress_ccx_parity.py:TOL_ANALYTICAL
+      source: tests/validation/parity/test_shell_stress_ccx_parity.py:200
       justified: true
       justification: 5 % physics bound; sampled at mid-span because the whole-plate maximum includes the clamped-edge singularity and does not converge.
     measured:
