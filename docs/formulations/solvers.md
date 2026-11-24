@@ -160,8 +160,10 @@ with, as documented in the module:
 
 ```text
 [C]    = eta_m [M] + eta_k [K]                                          (rotor.py)
-[K_G]  = integral B_G^T S~ B_G dA     (from centrifugal prestress
-                                        sigma_cf ~ rho omega^2 r L_char) (rotor.py:20-23)
+[K_G]  = integral B_G^T S~ B_G dA     (from the centrifugal static-solve prestress,
+                                        see "Centrifugal K_G" below; rotor.py:20-23
+                                        still quotes the removed local estimate
+                                        sigma_cf ~ rho omega^2 r L_char)
 [K_SP] = -omega^2 [M] (I - n tensor n)                                  (rotor.py:24-25)
          (ANSYS Eq. 3-74 / 14-55)
 F_cor  = -2 m (omega x v)      F_euler = -m (alpha x r)                 (rotor.py)
@@ -172,6 +174,29 @@ The module also states the LHS/RHS split of the physical effects — `K_G` and
 Coriolis explicit and lagged, Euler at deformed coordinates — and the relationship
 `[K_total] = [K] + [S] + [S~2]` "(ANSYS §3.4–3.5, Eq. 3-88)", where `[S]` is
 stress stiffening and `[S~2]` spin softening.
+
+**Centrifugal `K_G` (T17, `petsc/elasticity/prestress.rs`, `CentrifugalPrestress`).**
+One implementation serves the `RotorFsi` rebuild (`rotor_fsi.rs` `update_kg_if_needed`),
+the `InertialRotorFsi` rebuild and, through the PyO3 binding
+`assemble_centrifugal_geometric_k`, Python `MeshAssembler.assemble_geometric_stiffness`:
+
+```text
+1. f_cf   = lumped nodal centrifugal load, rho_A omega^2 r (mass per area, X_0)
+2. K u    = f_cf   on the free DOFs (linear K at X_0, preonly + LU, factorized once)
+3. sigma  = (A eps + B kappa)/h at the element centroids from u   (Pa)
+4. K_G    = assemble_geometric_k(sigma)       (multiplies by h internally)
+```
+
+The prestress is always solved at `X_0` with the linear `K` ("Option A discipline").
+With `kg_use_deformed_coords` only the final `assemble_geometric_k` runs on `X_0 + u`
+(`u` the current displacement, not the prestress one) and `X_0` is restored. The
+inertial solver's geometry rotates with theta, so its helper refreshes the reduced `K`
+at `X_rotated(theta)` on every K_G rebuild (the stress state is frame-invariant:
+`K(theta) = R K R^T`, `f_cf(theta) = R f_cf`). Mass per area comes from
+`MeshAssembler::mass_per_area_per_elem` (`rho t` isotropic, laminate `mass_per_area`).
+The earlier local estimate `sigma = rho omega^2 r l_char` (`assemble_centrifugal_k`,
+2-3 orders of magnitude too small) is deleted without fallback: it had made the
+production rotor loop run with no centrifugal stiffening (L31, +10 % flap).
 
 **Spin softening (`rotor_physics.rs` `build_ksp_vals`)** is implemented per
 translational DOF of each node, with `n` the unit rotation axis:

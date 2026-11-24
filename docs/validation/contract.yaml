@@ -37,7 +37,7 @@
 version: 1
 
 verdicts:
-  - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
+  - target: blade_s7_torsion.test_v2_s7_global_torsion_ratio_within_b.single
     class: physics
     verdict: rejected
     audited_rev: 64976d8
@@ -1678,7 +1678,7 @@ verdicts:
     note: >-
       Measured 0.677 % (t=10 mm) and 0.701 % (t=0.5 mm) vs the idealised limit at L=24 m; bound 5 %.
       Re-run at 96d90d3 (L1/L2 closure, SLURM 11624576-11624578, logs/check/l1l2/reg-<group>.txt): every printed residual unchanged within its recorded tolerance, none newly over its bound; audited_rev restamped, no value or tolerance touched.
-  - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
+  - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_the.single
     class: physics
     verdict: trusted
     audited_rev: 96d90d3
@@ -2188,12 +2188,12 @@ verdicts:
 # 19ff1a3, es 0.25, skin on mid-surface (S-7 on OML); SLURM 11619652/53/54, captures bit-identical to the
 # B3-1r head capture (K1). K3: |e| > 5 % with >= 1 pp margin -> rejected; within 1 pp of 5 % without an
 # es 0.125 measurement -> undecided; |e| <= 4 % -> trusted, against the K4 arbiters only.
-  - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
+  - target: blade_v02_natural_frequencies.testv2bladenaturalfrequencies_test_1st_f.single
     class: physics
     verdict: rejected
     audited_rev: 9f72c6b
     files:
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     note: >-
       0.524444 Hz vs NREL/TP-5000-75698 Table 5-2 0.5585 Hz: -6.10 %, 1.10 pp over the ceiling
       (K3a; `regression --write`, SLURM 11619654). The reference describes the v1.0 blade while the
@@ -2203,12 +2203,12 @@ verdicts:
       is unverified. Follow-up: re-point the reference to a v1.1 source or drop the row. Dropped
       2026-10-27: the maintainer chose to drop V-02 (odd/tasks/l3-closure.md L12 (2)); group 32 is on
       no level, and this verdict is kept as the record.
-  - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+  - target: blade_v02_natural_frequencies.testv2bladenaturalfrequencies_test_1st_e.single
     class: physics
     verdict: rejected
     audited_rev: 9f72c6b
     files:
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     note: >-
       Bound 0.10 -> 0.05 at 19ff1a3 (ADJ-1034 withdraws ADJ-1032). 0.694793 Hz vs NREL 0.6406 Hz:
       +8.46 %, 3.46 pp over the ceiling (K3a; SLURM 11619654). Same reference caveat as 1F (v1.0
@@ -2224,7 +2224,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2243,7 +2243,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2263,7 +2263,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2281,7 +2281,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2300,7 +2300,7 @@ verdicts:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade v1.1 (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
@@ -2315,7 +2315,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
@@ -2332,7 +2332,7 @@ verdicts:
     audited_rev: f1c9e91
     files:
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
@@ -2352,7 +2352,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck"}
     note: >-
@@ -2368,7 +2368,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/run_s4_rotating_modal.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
     note: >-
@@ -2390,7 +2390,7 @@ verdicts:
     files:
       - tools/run_s4_rotating_modal.py
       - tools/bd_rotating_freevib.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0 (rated 1E)"}
@@ -2415,7 +2415,7 @@ verdicts:
     verdict: trusted
     audited_rev: 64976d8
     files:
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: published_numerical, label: "IEA-15-240-RWT tabular xlsx declared blade mass, 67,921 kg"}
     note: >-
@@ -2431,7 +2431,7 @@ verdicts:
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2441,10 +2441,13 @@ verdicts:
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 8 m/s, 7.56 rpm, pitch 0: thrust +0.449 %, torque -0.672 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2454,10 +2457,13 @@ verdicts:
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 9 m/s, 7.56 rpm, pitch 0: thrust +0.399 %, torque -0.067 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_rotor_performance_matches_aerodyn.2
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2467,10 +2473,13 @@ verdicts:
       B4 criterion K1-K5 (odd/tasks/validation-l4-b4-audit.md). V = 12 m/s, 7.56 rpm, pitch 0: thrust +0.363 %, torque +0.828 % against AeroDyn (source bound 1.5 %, ceiling 5 %); K5 dt/2 control moves each by <= 0.0065 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). The 4.2.1 numbers previously stored ran with DBEMT_Mod=2 (F6).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2480,10 +2489,13 @@ verdicts:
       B4 K1-K5. 9 m/s, yaw 10 deg, azimuth-averaged: thrust +0.347 %, torque -0.367 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_yaw_and_shear_match_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2493,37 +2505,46 @@ verdicts:
       B4 K1-K5. 9 m/s, shear exponent 0.2, azimuth-averaged: thrust +0.159 %, torque -0.258 % against AeroDyn (source bound 1.5 %); K5 dt/2 control moves each by <= 0.0075 pp. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.0
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K4/K5. V = 8 m/s, interior stations. The 2 deg atol is judged through e_alpha = max|d alpha| / max|alpha_AeroDyn| (K4): dt 0.661/8.57 = 7.72 %, dt/2 0.239/8.99 = 2.65 %; mean |d Cn| 0.87 -> 0.73 %. K5 fails (e_alpha moves 5-7 pp, Cn 0.14-0.42 pp, threshold 0.1 pp), so the row is undecided whatever e (F7: the AeroDyn spanwise reference is not time-converged at the test's dt = 1 s). Needs a third dt to show convergence; the store cannot read this row's print (UNMAPPED).
       L4 close (2026-10-28, 32bd208): the AeroDyn side was one azimuth. The reader now returns the last-revolution mean of every channel (thrust and torque already were); alpha varies 2.3-6.6 deg over a revolution with the 6 deg shaft tilt, so the old K5 failure was azimuth sampling (last row at 156/179/190 deg for dt 1/0.5/0.25), not an unconverged reference. 8 m/s: e_alpha = max|d alpha| / max|alpha_AeroDyn| 4.30 % (dt 1 s) -> 4.15 % (dt 0.25 s), max|d alpha| 0.380 -> 0.367 deg (bound 2 deg), mean|d Cn| 1.58 -> 1.48 % (bound 2.5 %); dt-halving moves e_alpha <= 0.08 pp and Cn <= 0.08 pp (K5 passes). Trusted (K3: under the 5 % ceiling and converged). Evidence: logs/check/l3/close/l4_azimuth_check.log, l4_e_alpha.log. The store still cannot read this row's print (UNMAPPED); value entered by hand.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.1
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K4/K5. V = 9 m/s, interior stations. The 2 deg atol is judged through e_alpha = max|d alpha| / max|alpha_AeroDyn| (K4): dt 0.764/10.98 = 6.96 %, dt/2 0.206/11.56 = 1.79 %; mean |d Cn| 1.06 -> 0.64 %. K5 fails (e_alpha moves 5-7 pp, Cn 0.14-0.42 pp, threshold 0.1 pp), so the row is undecided whatever e (F7: the AeroDyn spanwise reference is not time-converged at the test's dt = 1 s). Needs a third dt to show convergence; the store cannot read this row's print (UNMAPPED).
       L4 close (2026-10-28, 32bd208): the AeroDyn side was one azimuth. The reader now returns the last-revolution mean of every channel (thrust and torque already were); alpha varies 2.3-6.6 deg over a revolution with the 6 deg shaft tilt, so the old K5 failure was azimuth sampling (last row at 156/179/190 deg for dt 1/0.5/0.25), not an unconverged reference. 9 m/s: e_alpha = max|d alpha| / max|alpha_AeroDyn| 3.34 % (dt 1 s) -> 3.19 % (dt 0.25 s), max|d alpha| 0.380 -> 0.363 deg (bound 2 deg), mean|d Cn| 1.54 -> 1.48 % (bound 2.5 %); dt-halving moves e_alpha <= 0.08 pp and Cn <= 0.08 pp (K5 passes). Trusted (K3: under the 5 % ceiling and converged). Evidence: logs/check/l3/close/l4_azimuth_check.log, l4_e_alpha.log. The store still cannot read this row's print (UNMAPPED); value entered by hand.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_spanwise_loads_match_aerodyn.2
     class: physics
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
     note: >-
       B4 K4/K5. V = 12 m/s, interior stations. The 2 deg atol is judged through e_alpha = max|d alpha| / max|alpha_AeroDyn| (K4): dt 1.814/18.45 = 9.83 %, dt/2 0.498/19.77 = 2.52 %; mean |d Cn| 1.83 -> 1.59 %. K5 fails (e_alpha moves 5-7 pp, Cn 0.14-0.42 pp, threshold 0.1 pp), so the row is undecided whatever e (F7: the AeroDyn spanwise reference is not time-converged at the test's dt = 1 s). Needs a third dt to show convergence; the store cannot read this row's print (UNMAPPED).
       L4 close (2026-10-28, 32bd208): the AeroDyn side was one azimuth. The reader now returns the last-revolution mean of every channel (thrust and torque already were); alpha varies 2.3-6.6 deg over a revolution with the 6 deg shaft tilt, so the old K5 failure was azimuth sampling (last row at 156/179/190 deg for dt 1/0.5/0.25), not an unconverged reference. 12 m/s: e_alpha = max|d alpha| / max|alpha_AeroDyn| 4.78 % (dt 1 s) -> 4.60 % (dt 0.25 s), max|d alpha| 0.925 -> 0.891 deg (bound 2 deg), mean|d Cn| 1.71 -> 1.70 % (bound 2.5 %); dt-halving moves e_alpha <= 0.08 pp and Cn <= 0.08 pp (K5 passes). Trusted (K3: under the 5 % ceiling and converged), thin margin (0.4 pp): flagged. Evidence: logs/check/l3/close/l4_azimuth_check.log, l4_e_alpha.log. The store still cannot read this row's print (UNMAPPED); value entered by hand.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.0
     class: regression_pin
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2531,10 +2552,13 @@ verdicts:
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 8 m/s: thrust +1.182 %, torque -1.382 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.1
     class: regression_pin
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2542,10 +2566,13 @@ verdicts:
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 9 m/s: thrust +1.397 %, torque +0.063 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: openfast_parity.test_bem_with_repo_default_polars_matche.2
     class: regression_pin
     verdict: trusted
-    audited_rev: 32bd208
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
       - tests/support/openfast_bem.py
@@ -2553,10 +2580,134 @@ verdicts:
       B4 K6: the repository's WindIO polars against AeroDyn on the official polars, different inputs on the two sides; its own docstring calls it a sensitivity, not a parity claim. V = 12 m/s: thrust +2.004 %, torque +2.153 % (source bound 3 %); K5 moves <= 0.0065 pp. Counts toward no level.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
       Restamped 2026-10-28 at 32bd208: the AeroDyn reader changed to revolution means for per-node channels; this row compares thrust/torque, already revolution means, and regression --group 11 --write reports it unchanged.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
+# --- L4 T8, 2026-11-15, measured at 8be86e1: V-01 operating points and the prebend pin vs OpenFAST 5.0.0 AeroDyn ---
+  - target: openfast_parity.test_v01_points_match_aerodyn.0
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 5.006 m/s, 5.0 rpm, pitch 2.893: thrust -0.378 %, torque -0.915 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.1
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 7.159 m/s, 5.10 rpm, pitch 0: thrust -0.521 %, torque -0.322 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.2
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 9.027 m/s, 6.43 rpm, pitch 0: thrust -0.521 %, torque -0.322 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.3
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 10.659 m/s, 7.518 rpm, pitch 0: thrust -0.517 %, torque -0.317 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.4
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 12.259 m/s, 7.518 rpm, pitch 6.76: thrust +0.157 %, torque -0.300 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_v01_points_match_aerodyn.5
+    class: physics
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck (quasi-steady, tower-free, DBEMT off)"}
+    note: >-
+      Thesis L4 T3/T7/T8 (odd/tasks/l4-bem-rigid-closure.md L7, L11). V-01 operating point 15.471 m/s, 7.518 rpm, pitch 12.19: thrust +1.234 %, torque +0.234 % against AeroDyn at 8be86e1 (source bound 1.5 %, ceiling 5 %), with the blade prebend and exact polar interpolation of the L10 decision. K5 (L7, dt 1 -> 0.5 s): each moves <= 0.005 pp. Verification against the turbine's official model, not validation against physics (#33 amendment). Before T7 the two pitched points were red (+1.864/+1.007 % and +3.708/+3.022 %); the prebend and the exact interpolation closed them without moving a bound.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.0
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 0: 0.0222 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.1
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 1: 0.0237 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.2
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 2: 0.0176 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.3
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 3: 0.0088 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.4
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 4: 0.0231 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
+  - target: openfast_parity.test_prebend_outboard_alpha_matches_aero.5
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 8be86e1
+    files:
+      - tools/b4_l4_measure.py
+      - tests/support/openfast_bem.py
+    note: >-
+      Thesis L4 T7/T8 (L11). Mean outboard (80-116 m) angle-of-attack offset vs AeroDyn, V-01 point 5: 0.0461 deg against atol 0.07 deg. The 0.07 deg bound is a presence/sign pin for the blade prebend, set between the measured straight-blade offsets 0.056/0.111 deg and the prebent -0.008/+0.046 deg; it is not a physics acceptance. The physics comparison is the V-01 thrust/torque rows (test_v01_points_match_aerodyn). Counts toward no level.
   - target: openfast_parity.test_viterna_extension_matches_official.single
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     files:
       - tools/b4_l4_measure.py
     arbiters:
@@ -2564,105 +2715,130 @@ verdicts:
     note: >-
       B4 K1/K3. Fed the official attached polar at 0.9R (FFA-W3-211), the Viterna extension reproduces the official post-stall table over 48-87 deg: worst dCl 0.23 %, dCd 0.13 % (source bound 1 %). No AeroDyn run involved. F4: the aspect ratio is fitted from the reference's own Cd(90 deg), so Cd near 90 deg agrees by construction; F5: the module docstring's 0.23/0.13 % now matches, the test docstring's 0.48/0.18 % is the older figure. Verification against the turbine's official model, not validation against physics (#33 amendment).
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). Group 11 residuals re-read: all within 0.011 pp of the stored values, written with regression --write.
+      Restamped 2026-11-14 at a6faa90 (thesis L4 T1, odd/tasks/l4-bem-rigid-closure.md L2-L3): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976 (only 75ba976 touches solvers/bem: skip an unrealisable ring); re-run with OPENFAST_BIN (OpenFAST 5.0.0, SLURM 11738995/11739002): group 11 residuals all within 0.011 pp of the stored values (torque +0.005..+0.011 pp, thrust -0.002 pp); user accepted the move (L3), written with regression --group 11 --write. Verdict unchanged.
+      Restamped 2026-11-14 at d477400 (thesis L4 T2/T3, odd/tasks/l4-bem-rigid-closure.md L7-L9): the parity test file gained the V-01 points (new test, existing ids untouched); regression --group 11 reads 18 same; spanwise now read by the store (deg pattern): e_alpha 4.30/3.34/4.78 %, mean|dCn| 1.58/1.54/1.71 % at dt 1 s (8/9/12 m/s), dt 0.25 s 4.15/3.19/4.60 %, equal to the 2026-10-28 values. Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.rated_thrust
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': thrust 2.67 % (rtol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.rated_torque
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': torque 3.34 % (rtol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.rated_cp
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.4739 vs 0.4618, |dCp| 0.0121 = 2.61 % (atol 0.02); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.rated_ct
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Ct 0.7866 vs 0.7718, |dCt| 0.0148 = 1.91 % (atol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.curve_5_006
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp |d| 0.0070 = 1.69 %, Ct |d| 0.0105 = 1.34 % (atol 0.05); the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.curve_7_159
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0120 = 2.60 %, Ct 0.0150 = 1.93 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.curve_9_027
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0120 = 2.60 %, Ct 0.0149 = 1.92 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.curve_10_659
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0121 = 2.61 %, Ct 0.0148 = 1.91 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.curve_12_259
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0043 = 1.40 %, Ct 0.0044 = 1.13 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: rotor_v01_performance.curve_15_471
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: published_numerical, label: "Gaertner et al. 2020 NREL/TP-5000-75698 Table 3-1 / IEA-15-240-RWT_tabular.xlsx (WISDEM CCBlade)"}
     note: >-
       B4 K6. V-01 against the IEA 15 MW report / WISDEM tabular 'Rotor Performance': Cp 0.0027 = 1.75 %, Ct 0.0013 = 0.72 %; the atol bounds are read as |dC|/C_ref for the ceiling. The reference is WISDEM's CCBlade, the same BEM code as ours and not OpenFAST, so it is one non-independent published numerical arbiter: the contract reports this row unarbitrated whatever e. Measured at f1a1a18 (logs/check/b4/T7/group-59.log); the store has no residual pattern for group 59.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8 (thesis L4 T7, odd/tasks/l4-bem-rigid-closure.md L10-L12): user decision L10 adds the blade prebend (CCBlade precurve = -BlCrvAC / yaml prebend) and exact polar interpolation (interpolating spline s = 0) to the BEM by default; the residuals move with the model, all below the bound (see L11 table); written with regression --write. Verdict unchanged.
   - target: viterna_manual.closed_form
     class: physics
     verdict: trusted
-    audited_rev: ff27f70
+    audited_rev: 1fb16f8
     arbiters:
       - {kind: analytical, label: "AeroDyn Theory Manual eqs [98]-[102], Viterna & Janetzke 1982"}
     note: >-
       B4 K6. _viterna_extrapolation against the AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982), hand-coded in the test, at 20/30/45/60/90 deg: residual 0.0 on CL and CD, CL(90) 8.7e-17, CD(90) = Cd_max exactly; the 1e-10 atol is a round-off bound, relative equivalent 0. Measured at f1a1a18 (logs/check/b4/T7/group-60.log); no residual pattern for group 60.
       Restamped 2026-10-28 at ff27f70 (L4 diagnosis): re-run with OPENFAST_BIN set (23 passed, 1 xfailed, nothing skipped; the earlier stale came from fsi_participant.py / models.blade commits that do not touch the rigid BEM). The test asserts the same bound and passes; this group prints no residual, so the margin was not re-read (group 11 shows the BEM numerics unchanged to 0.011 pp).
+      Restamped 2026-11-14 at 1f0adaf (thesis L4 T6, odd/tasks/l4-bem-rigid-closure.md L4): stale by 5acbbd8 5cccc88 2d6f448 5c15e8d 75ba976; the test now prints its residual through assert_residual_below (same bound, same strict comparison) and the store reads it for the first time (regression --write, new baseline, then same); values equal the B4 measurement (rated thrust 2.6708 %, torque 3.3442 %; Viterna residual 0). Verdict unchanged.
+      Restamped 2026-11-15 at 1fb16f8: stale by the T7 BEM commits (prebend, polar interpolation modes); regression --group 60 reads 4 same (Viterna extension is untouched). Verdict unchanged.
   - target: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
     class: identity
     verdict: trusted
@@ -2684,7 +2860,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2701,7 +2877,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2718,7 +2894,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2736,7 +2912,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2754,7 +2930,7 @@ verdicts:
     audited_rev: 73b2b19
     files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, parked (0 rpm) MBC3 collective (SLURM 11617531/11617539; p15 -> p20 moves <= 0.25 %)"}
     note: >-
@@ -2878,7 +3054,7 @@ verdicts:
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tools/beam_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn summary mass of the official v1.1 deck (66,934.6 kg at p60), matched by the deck integral 66,996.9 kg within 0.093 %"}
     note: >-
@@ -2894,7 +3070,7 @@ verdicts:
     audited_rev: 64976d8
     files:
       - tools/bd_static_reference.py
-      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 case"}
     note: >-

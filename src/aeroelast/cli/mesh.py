@@ -55,16 +55,25 @@ def _add_surface_options(parser: argparse.ArgumentParser) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _given(args, *names: str) -> dict:
+    """The CLI options the user actually passed (default ``None``), as generator keyword arguments.
+
+    Nothing is injected: an absent size is the generator's reference mesh and a NuMAD-only option reaches ``BladeMesh``, which
+    rejects it (odd/tasks/gmsh-official-mesher.md, S7b/S7c).
+    """
+    return {n: getattr(args, n) for n in names if getattr(args, n, None) is not None}
+
+
+_SIZING = ("element_size", "chord_divisions", "span_aspect")
+
+
 def _cmd_blade(args) -> None:
     from aeroelast.core.mesh.generators import BladeMesh
 
-    mesh = BladeMesh(
-        yaml_file=args.input,
-        element_size=args.element_size,
-        n_samples=args.n_samples,
-        include_webs=not args.no_webs,
-        span_grading=args.span_grading,
-    ).generate(renumber=args.renumber, verbose=not args.quiet)
+    kwargs = _given(args, *_SIZING, "n_samples", "span_grading")
+    if args.no_webs:
+        kwargs["include_webs"] = False
+    mesh = BladeMesh(yaml_file=args.input, **kwargs).generate(renumber=args.renumber, verbose=not args.quiet)
     _write_mesh(mesh, _output_path(args), args.quiet)
 
 
@@ -75,9 +84,8 @@ def _cmd_rotor(args) -> None:
         yaml_file=args.input,
         n_blades=args.n_blades,
         hub_radius=args.hub_radius,
-        element_size=args.element_size,
-        n_samples=args.n_samples,
         include_webs=not args.no_webs,
+        **_given(args, *_SIZING, "n_samples"),
     ).generate(renumber=args.renumber, verbose=not args.quiet)
     _write_mesh(mesh, _output_path(args), args.quiet)
 
@@ -157,10 +165,8 @@ def _cmd_turbine(args) -> None:
     result = TurbineMesh(
         yaml_file=args.input,
         n_blades=args.n_blades,
-        element_size=args.element_size,
-        n_samples=args.n_samples,
         include_webs=args.webs,
-        span_grading=args.span_grading,
+        **_given(args, *_SIZING, "n_samples", "span_grading"),
         rotor_axis=args.rotor_axis,
         tower_element_size=args.tower_element_size,
         tower_n_axial=args.tower_n_axial,
@@ -224,10 +230,14 @@ Examples:
 
     blade = sub.add_parser("blade", help="Blade shell/surface mesh from a WindIO YAML")
     blade.add_argument("input", help="WindIO turbine YAML")
-    blade.add_argument("--element-size", type=float, default=0.1)
-    blade.add_argument("--n-samples", type=int, default=300)
+    blade.add_argument("--element-size", type=float, default=None, help="Uniform element size [m]; absent = reference mesh")
+    blade.add_argument("--chord-divisions", type=float, default=None, help="Chord-scaled sizing (reference: 20)")
+    blade.add_argument("--span-aspect", type=float, default=None, help="Span/chord element aspect (reference: 1)")
+    blade.add_argument("--n-samples", type=int, default=None, help="NuMAD-only: rejected (the blade is meshed with gmsh)")
     blade.add_argument("--no-webs", action="store_true", help="Surface only (CFD outer mold line)")
-    blade.add_argument("--span-grading", choices=["chord", "uniform"], default="chord")
+    blade.add_argument(
+        "--span-grading", choices=["chord", "uniform"], default=None, help="NuMAD-only: rejected (the blade is meshed with gmsh)"
+    )
     blade.add_argument("--renumber", choices=["simple", "rcm"], default=None)
     blade.add_argument("--quiet", action="store_true")
     _add_output(blade)
@@ -237,8 +247,10 @@ Examples:
     rotor.add_argument("input", help="WindIO turbine YAML")
     rotor.add_argument("--n-blades", type=int, required=True)
     rotor.add_argument("--hub-radius", type=float, default=None)
-    rotor.add_argument("--element-size", type=float, default=0.1)
-    rotor.add_argument("--n-samples", type=int, default=300)
+    rotor.add_argument("--element-size", type=float, default=None, help="Uniform element size [m]; absent = reference mesh")
+    rotor.add_argument("--chord-divisions", type=float, default=None, help="Chord-scaled sizing (reference: 20)")
+    rotor.add_argument("--span-aspect", type=float, default=None, help="Span/chord element aspect (reference: 1)")
+    rotor.add_argument("--n-samples", type=int, default=None, help="NuMAD-only: rejected (the blade is meshed with gmsh)")
     rotor.add_argument("--no-webs", action="store_true", help="Surface only (CFD)")
     rotor.add_argument("--renumber", choices=["simple", "rcm"], default=None)
     rotor.add_argument("--quiet", action="store_true")
@@ -290,10 +302,14 @@ Examples:
     turbine.add_argument("--format", default="stl", help="Output format (default: stl)")
     turbine.add_argument("--prefix", default="", help="Filename prefix")
     turbine.add_argument("--n-blades", type=int, default=None)
-    turbine.add_argument("--element-size", type=float, default=0.5)
+    turbine.add_argument("--element-size", type=float, default=None, help="Blade element size [m]; absent = reference mesh")
+    turbine.add_argument("--chord-divisions", type=float, default=None, help="Chord-scaled blade sizing (reference: 20)")
+    turbine.add_argument("--span-aspect", type=float, default=None, help="Span/chord element aspect (reference: 1)")
     turbine.add_argument("--tower-element-size", type=float, default=None)
-    turbine.add_argument("--n-samples", type=int, default=300)
-    turbine.add_argument("--span-grading", choices=["chord", "uniform"], default="chord")
+    turbine.add_argument("--n-samples", type=int, default=None, help="NuMAD-only: rejected (the blade is meshed with gmsh)")
+    turbine.add_argument(
+        "--span-grading", choices=["chord", "uniform"], default=None, help="NuMAD-only: rejected (the blade is meshed with gmsh)"
+    )
     turbine.add_argument("--webs", action="store_true", help="Include shear webs (default: off)")
     turbine.add_argument(
         "--rotor-axis",

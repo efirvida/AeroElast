@@ -1,4 +1,4 @@
-"""Unit tests of tests/support/v2_blade.py (cache key, shape contract on a small eta patch, v1-consumer contract on
+"""Unit tests of tests/support/v2_blade.py (cache key, shape contract on a coarse chord-scaled gmsh blade, v1-consumer contract on
 the cached full mesh). The full-mesh test skips when the es 0.25 cache has not been produced (sbatch, ~10 min)."""
 
 import numpy as np
@@ -8,7 +8,8 @@ pytest.importorskip("petsc4py", reason="PETSc not available")
 
 from tests.support import v2_blade as vb  # noqa: E402
 
-PATCH = (0.30, 0.32)  # a few bays, ~9 s to generate
+PATCH = (0.30, 0.32)  # only a cache-key argument now: gmsh builds the full blade
+CHORD = 10  # coarse chord-scaled full blade for the shape tests (AGENTS rule 9: a convergence-free smoke mesh, no result is read from it)
 
 
 def test_cache_key_depends_on_arguments_and_source(tmp_path, monkeypatch):
@@ -42,8 +43,8 @@ def test_bad_skin_reference_rejected():
 def patch(tmp_path_factory):
     with pytest.MonkeyPatch.context() as mp:  # scoped: the full-mesh test must see the real cache dir
         mp.setenv("V2_BLADE_CACHE_DIR", str(tmp_path_factory.mktemp("v2cache")))
-        yield (vb.build_v2_blade(0.25, eta_bounds=PATCH),
-               vb.build_v2_blade(0.25, skin_reference="oml", eta_bounds=PATCH))
+        yield (vb.build_v2_blade(0.25, chord_divisions=CHORD),
+               vb.build_v2_blade(0.25, skin_reference="oml", chord_divisions=CHORD))
 
 
 def test_patch_shape_contract(patch):
@@ -82,7 +83,7 @@ def test_mid_reference_moves_skin_inward_only(patch):
 
 def test_memo_returns_same_objects(patch):
     (mesh, props), _ = patch
-    again = vb.build_v2_blade(0.25, eta_bounds=PATCH)
+    again = vb.build_v2_blade(0.25, chord_divisions=CHORD)
     assert again[0] is mesh and again[1] is props
 
 
@@ -111,35 +112,33 @@ def test_full_cached_mesh_has_what_v1_consumers_read(monkeypatch):
     assert set(mesh.numad_mesh_data) >= {"materials", "sections"}
 
 
-def test_mesher_is_part_of_the_cache_key_and_gmsh_digest_covers_its_source(monkeypatch):
-    plain = vb.cache_key(0.25)
-    assert plain == vb.cache_key(0.25, mesher="windio2")
-    assert plain != vb.cache_key(0.25, mesher="gmsh")
-    gmsh_key = vb.cache_key(0.25, mesher="gmsh")
-    assert gmsh_key == vb.cache_key(0.25, mesher="gmsh")
-    assert vb.source_digest("gmsh") != vb.source_digest("windio2")
-    # editing gmsh_skin.py invalidates the gmsh key only
+def test_mesher_is_part_of_the_cache_key_and_digest_covers_the_gmsh_sources(monkeypatch):
+    key = vb.cache_key(0.25)
+    assert key == vb.cache_key(0.25, mesher="gmsh")
+    names = {p.name for p in (vb.MESH_GEN_DIR / "gmsh_skin.py", vb.MESH_GEN_DIR / "gmsh_raw.py", vb.MESH_GEN_DIR / "windio2_basis.py")}
+    assert all((vb.MESH_GEN_DIR / n).exists() for n in names)
+    # editing a gmsh source invalidates the key
     real = vb.source_digest
-    monkeypatch.setattr(vb, "source_digest", lambda mesher="windio2": real(mesher) + ("x" if mesher == "gmsh" else ""))
-    assert vb.cache_key(0.25) == plain
-    assert vb.cache_key(0.25, mesher="gmsh") != gmsh_key
+    monkeypatch.setattr(vb, "source_digest", lambda: real() + "x")
+    assert vb.cache_key(0.25) != key
 
 
-def test_gmsh_mesher_rejects_collapse_and_partial_blade_and_unknown_mesher():
+def test_gmsh_mesher_rejects_collapse_and_unknown_mesher_and_accepts_a_patch():
     with pytest.raises(ValueError, match="no collapse"):
         vb.load_raw(0.25, 0.15, mesher="gmsh", generate=False)
-    with pytest.raises(ValueError, match="no collapse"):
+    # a span sub-range is accepted since gmsh_skin plumbs eta_bounds (797542b): it reaches the cache lookup
+    with pytest.raises(FileNotFoundError, match="cold v2 blade cache"):
         vb.load_raw(0.25, None, PATCH, mesher="gmsh", generate=False)
     with pytest.raises(ValueError, match="mesher"):
         vb.load_raw(0.25, mesher="bogus", generate=False)
 
 
-def test_mesher_environment_variable_selects_gmsh(monkeypatch):
-    monkeypatch.setenv("V2_BLADE_MESHER", "gmsh")
+def test_gmsh_is_the_only_mesher_and_the_default():
+    assert vb.MESHERS == ("gmsh",)
     assert vb._resolve_mesher(None) == "gmsh"
-    assert vb._resolve_mesher("windio2") == "windio2"
-    monkeypatch.delenv("V2_BLADE_MESHER")
-    assert vb._resolve_mesher(None) == "windio2"
+    assert vb._resolve_mesher("gmsh") == "gmsh"
+    with pytest.raises(ValueError, match="mesher"):
+        vb._resolve_mesher("windio2")
 
 
 def test_element_size_env_override_wins_and_is_range_checked(monkeypatch):
@@ -162,7 +161,4 @@ def test_chord_divisions_env_reaches_the_gmsh_campaign(monkeypatch):
     assert vb._resolve_chord_divisions(15) == 15  # an explicit argument wins
     monkeypatch.delenv("V2_BLADE_CHORD_DIVISIONS")
     assert vb._resolve_chord_divisions(None) is None
-    monkeypatch.setenv("V2_BLADE_CHORD_DIVISIONS", "20")
-    monkeypatch.delenv("V2_BLADE_MESHER", raising=False)
-    with pytest.raises(ValueError, match="gmsh mesher option"):
-        vb.load_raw(0.25, generate=False)
+    assert vb.cache_key(0.25, chord_divisions=20.0) != vb.cache_key(0.25)  # the chord-scaled mesh has its own key

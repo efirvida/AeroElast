@@ -11,7 +11,7 @@ and asserted its bounds on the unconverged 0.5 m mesh.
   The CCX modes 6 and 8 (~3.96 and ~4.21 Hz) fall monotonically, about order 1.4, as linear
   elements against quadratic ones do: mode 8 is +13.98 / +8.26 / +5.23 % at 0.5 / 0.35 / 0.25 m.
   It is discretisation of the linear element, not a fixed offset, and extrapolates to about
-  2 % at 0.125 m, where the CalculiX deck is too heavy to run here.  With averaged
+  2 % at 0.125 m; it measures 0.93 % there with the integer*8 PARDISO CalculiX (SLURM 11757686).  With averaged
   directors across folds (the pre-7dfe78d convention) the same modes sit 6-7 % lower and change
   sign between 0.5 and 0.35 m, so their smaller gap was a cancellation.
 
@@ -41,6 +41,8 @@ The run is slow (three CCX modal solves, about 15 minutes at these meshes), so i
 
 from __future__ import annotations
 
+import os
+import shutil
 import numpy as np
 import pytest
 
@@ -64,7 +66,10 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_val  # noqa: E402
 
-MESHES = (0.5, 0.35, 0.25)
+#: Since the gmsh mesher became the only blade mesher (gmsh-official-mesher T17) element sizes
+#: outside [0.05, 0.25] m are rejected, so the 0.5 / 0.35 / 0.25 m study quoted above can no
+#: longer be built; it runs on the rule-9 ladder 0.25 / 0.177 / 0.125 m (same bounds, finer).
+MESHES = (0.25, 0.177, 0.125)
 N_MODES = 8
 #: Low modes where refinement resolves the gap: finest-mesh bound (measured
 #: 0.08-0.19% at CCX 2.23).
@@ -82,6 +87,19 @@ NOISE_FLOOR = 0.002
 MAC_IDENTIFIABLE = 0.8
 
 pytestmark = pytest.mark.slow
+
+#: The es 0.125 m deck (603 516 dofs, expanded to solids by CalculiX) overflows the integer*4
+#: ccx and, in the integer*8 ccx, the integer*4 SPOOLES factorisation (SIGSEGV in
+#: FrontMtx_splitUpperMatrices). The integer*8 build with MKL PARDISO solves it
+#: (scripts/build_ccx_i8.sh; odd/tasks/gmsh-official-mesher.md L-S78..L-S80).
+LARGE_DECK_CCX = "ccx_i8_pardiso"
+
+
+def _large_deck_ccx() -> str:
+    """``CCX_BIN`` when set, else ``ccx_i8_pardiso`` on PATH, else the usual resolution."""
+    if os.environ.get("CCX_BIN"):
+        return ccx_bin_or_skip()
+    return shutil.which(LARGE_DECK_CCX) or ccx_bin_or_skip()
 
 
 def _modal_couple(element_size: float, workdir, ccx_bin: str) -> ModalSet:
@@ -166,7 +184,7 @@ def convergence(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> dict[float, ModalSet]:
     """Solve the blade with AeroElast and CCX at each mesh in ``MESHES``."""
-    ccx_bin = ccx_bin_or_skip()
+    ccx_bin = _large_deck_ccx()
     workdir = tmp_path_factory.mktemp("blade_mesh_convergence")
     return {es: _modal_couple(es, workdir, ccx_bin) for es in MESHES}
 

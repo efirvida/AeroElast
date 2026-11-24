@@ -1014,66 +1014,66 @@ class MultiFlapMesh:
         ).generate()
 
 
+def reject_excel_file(params) -> None:
+    """Raise if a mesh-generator ``params`` mapping still carries ``excel_file`` (S7a): never drop it silently.
+
+    The NuMAD xlsx path is retired; the runner and the BEM-FSI CLI call this before dispatching on the generator type, so
+    a config that keeps an old ``excel_file`` next to a v2 ``yaml_file`` fails instead of meshing the yaml.
+    """
+    excel_file = (params or {}).get("excel_file")
+    if excel_file:
+        raise ValueError(
+            f"excel_file ({excel_file!r}) is no longer read: the NuMAD mesher is retired. Remove the key and set "
+            "yaml_file to a windIO v2 blade yaml (e.g. tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml)."
+        )
+
+
 class BladeMesh:
     """
-    Generates shell meshes for wind turbine blades from YAML definitions.
+    Blade shell mesh for the framework, built with :class:`~aeroelast.core.mesh.gmsh_blade.GmshBladeMesh`.
 
-    This generator uses the numad library to create parametric blade geometries
-    and mesh them with shell elements. The resulting mesh includes element sets
-    for different blade regions and sections.
+    ``BladeMesh`` is the YAML key (``type: BladeMesh``) the framework configs use; since T6a of
+    ``odd/tasks/gmsh-official-mesher.md`` it is an adapter over the structured gmsh skin mesher and no longer calls the NuMAD
+    mesher (the NuMAD modules stay on disk until their deletion, T9).  The mesh, ``numad_mesh_data`` and ``numad_blade`` follow
+    the ``GmshBladeMesh`` contract (node sets ``RootNodes``/``TipNodes``/``allOuterShellNods``, element sets ``SEC<i>`` etc.).
+
+    Input: a windIO 2.x blade yaml (``tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml``).  A windIO v1 yaml or an
+    ``excel_file`` raises ``ValueError`` naming that v2 file; the NuMAD-only options ``n_samples``, ``airfoil_spacing``,
+    ``span_grading``, ``airfoil_dir``, ``refine_tip``, ``max_bay_length`` and ``laminate_per_row`` raise ``ValueError`` even at
+    their old default values (never dropped silently).  ``include_webs=False`` meshes with the webs and drops them (outer-shell
+    surface for CFD; identical to the webbed outer shell).
 
     Attributes
     ----------
     yaml_file : str
-        Path to the blade YAML definition file
-    element_size : float
-        Target element size for meshing
-    n_samples : int
-        Number of samples for airfoil discretization
-    include_webs : bool
-        When *False* the shear webs are omitted and only the blade outer shell
-        (outer-mold-line surface) is meshed.  Use this for CFD wall surfaces.
+        Path to the windIO 2.x blade yaml.
+    element_size : float or None
+        Uniform target element size [m] (the ``GmshBladeMesh`` uniform path).  With neither ``element_size`` nor
+        ``chord_divisions`` the mesh is the reference one: ``chord_divisions`` 20, ``span_aspect`` 1 (AGENTS rule 9); there is no
+        default element size.
+    chord_divisions, span_aspect, h_range, min_band_elements, min_band_fraction
+        Forwarded to ``GmshBladeMesh`` when given (chord-scaled sizing, see its docstring).
     skin_reference : {"oml", "mid"}, optional
-        Reference surface of the skin (default: "oml", the unchanged CFD/FSI
-        outer mould line). "mid" shifts outer-skin nodes inward in their XY
-        section plane by the mean adjacent skin-laminate half-thickness, in
-        metres, using the solver's laminate properties. Nodes of *_TE_FLAT
-        elements remain on the OML to avoid trailing-edge inversions.
-        Interior/web-only nodes are untouched; shared skin/web boundary nodes
-        follow the skin. Applied once to each generated mesh before use.
-        Not the default because the OML is the CFD/FSI coupling surface.
-    laminate_per_row : bool, optional
-        Default True. Each NuMAD (region, bay) holds one bay-mean laminate (two-point Gauss over
-        the bay), so with the yaml stations (about 2.4 m on the IEA 15 MW) a tapering layer is
-        wrong by up to 11 %. The spanwise element rows are cut from ``element_size`` and the
-        span grading exactly as in the native mesh, independent of the laminate; this option
-        then inserts a NuMAD station at every native row boundary and forces one row per bay
-        (chordwise counts follow the native mesh), so the mesh is unchanged and each row carries
-        the mean laminate over its own extent. False gives the native mesh, one laminate per
-        yaml bay (``odd/tasks/blade-input-audit.md``, T7e).
-    max_bay_length : float or None, optional
-        Legacy: split every yaml bay longer than this [m] by extra NuMAD stations before the
-        mesher runs. The mesher then cuts ``ceil(bay / element_size)`` rows per bay, so the
-        spanwise element size follows the bay (0.119 m everywhere at 0.25 m, +47 % elements);
-        use ``laminate_per_row`` instead. Default None.
+        Reference surface of the skin (default ``"oml"``; the framework entry points pass ``"mid"`` explicitly).
 
     Examples
     --------
-    >>> blade_mesh = BladeMesh("blade_definition.yaml", element_size=0.05)
-    >>> mesh = blade_mesh.generate(renumber="rcm")
-    >>> mesh.write_mesh("blade.vtk")
-
-    >>> cfd = BladeMesh("blade_definition.yaml", include_webs=False)
-    >>> cfd.generate().write_mesh("blade_surface.stl")
+    >>> mesh = BladeMesh("tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml").generate(renumber="rcm")
     """
+
+    #: NuMAD-only options: accepted by the old mesher, rejected by name now.
+    _NUMAD_ONLY_KEYS = (
+        "n_samples", "airfoil_spacing", "span_grading", "airfoil_dir", "refine_tip", "max_bay_length", "laminate_per_row",
+    )
+    _V2_REFERENCE = "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 
     def __init__(
         self,
         yaml_file: str = None,
-        element_size: float = 0.1,
+        element_size: float | None = None,
         n_samples: int = _BLADE_OPTION_UNSET,
         excel_file: str = None,
-        airfoil_dir: str = None,
+        airfoil_dir: str = _BLADE_OPTION_UNSET,
         refine_tip: bool = _BLADE_OPTION_UNSET,
         span_grading: str = _BLADE_OPTION_UNSET,
         airfoil_spacing: str = _BLADE_OPTION_UNSET,
@@ -1081,488 +1081,107 @@ class BladeMesh:
         skin_reference: str = "oml",
         max_bay_length: float | None = _BLADE_OPTION_UNSET,
         laminate_per_row: bool = _BLADE_OPTION_UNSET,
+        *,
+        chord_divisions: float | None = None,
+        span_aspect: float = 1.0,
+        h_range: tuple[float, float] | None = None,
+        min_band_elements: int = 2,
+        min_band_fraction: float | None = 1.0,
     ):
         if skin_reference not in ("oml", "mid"):
             raise ValueError("skin_reference must be 'oml' or 'mid'")
-        self.skin_reference = skin_reference
-        legacy_options = {
-            "n_samples": n_samples, "refine_tip": refine_tip,
-            "span_grading": span_grading, "airfoil_spacing": airfoil_spacing,
-            "max_bay_length": max_bay_length, "laminate_per_row": laminate_per_row,
+        given = {
+            "n_samples": n_samples, "airfoil_spacing": airfoil_spacing, "span_grading": span_grading,
+            "airfoil_dir": airfoil_dir, "refine_tip": refine_tip, "max_bay_length": max_bay_length,
+            "laminate_per_row": laminate_per_row,
         }
-        self._explicit_legacy_options = tuple(
-            name for name, value in legacy_options.items() if value is not _BLADE_OPTION_UNSET
-        )
-        for name, value in legacy_options.items():
-            setattr(self, name, _BLADE_LEGACY_DEFAULTS[name] if value is _BLADE_OPTION_UNSET else value)
+        # explicit means rejected, even at the old default; airfoil_dir=None is "not given" (it only fed excel_file)
+        offending = [
+            k for k in self._NUMAD_ONLY_KEYS
+            if given[k] is not _BLADE_OPTION_UNSET and not (k == "airfoil_dir" and given[k] is None)
+        ]
+        if offending:
+            raise ValueError(
+                f"BladeMesh now meshes with gmsh (GmshBladeMesh); the NuMAD-only option(s) {', '.join(offending)} are not "
+                "supported and are never dropped silently. Remove them (use element_size or chord_divisions/span_aspect)."
+            )
+        if excel_file:
+            raise ValueError(
+                f"BladeMesh no longer reads excel_file ({excel_file!r}): the NuMAD mesher is retired. "
+                f"Use a windIO v2 yaml such as {self._V2_REFERENCE}."
+            )
+        if not yaml_file:
+            raise ValueError(f"BladeMesh requires yaml_file (a windIO v2 yaml such as {self._V2_REFERENCE})")
+        self._require_windio2(yaml_file)
+        self.skin_reference = skin_reference
         self.yaml_file = yaml_file
-        self.excel_file = excel_file
-        self.airfoil_dir = airfoil_dir
+        self.excel_file = None
         self.element_size = element_size
         self.include_webs = include_webs
-        # The numad objects come from the untyped ported mesher (``nuMAD``): their
-        # attributes are optional in the stubs but populated here, so ``Any`` is the honest
-        # annotation and keeps the Optional out of every downstream subscript.
+        self.chord_divisions = chord_divisions
+        self.span_aspect = span_aspect
+        self.h_range = h_range
+        self.min_band_elements = min_band_elements
+        self.min_band_fraction = min_band_fraction
         self._numad_blade: Any = None
         self._numad_mesh: Any = None
 
+    @classmethod
+    def _require_windio2(cls, yaml_file: str) -> None:
+        """ValueError naming the input and the v2 reference file unless ``yaml_file`` is a supported windIO 2.x yaml."""
+        import yaml  # noqa: PLC0415
+
+        from aeroelast.models.blade.windio import is_windio2  # noqa: PLC0415
+
+        with open(yaml_file) as fh:
+            data = yaml.safe_load(fh)
+        if not isinstance(data, dict) or not is_windio2(data):
+            version = data.get("windIO_version", "absent (windIO v1)") if isinstance(data, dict) else "unreadable"
+            raise ValueError(
+                f"BladeMesh needs a windIO 2.x yaml; {yaml_file} has windIO_version {version}. "
+                f"Use the v2 file {cls._V2_REFERENCE} (the NuMAD mesher that read windIO v1 is retired)."
+            )
+
     def generate(
         self, renumber: str | None = None, verbose: bool = True, *,
-        geometry_only: bool = False, eta_bounds: tuple[float, float] = (0., 1.),
+        eta_bounds: tuple[float, float] = (0., 1.),
     ) -> "MeshModel":
         """
-        Generate the blade mesh from the YAML definition.
-
-        windIO 2.0 requires explicit ``geometry_only=True``: physical reference
-        offsets are retained in ``mesh.windio2_metadata``, not supported by FE.
-        ``eta_bounds`` optionally selects a native-eta v2 geometry patch.
-        V2 bypasses all legacy station planning, TE expansion and material flows;
-        explicitly supplied n_samples/refine_tip/span_grading/airfoil_spacing/
-        max_bay_length/laminate_per_row raise ValueError, even when equal to v1
-        defaults. Omit them for v2. Only unchanged OML nodes with webs are
-        supported. V1 effective defaults and explicit values are unchanged.
+        Build the blade mesh with ``GmshBladeMesh``.
 
         Parameters
         ----------
         renumber : str, optional
-            Renumbering algorithm to apply after mesh generation.
-            - None (default): No renumbering
-            - "simple": Direct index assignment
-            - "rcm": Reverse Cuthill-McKee for bandwidth reduction
+            ``None`` or ``"rcm"`` (as ``GmshBladeMesh.generate``).
         verbose : bool, optional
-            Whether to print progress messages (default: True)
-
-        Returns
-        -------
-        MeshModel
-            The generated mesh model with nodes, elements, and sets
+            Accepted for compatibility; ignored.
+        eta_bounds : (float, float), optional
+            Spanwise sub-range of the blade to mesh (normalised ``eta``; default the whole blade).
         """
-        # Import here to avoid circular imports and optional dependency
-        from aeroelast.core.mesh.model import MeshModel
+        from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh  # noqa: PLC0415
 
-        try:
-            from aeroelast.models.blade.numad import Blade as numadBlade
-            from aeroelast.models.blade.numad.mesh_gen import get_shell_mesh
-        except ImportError as e:
-            raise ImportError(
-                "BladeMesh requires the numad module. "
-                "Make sure aeroelast.models.blade.numad is available."
-            ) from e
-
-        mesh_model = MeshModel()
-
-        # Initialize numad blade
-        if verbose:
-            print("      Loading blade definition...")
-        self._numad_blade = numadBlade()
-        if self.excel_file:
-            self._numad_blade.read_excel(self.excel_file, airfoil_dir=self.airfoil_dir)
-        elif self.yaml_file:
-            self._numad_blade.read_yaml(self.yaml_file)
-        else:
-            raise ValueError("BladeMesh requires either yaml_file or excel_file")
-
-        topology = getattr(self._numad_blade, "windio2_topology", None)
-        if topology is not None:
-            if not geometry_only:
-                raise ValueError(
-                    "windIO 2.0 requires geometry_only=True; physical FE offsets are not supported"
-                )
-            if self.skin_reference != "oml" or not self.include_webs:
-                raise ValueError("windIO 2.0 geometry-only requires skin_reference='oml' and include_webs=True")
-            if self._explicit_legacy_options:
-                option = self._explicit_legacy_options[0]
-                raise ValueError(
-                    f"windIO 2.0 geometry-only does not support explicit option '{option}'"
-                )
-            from aeroelast.core.mesh.windio2 import geometry_mesh
-
-            mesh = geometry_mesh(topology, self.element_size, eta_bounds, renumber)
-            self._numad_mesh = {
-                "structural_ready": False,
-                "windio2_metadata": mesh.windio2_metadata,
-            }
-            return mesh
-        if geometry_only or eta_bounds != (0., 1.):
-            raise ValueError("geometry_only and eta_bounds are only supported for windIO 2.0")
-
-        # Resample airfoils
-        for stat in self._numad_blade.definition.stations:
-            stat.airfoil.resample(n_samples=self.n_samples, spacing=self.airfoil_spacing)
-
-        # Update geometry
-        if verbose:
-            print("      Updating blade geometry...")
-        self._numad_blade.update_blade()
-
-        # Refine cross-sections where chord changes rapidly.  The default
-        # YAML grid is uniform in span, so the last section can jump from
-        # chord ≈ 1.8 m to 0.5 m in a single 2.4 m span gap.  We subdivide
-        # sections whose chord ratio exceeds a threshold so that element
-        # aspect ratios stay reasonable.
-        if self.max_bay_length is not None:
-            self._limit_bay_length(self.max_bay_length, verbose=verbose)
-        if self.refine_tip:
-            self._refine_high_gradient_sections(verbose=verbose)
-        self._insert_web_snap_stations(verbose=verbose)
-        self._web_end_spans = self._insert_web_end_stations(verbose=verbose)
-        span_plan = self._insert_row_stations(verbose=verbose) if self.laminate_per_row else None
-
-        # Expand trailing edge
-        n_stations = self._numad_blade.geometry.coordinates.shape[2]
-        min_TE_lengths = 0.001 * np.ones(n_stations)
-        self._numad_blade.expand_blade_geometry_te(min_TE_lengths)
-
-        # Generate shell mesh using numad
-        if verbose:
-            print("      Generating shell mesh...")
-        self._numad_mesh = get_shell_mesh(
-            self._numad_blade,
-            self.element_size,
-            spanGrading=self.span_grading,
-            include_webs=self.include_webs,
-            span_plan=span_plan,
-            web_end_spans=self._web_end_spans,
-        )
-
-        num_raw_nodes = len(self._numad_mesh["nodes"])
-        num_elements = len(self._numad_mesh["elements"])
-        if verbose:
-            print(f"      Raw mesh: {num_raw_nodes} nodes, {num_elements} elements")
-
-        # Deduplicate nodes
-        self._deduplicate_and_create_mesh(mesh_model, verbose)
-
-        if self.skin_reference == "mid":
-            from aeroelast.core.mesh.skin_reference import apply_midsurface_inset
-            from aeroelast.models.blade.model import build_rust_properties
-
-            apply_midsurface_inset(
-                mesh_model, build_rust_properties(self.numad_mesh_data), verbose=verbose
-            )
-
-        # Renumber mesh if requested
-        if renumber is not None:
-            if verbose:
-                print(f"      Renumbering mesh using {renumber} algorithm...")
-            mesh_model.renumber_mesh(algorithm=renumber)
-
-        if verbose:
-            print(
-                f"      Blade mesh generated: {mesh_model.node_count} nodes, {mesh_model.elements_count} elements"
-            )
-
-        return mesh_model
-
-    def _insert_web_snap_stations(self, verbose: bool = True, samples: int = 8, passes: int = 6, rounds: int = 4):
-        """Put NuMAD stations where a web enters or leaves the snap distance of a key line (S8).
-
-        A web closer than ``min_strip_ratio * element_size`` to a key line snaps onto it
-        (``snap_web_arcs``). Between a snapped and an unsnapped station the skin strip between the
-        web and the line opens from zero width over one bay, and a web on opposite sides of a line
-        at the two stations of a bay cannot be snapped at all (``web_snap_bays`` lists those
-        bays). Each such bay is sampled densely on a copy of the blade, repeatedly, until every
-        transition is bracketed by a bay no longer than the one it wants; the snapped station of
-        each transition then stays and an unsnapped one is placed beyond it (``web_snap_spans``).
-        Only those stations become stations of the blade.
-        """
-        import copy
-
-        from aeroelast.models.blade.numad.mesh_gen.mesh_gen import web_crossings, web_snap_bays, web_snap_spans
-
-        def prepared(extra):
-            blade = copy.deepcopy(self._numad_blade)
-            blade.add_interpolated_stations(np.setdiff1d(extra, blade.ispan))
-            blade.expand_blade_geometry_te(0.001 * np.ones(blade.geometry.coordinates.shape[2]))
-            return blade
-
-        # The snap decision of a station reads arcs that the interpolation of the section
-        # geometry makes depend (by ~1e-5 m) on the stations around it, so a station that is
-        # snapped on the dense probe can be unsnapped on the blade that keeps only the bay
-        # stations, or the reverse: a transition then lands on a bay longer than the one it wants.
-        # The check is therefore made on the blade itself, and the pass repeats on what is left.
-        added = 0
-        for _round in range(rounds):
-            probe = prepared(np.empty(0))
-            rows = web_snap_bays(probe, self.element_size)
-            if not rows.size:
-                break
-            dense = np.empty(0)
-            for _ in range(passes):
-                z = np.asarray(probe.ispan, dtype=float)
-                for row in rows:
-                    step = (z[row + 1] - z[row]) * np.arange(1, samples + 1) / (samples + 1)
-                    dense = np.union1d(dense, z[row] + step)
-                probe = prepared(dense)
-                rows = web_snap_bays(probe, self.element_size)
-                if not rows.size:
-                    break
-            else:
-                raise RuntimeError("shear web snap stations: a transition was not bracketed")
-            spans = web_snap_spans(probe, self.element_size, known=self._numad_blade.ispan)
-            known = np.isclose(spans[:, None], self._numad_blade.ispan[None, :], rtol=0.0, atol=1.0e-9).any(axis=1)
-            self._numad_blade.add_interpolated_stations(spans[~known])
-            added += int((~known).sum())
-            left = web_crossings(prepared(np.empty(0)), self.element_size)
-            if left.size:
-                raise RuntimeError(f"shear web snap stations: webs still cross a key line in rows {left.tolist()}")
-        else:
-            if web_snap_bays(prepared(np.empty(0)), self.element_size).size:
-                raise RuntimeError("shear web snap stations: the transition bays did not settle")
-        if verbose:
-            print(f"      Added {added} stations where the shear webs meet the key lines")
-
-    def _insert_web_end_stations(self, verbose: bool = True):
-        """Put a NuMAD station where each shear web starts and ends (S6, ``web_end_spans``).
-
-        The web start is where the cap strips that close at the end of the yaml web domain reach
-        the minimum width, a place between two stations. As a station it is the same for the
-        native mesh and the per-row mesh, so neither shortens the web to its own next station.
-        Computed on a copy with the trailing edge expanded as it will be meshed. The strip width
-        is not linear between stations (a cap widening from zero is not), so the copy is sampled
-        densely in the bay of each estimate and the estimate repeated: each pass shrinks the bay
-        ``samples + 1`` times. Only the final positions become stations of the blade.
-        """
-        import copy
-
-        from aeroelast.models.blade.numad.mesh_gen.mesh_gen import web_end_spans
-
-        samples, passes = 8, 3
-        probe = copy.deepcopy(self._numad_blade)
-        probe.expand_blade_geometry_te(0.001 * np.ones(probe.geometry.coordinates.shape[2]))
-        new = web_end_spans(probe, self.element_size)
-        dense = np.empty(0)
-        for _ in range(passes):
-            if not new.size:
-                break
-            z = np.asarray(probe.ispan, dtype=float)
-            for at in new:
-                k = int(np.searchsorted(z, at)) - 1
-                step = (z[k + 1] - z[k]) * np.arange(1, samples + 1) / (samples + 1)
-                dense = np.union1d(dense, z[k] + step)
-            probe = copy.deepcopy(self._numad_blade)
-            probe.add_interpolated_stations(np.setdiff1d(dense, probe.ispan))
-            probe.expand_blade_geometry_te(0.001 * np.ones(probe.geometry.coordinates.shape[2]))
-            new = web_end_spans(probe, self.element_size)
-        absent = new[~np.isclose(new[:, None], self._numad_blade.ispan[None, :], rtol=0.0, atol=1.0e-9).any(axis=1)]
-        if absent.size:
-            self._numad_blade.add_interpolated_stations(absent)
-            if verbose:
-                print(f"      Added {absent.size} stations where the shear webs start and end")
-        return tuple(float(z) for z in new)
-
-    def _insert_row_stations(self, verbose: bool = True):
-        """Put a NuMAD station at every spanwise row boundary of the native mesh.
-
-        The native mesh (``laminate_per_row=False``) is planned on a copy of the blade, trailing
-        edge expanded as it will be meshed. The stations of the real blade then include the row
-        boundaries, and ``get_shell_mesh`` cuts one row per bay, so each row gets its own
-        laminate while rows and node counts stay those of the native mesh.
-        """
-        import copy
-
-        from aeroelast.models.blade.numad.mesh_gen import get_shell_mesh
-
-        probe = copy.deepcopy(self._numad_blade)
-        probe.expand_blade_geometry_te(0.001 * np.ones(probe.geometry.coordinates.shape[2]))
-        plan = get_shell_mesh(
-            probe,
-            self.element_size,
-            spanGrading=self.span_grading,
-            include_webs=self.include_webs,
-            plan_only=True,
-            web_end_spans=self._web_end_spans,
-        )
-        new = plan.row_boundaries
-        self._numad_blade.add_interpolated_stations(new)
-        if verbose and new.size:
-            print(f"      Added {new.size} stations (one laminate per element row)")
-        return plan
-
-    def _limit_bay_length(self, max_bay_length: float, verbose: bool = True):
-        """Legacy: split every span bay longer than ``max_bay_length`` [m] into equal bays.
-
-        Each NuMAD (region, bay) carries one laminate whose ply thickness is the bay mean, so a
-        bay as long as the yaml grid step (about 2.4 m on the IEA 15 MW blade) cannot follow a
-        tapering layer: at r/R 0.90 the spar caps were 11 % thin. ``element_size`` does not reach
-        it (``odd/tasks/blade-input-audit.md``, T7).
-        """
-        if max_bay_length <= 0:
-            raise ValueError("max_bay_length must be positive")
-        ispan = np.asarray(self._numad_blade.ispan, dtype=float)
-        new = []
-        for lo, hi in zip(ispan[:-1], ispan[1:], strict=True):
-            n = int(np.ceil((hi - lo) / max_bay_length - 1e-9))
-            new.extend(lo + (hi - lo) * np.arange(1, n) / n)
-        self._numad_blade.add_interpolated_stations(new)
-        if verbose and new:
-            print(f"      Added {len(new)} stations (bays <= {max_bay_length} m)")
-
-    def _refine_high_gradient_sections(
-        self,
-        chord_ratio_threshold=0.5,
-        verbose=True,
-    ):
-        """Add interpolated stations where the chord ratio between adjacent
-        sections is below *chord_ratio_threshold* (i.e. chord shrinks by
-        more than 50 %).  Stations are subdivided until the ratio of the
-        smaller chord to the larger chord in every pair exceeds the
-        threshold, up to a maximum of 3 subdivisions per original gap.
-
-        The refinement is unconditional, matching the reference mesh.  An
-        earlier local workaround skipped a refinement when
-        ``gap / 2 < element_size * 4``: that dropped 26 nodes at the tip and
-        left a sliver element CalculiX cannot integrate
-        (``*ERROR in e_c3d: nonpositive jacobian``, element 2790).  The
-        workaround targeted the aspect ratio of the previous element, while
-        the reviewed element and upstream's own mesh test both assume the
-        refined mesh (9277 nodes at element_size = 0.5 m).
-        """
-        blade = self._numad_blade
-        ichord = blade.geometry.ichord
-        ispan = blade.ispan.copy()
-        added = 0
-
-        for _ in range(3):  # iterate because adding a station shifts indices
-            ichord = blade.geometry.ichord
-            ispan = blade.ispan.copy()
-            n = len(ichord)
-            inserted_any = False
-            for i in range(n - 1):
-                c_lo = min(ichord[i], ichord[i + 1])
-                c_hi = max(ichord[i], ichord[i + 1])
-                if c_hi > 0 and c_lo / c_hi < chord_ratio_threshold:
-                    mid = 0.5 * (ispan[i] + ispan[i + 1])
-                    blade.add_interpolated_station(mid)
-                    added += 1
-                    inserted_any = True
-                    break  # restart scan — indices shifted
-            if not inserted_any:
-                break
-
-        if verbose and added > 0:
-            print(f"      Added {added} interpolated section(s) for tip refinement")
-
-    def _deduplicate_and_create_mesh(self, mesh_model: "MeshModel", verbose: bool = True):
-        """
-        Deduplicate nodes and create mesh elements.
-
-        Numad may create duplicate nodes at region boundaries, so we need to
-        deduplicate them using spatial tolerance matching.
-        """
-        from scipy.spatial import cKDTree
-
-        from aeroelast.core.mesh.entities import ElementSet
-
-        node_coords = self._numad_mesh["nodes"]
-        num_raw_nodes = len(node_coords)
-        num_elements = len(self._numad_mesh["elements"])
-
-        if verbose:
-            print("      Deduplicating nodes...")
-
-        tolerance = 1e-6
-        numad_to_unique = {}  # Maps numad node index to unique node index
-        unique_nodes = []
-
-        # Build KDTree for efficient nearest neighbor search
-        all_coords = np.array(node_coords)
-        tree = cKDTree(all_coords)
-
-        # Find duplicate groups using the tree
-        processed = set()
-        for idx in range(num_raw_nodes):
-            if idx in processed:
-                continue
-
-            neighbors = tree.query_ball_point(all_coords[idx], r=tolerance)
-            unique_idx = len(unique_nodes)
-            unique_nodes.append(all_coords[idx])
-
-            for neighbor_idx in neighbors:
-                numad_to_unique[neighbor_idx] = unique_idx
-                processed.add(neighbor_idx)
-
-        num_unique_nodes = len(unique_nodes)
-        if verbose:
-            reduction_pct = 100 * (num_raw_nodes - num_unique_nodes) // max(1, num_raw_nodes)
-            print(
-                f"      Deduplicated: {num_raw_nodes} -> {num_unique_nodes} nodes ({reduction_pct}% reduction)"
-            )
-
-        # Create nodes
-        node_index_to_node = {}
-        for unique_idx, unique_coord in enumerate(unique_nodes):
-            node = Node(unique_coord)
-            mesh_model.add_node(node)
-            node_index_to_node[unique_idx] = node
-
-        # Create elements (skip degenerate elements with repeated nodes)
-        if verbose:
-            print(f"      Creating {num_elements} elements...")
-        skipped = 0
-        raw_to_mesh_id = {}  # maps raw element index → mesh element id
-        for elem_idx, node_ids in enumerate(self._numad_mesh["elements"]):
-            if node_ids[3] == -1:
-                element_type = ElementType.triangle
-                node_ids = node_ids[:3]
-            else:
-                element_type = ElementType.quad
-            node_objs = [node_index_to_node[numad_to_unique[n_id]] for n_id in node_ids]
-            # Skip elements where node deduplication collapsed nodes together
-            unique_node_ids = {id(n) for n in node_objs}
-            if len(unique_node_ids) < 3:
-                skipped += 1
-                continue
-            if element_type == ElementType.quad and len(unique_node_ids) == 3:
-                # one edge collapsed (a wedge between two attachment lines that meet): a triangle
-                kept = [k for k in range(4) if node_objs[k] is not node_objs[k - 1]]
-                if len(kept) == 3:
-                    node_objs = [node_objs[k] for k in kept]
-                    element_type = ElementType.triangle
-            elem = MeshElement(nodes=node_objs, element_type=element_type)
-            mesh_model.add_element(elem)
-            raw_to_mesh_id[elem_idx] = elem.id
-        if skipped and verbose:
-            print(f"      Skipped {skipped} degenerate element(s)")
-
-        # Create element sets
-        if verbose:
-            print("      Creating element and node sets...")
-        for element_set in self._numad_mesh["sets"]["element"]:
-            name = element_set["name"]
-            elements = set()
-            for raw_idx in element_set["labels"]:
-                if raw_idx in raw_to_mesh_id:
-                    elements.add(mesh_model.get_element_by_id(raw_to_mesh_id[raw_idx]))
-            if elements:
-                mesh_model.add_element_set(ElementSet(name=name, elements=elements))
-
-        # Create node sets
-        for node_set in self._numad_mesh["sets"]["node"]:
-            name = node_set["name"]
-            nodes = {node_index_to_node[numad_to_unique[i]] for i in node_set["labels"]}
-            mesh_model.add_node_set(NodeSet(name=name, nodes=nodes))
-
-        # Create node sets from element sets with "all" in name
-        for element_set in [
-            eset for eset in mesh_model.element_sets.values() if "all" in eset.name.lower()
-        ]:
-            name = element_set.name.replace("Els", "Nods")
-            nodes = {node for element in element_set.elements for node in element.nodes}
-            mesh_model.add_node_set(NodeSet(name=name, nodes=nodes))
-
-        # Assign per-element thickness from section layup data
-        if self._numad_mesh.get("sections"):
-            section_thickness = {}
-            for section in self._numad_mesh["sections"]:
-                set_name = section["elementSet"]
-                total = sum(layer[1] for layer in section["layup"])
-                section_thickness[set_name] = total
-            for set_name, thickness in section_thickness.items():
-                if set_name in mesh_model.element_sets:
-                    for elem in mesh_model.element_sets[set_name].elements:
-                        elem.thickness = thickness
+        chord_divisions, span_aspect = self.chord_divisions, self.span_aspect
+        if self.element_size is None and chord_divisions is None:
+            chord_divisions, span_aspect = 20, 1  # the reference mesh (AGENTS rule 9)
+        kwargs: dict[str, Any] = {
+            "yaml_file": self.yaml_file,
+            "skin_reference": self.skin_reference,
+            "chord_divisions": chord_divisions,
+            "span_aspect": span_aspect,
+            "min_band_elements": self.min_band_elements,
+            "min_band_fraction": self.min_band_fraction,
+        }
+        if tuple(eta_bounds) != (0., 1.):
+            kwargs["eta_bounds"] = tuple(eta_bounds)
+        if self.element_size is not None:
+            kwargs["element_size"] = self.element_size
+        if self.h_range is not None:
+            kwargs["h_range"] = self.h_range
+        gmsh_mesher = GmshBladeMesh(**kwargs)
+        mesh = gmsh_mesher.generate(renumber=renumber, **({} if self.include_webs else {"include_webs": False}))
+        self._numad_mesh = gmsh_mesher.numad_mesh_data
+        self._numad_blade = gmsh_mesher.numad_blade
+        return mesh
 
     @property
     def numad_mesh_data(self):
@@ -1601,47 +1220,24 @@ class BladeMesh:
     def create_from_yaml(
         cls,
         yaml_file: str,
-        element_size: float = 0.1,
+        element_size: float | None = None,
         n_samples: int = _BLADE_OPTION_UNSET,
         renumber: str = None,
         include_webs: bool = True,
         *,
-        geometry_only: bool = False,
         eta_bounds: tuple[float, float] = (0., 1.),
     ) -> "MeshModel":
         """
-        Convenience method to create blade mesh directly from YAML file.
+        Build the blade mesh directly from a windIO 2.x yaml (see the class docstring).
 
-        For windIO 2.0 explicitly pass ``geometry_only=True``. The returned mesh
-        retains source/offset metadata but is not structural-ready. Optional
-        ``eta_bounds`` selects a native-eta patch; defaults mesh the full blade.
-        Omit ``n_samples`` for v2: explicitly supplying it raises ValueError,
-        including the legacy default 300. V1 still resolves omission to 300.
-
-        Parameters
-        ----------
-        yaml_file : str
-            Path to the blade YAML definition file
-        element_size : float, optional
-            Target element size (default: 0.1)
-        n_samples : int, optional
-            Number of samples for airfoil discretization (default: 300)
-        renumber : str, optional
-            Renumbering algorithm ("simple", "rcm", or None)
-        include_webs : bool, optional
-            Set *False* to mesh only the outer shell (CFD surface)
-
-        Returns
-        -------
-        MeshModel
-            The generated mesh model
+        ``n_samples`` is NuMAD-only and raises ``ValueError`` when given; ``eta_bounds`` is the spanwise sub-range to mesh.
         """
         return cls(
             yaml_file=yaml_file,
             element_size=element_size,
             n_samples=n_samples,
             include_webs=include_webs,
-        ).generate(renumber=renumber, geometry_only=geometry_only, eta_bounds=eta_bounds)
+        ).generate(renumber=renumber, eta_bounds=eta_bounds)
 
 
 class RotorMesh:
@@ -1685,12 +1281,15 @@ class RotorMesh:
         hub_radius: float | None = None,
         hub_diameter: float | None = None,
         rotor_diameter: float | None = None,
-        element_size: float = 0.1,
-        n_samples: int = 300,
+        element_size: float | None = None,
+        n_samples: int = _BLADE_OPTION_UNSET,
         excel_file: str | None = None,
         airfoil_dir: str | None = None,
-        airfoil_spacing: str = "cosine",
+        airfoil_spacing: str = _BLADE_OPTION_UNSET,
         include_webs: bool = True,
+        *,
+        chord_divisions: float | None = None,
+        span_aspect: float | None = None,
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1703,6 +1302,8 @@ class RotorMesh:
         self.n_samples = n_samples
         self.airfoil_spacing = airfoil_spacing
         self.include_webs = include_webs
+        self.chord_divisions = chord_divisions
+        self.span_aspect = span_aspect
         self._blade_generator: BladeMesh = None
 
     def generate(self, renumber: str | None = None, verbose: bool = True) -> "MeshModel":
@@ -1731,15 +1332,20 @@ class RotorMesh:
         # Generate base blade mesh
         if verbose:
             print("\nGenerating base blade mesh...")
-        self._blade_generator = BladeMesh(
-            yaml_file=self.yaml_file,
-            excel_file=self.excel_file,
-            airfoil_dir=self.airfoil_dir,
-            element_size=self.element_size,
-            n_samples=self.n_samples,
-            airfoil_spacing=self.airfoil_spacing,
-            include_webs=self.include_webs,
-        )
+        # only what the caller gave reaches BladeMesh: an absent size is its reference mesh (S7c), and a NuMAD-only option the
+        # caller still passes (n_samples, airfoil_spacing, airfoil_dir, excel_file) gets BladeMesh's S7b/S7a error, never a silent drop
+        blade_kwargs: dict[str, Any] = {"yaml_file": self.yaml_file}
+        if self.excel_file:
+            blade_kwargs["excel_file"] = self.excel_file
+        if self.airfoil_dir:
+            blade_kwargs["airfoil_dir"] = self.airfoil_dir
+        for key in ("element_size", "n_samples", "airfoil_spacing", "chord_divisions", "span_aspect"):
+            value = getattr(self, key)
+            if value is not None and value is not _BLADE_OPTION_UNSET:
+                blade_kwargs[key] = value
+        if not self.include_webs:
+            blade_kwargs["include_webs"] = False
+        self._blade_generator = BladeMesh(**blade_kwargs)
         base_mesh = self._blade_generator.generate(renumber=None, verbose=verbose)
 
         if verbose:
@@ -1814,21 +1420,7 @@ class RotorMesh:
         if self.rotor_diameter is not None:
             definition.rotor_diameter = float(self.rotor_diameter)
 
-        try:
-            return definition.resolve_hub_radius(override=self.hub_radius)
-        except ValueError as exc:
-            if (
-                self.excel_file is not None
-                and self.hub_radius is None
-                and self.hub_diameter is None
-                and self.rotor_diameter is None
-            ):
-                raise ValueError(
-                    "Unable to determine hub radius from Excel blade definition. "
-                    "Pass hub_radius explicitly or provide hub_diameter/rotor_diameter "
-                    "when exporting a RotorMesh from Excel."
-                ) from exc
-            raise
+        return definition.resolve_hub_radius(override=self.hub_radius)
 
     @classmethod
     def blade_part_set_name(cls, blade_index: int) -> str:
@@ -1998,6 +1590,7 @@ class RotorHubMesh:
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
+        reject_excel_file({"excel_file": excel_file})  # S7a: the retired xlsx reader is never silently skipped
         self.airfoil_dir = airfoil_dir
         self.n_blades = n_blades
         self.hub_radius = hub_radius
@@ -2095,12 +1688,9 @@ class RotorHubMesh:
             print("  Loading blade definition for hub geometry...")
 
         self._numad_blade = numadBlade()
-        if self.excel_file:
-            self._numad_blade.read_excel(self.excel_file, airfoil_dir=self.airfoil_dir)
-        elif self.yaml_file:
-            self._numad_blade.read_yaml(self.yaml_file)
-        else:
-            raise ValueError("RotorHubMesh requires either yaml_file or excel_file")
+        if not self.yaml_file:
+            raise ValueError("RotorHubMesh requires yaml_file (a windIO v2 blade yaml)")
+        self._numad_blade.read_yaml(self.yaml_file)
 
         for station in self._numad_blade.definition.stations:
             station.airfoil.resample(n_samples=self.n_samples, spacing=self.airfoil_spacing)
@@ -2118,21 +1708,7 @@ class RotorHubMesh:
         if self.rotor_diameter is not None:
             definition.rotor_diameter = float(self.rotor_diameter)
 
-        try:
-            return definition.resolve_hub_radius(override=self.hub_radius)
-        except ValueError as exc:
-            if (
-                self.excel_file is not None
-                and self.hub_radius is None
-                and self.hub_diameter is None
-                and self.rotor_diameter is None
-            ):
-                raise ValueError(
-                    "Unable to determine hub radius from Excel blade definition. "
-                    "Pass hub_radius explicitly or provide hub_diameter/rotor_diameter "
-                    "when exporting a RotorHubMesh from Excel."
-                ) from exc
-            raise
+        return definition.resolve_hub_radius(override=self.hub_radius)
 
     def _first_profile_coords(self) -> np.ndarray:
         """Return XYZ coordinates of the first blade profile from the updated geometry."""
@@ -2256,7 +1832,7 @@ class RotorHubMesh:
         coords = np.asarray(coords, dtype=float).reshape(-1, 3)
 
         node_map = {}
-        for tag, coord in zip(node_tags, coords):
+        for tag, coord in zip(node_tags, coords, strict=False):
             if tag not in used_node_tags:
                 continue
             node = Node(coord, geometric_node=True)

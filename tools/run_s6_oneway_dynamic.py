@@ -89,16 +89,13 @@ def extract_timeseries(out_path: Path, ad_blade_path: Path):
 
 
 def build_assembly(element_size=0.25, skin_reference="oml"):
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
     from aeroelast.core.assembler import MeshAssembler
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(
-        element_size=element_size,
-        yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"),
-        skin_reference=skin_reference,
-    )
+    gen = blade_generator(V2_IEA15, element_size, skin_reference)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {
@@ -307,7 +304,7 @@ def main():
                                  "IEA-15-240-RWT/IEA-15-240-RWT_AeroDyn15_blade.dat"))
     ap.add_argument("--export", type=Path,
                     default=Path("tests/IEA15MW/reference/s6_ad_blade1_timeseries.csv"))
-    ap.add_argument("--element-size", type=float, default=0.25)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     args = ap.parse_args()
 
     t, fn_ts, ft_ts, twist, r_m, oop_ed = extract_timeseries(args.out, args.ad_blade)

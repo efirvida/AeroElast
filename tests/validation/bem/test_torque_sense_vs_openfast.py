@@ -58,6 +58,7 @@ from tests.validation.bem.test_force_projection_ac_datum import (  # noqa: E402
     YAML,
     _blunt_end,
     _geometry_load_frames,
+    _PRODUCTION_RINGS,
     _station_ring_points,
 )
 from tests.validation.rotor.test_bem_fsi_deformed_geometry import (  # noqa: E402
@@ -96,13 +97,13 @@ def case():
 
 
 def test_rated_section_torque_is_nose_down(case):
-    _, coords, blade_aero, participant, _ = case
+    mesh, coords, blade_aero, participant, _ = case
     projector = participant._projector
     forces, bem = participant._compute_forces(np.zeros((len(coords), 3)))
 
     tol = MESH_RING_GAP_ELEMENT_FRACTION * ELEMENT_SIZE
     rings = [
-        _station_ring_points(coords, strip, blade_aero, k, SPAN_DIR, tol)
+        _station_ring_points(coords, strip, blade_aero, k, SPAN_DIR, tol, rings=_PRODUCTION_RINGS(mesh))
         for k, strip in enumerate(projector._strips)
     ]
     frames = _geometry_load_frames(

@@ -15,7 +15,7 @@ Three independent routes to the blade's torsional stiffness:
   local twist rate ``dphi/dz`` between consecutive physical stations from the ring section
   rotation - the antisymmetric part of the ring's affine fit (section 22.8), never ``mean(theta_z)``.
 The fit is ``ring_section_rotation`` weighted by each node's tributary length of **skin** wall
-(``ring_tributary_lengths`` over ``_skin_wall_edges``; l3-closure T19), so it does not follow where the
+(``ring_tributary_lengths`` over ``tests.support.production_rings.skin_wall_edges``; l3-closure T19), so it does not follow where the
 mesher puts nodes (equal nodal weights stepped where the ring node count changes, z 11.939).  The webs
 are left out: a web entering the ring at z 9.551 adds wall to the graph and steps a skin+web fit there
 (T19 H-web).  The skin is the closed wall that carries the Bredt flow.  The production BEM twist keeps
@@ -42,7 +42,6 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 
-from aeroelast.solvers.bem.force_projection import mesh_corner_edges  # noqa: E402
 from aeroelast.solvers.bem.section_contour import (  # noqa: E402
     ring_section_rotation,
     ring_tributary_lengths,
@@ -50,15 +49,30 @@ from aeroelast.solvers.bem.section_contour import (  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
-from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
+from aeroelast.solvers.bem.force_projection import RING_EDGE_SLOPE  # noqa: E402
+from tests.support.production_rings import skin_wall_edges, strip_station_rings  # noqa: E402
+
+
+def production_stations(mesh, coords):
+    """``(stations, {station: ring})``: the ring production assigns to each BEM strip (gmsh-official-mesher T14).
+
+    The NuMAD mesh had constant-z rings, found by exact z buckets (``_physical_stations``); gmsh has none.  A station is the
+    mean z of the ring ``BEMFSIParticipant._find_strip_rings`` picks for a strip (tests/support/production_rings.
+    ``strip_station_rings``: ``ForceProjector`` physical rings, the group at the strip centre), so the partial
+    ``physical_ring_labels`` groups production never reads are not stations.
+    """
+    rings = [g for g in strip_station_rings(mesh) if len(g) >= 3]
+    stations = [float(coords[g, 2].mean()) for g in rings]
+    return stations, dict(zip(stations, rings, strict=True))
+
 
 _OPENFAST_TOOLBOX = Path.home() / "openfast_toolbox"
 if _OPENFAST_TOOLBOX.is_dir() and str(_OPENFAST_TOOLBOX) not in sys.path:
     sys.path.insert(0, str(_OPENFAST_TOOLBOX))
 from openfast_toolbox.converters.beam import K66toPropsDecoupled  # noqa: E402
 
-from tests.support.paths import DATA_DIR, SOURCES_DIR  # noqa: E402
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+from tests.support.paths import SOURCES_DIR, V2_BLADE_YAML  # noqa: E402
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 DECK = (SOURCES_DIR / "openfast" / "iea15mw"
         / "IEA-15-240-RWT" / "IEA-15-240-RWT_BeamDyn_blade.dat")
 TORQUE = 1.0e7  # [N.m] the applied pure couple
@@ -102,7 +116,7 @@ def _outer_contour(mesh, coords, ring) -> list[int]:
     for element in mesh.elements:
         nodes = [index[nd.id] for nd in element.nodes]
         for a, b in zip(nodes, nodes[1:] + nodes[:1], strict=True):
-            if a in ids and b in ids and abs(coords[a, 2] - coords[b, 2]) < STATION_GAP_TOLERANCE:
+            if a in ids and b in ids and abs(coords[a, 2] - coords[b, 2]) < RING_EDGE_SLOPE * np.linalg.norm(coords[a] - coords[b]):
                 count[tuple(sorted((a, b)))] += 1
     boundary = [edge for edge, n in count.items() if n == 1]
     adjacency: dict[int, list[int]] = {}
@@ -122,6 +136,11 @@ def _outer_contour(mesh, coords, ring) -> list[int]:
         cycle.append(nxt)
         prev, cur = cur, nxt
     assert len(cycle) == len(boundary), (len(cycle), len(boundary))
+    # gmsh-official-mesher T14: the start node and direction of the walk follow the mesh numbering, which on the NuMAD mesh gave
+    # a counter-clockwise cycle and on gmsh does not (the torque ruler read -T).  Orient it counter-clockwise about +span.
+    x, y = coords[cycle, 0], coords[cycle, 1]
+    if 0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)) < 0.0:
+        cycle.reverse()
     return cycle
 
 
@@ -151,21 +170,10 @@ def _realised_torque(coords: np.ndarray, f: np.ndarray, centre=None) -> float:
     return float(np.sum((coords[:, 0] - xc) * f[1::6] - (coords[:, 1] - yc) * f[0::6]))
 
 
-def _skin_wall_edges(mesh) -> np.ndarray:
-    """Deduplicated corner edges of the skin: every element edge except the shear webs' (``*_SW``)."""
-    edges = mesh_corner_edges(mesh)
-    web = mesh_corner_edges(mesh, [element for name, members in mesh.element_sets.items()
-                                   if name.endswith("_SW") for element in members.elements])
-    if web.size == 0:
-        return edges
-    n = len(mesh.nodes)
-    return edges[~np.isin(edges[:, 0] * n + edges[:, 1], web[:, 0] * n + web[:, 1])]
-
-
 def _ring_section_rotation(coords: np.ndarray, u: np.ndarray, ring, edges: np.ndarray) -> float:
     """The antisymmetric part of the ring's arc-weighted in-plane affine fit [rad] (section 22.8, T19).
 
-    Weights are the nodal tributary wall lengths of the ring over ``edges`` (``_skin_wall_edges``,
+    Weights are the nodal tributary wall lengths of the ring over ``edges`` (``skin_wall_edges``,
     computed once per mesh).
     """
     ring = np.asarray(ring)
@@ -196,15 +204,14 @@ def static_torsion():
     K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))),
                    shape=(dofs, dofs)).tocsr()
     coords = np.array([[nd.x, nd.y, nd.z] for nd in mesh.nodes], dtype=float)
-    stations = _physical_stations(coords)
-    rings = {zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in stations}
+    stations, rings = production_stations(mesh, coords)
     tip, root = stations[-1], stations[0]
     f_tip = _contour_shear_flow(coords, _outer_contour(mesh, coords, rings[tip]), +TORQUE)
     f_root = _contour_shear_flow(coords, _outer_contour(mesh, coords, rings[root]), -TORQUE)
     f = f_tip + f_root
     modes = tube._rigid_modes(coords)
     u = tube._solve_rigid_removed(K, f, modes)
-    edges = _skin_wall_edges(mesh)
+    edges = skin_wall_edges(mesh)
     phi = np.array([_ring_section_rotation(coords, u, rings[zz], edges) for zz in stations])
     distortion = np.array([tube._parallelogram(coords, u, rings[zz])[2] for zz in stations])
     return {"coords": coords, "u": u, "f_tip": f_tip, "f_root": f_root, "f": f, "modes": modes,

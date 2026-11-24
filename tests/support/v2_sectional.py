@@ -19,7 +19,8 @@ Ring identification
 -------------------
 The mesh handed to the consumers is renumbered (rcm) and the skin moved to the mid-surface, so the eta row of a node is
 recovered from the raw builder arrays by EXACT coordinate match (``ring_ids_for_v2_mesh``: the mid-surface positions
-are recomputed with the builder's own ``_inset``, bit-identical to the mesh).  ``ring_ids_from_z`` is the geometry-only
+are recomputed with the builder's own ``_inset``, bit-identical to the mesh).  For the gmsh mesh (no shared eta row) the rows are the connected components of the row-direction element edges of the
+raw quads/triangles (T20, S11), not z strips.  ``ring_ids_from_z`` is the geometry-only
 fallback (split sorted z at gaps wider than a tolerance) used by the synthetic unit tests.  Rings of the official blade
 are slightly non-planar in z (spread <= 0.063 m against >= 0.043 m to the next ring), so the exact match is the one used
 for the validation test; consecutive rings never overlap in z.
@@ -44,6 +45,8 @@ import numpy as np
 
 from tests.support.paths import REPO_ROOT
 
+#: legacy z strip width [m] (the pre-T20 gmsh rings); only the tools/l5_s1_*diag.py scripts still set it.
+GMSH_STRIP_M = 0.25  # no longer used by ring_ids_for_v2_mesh (T20); kept for tools/l5_s1_ea_gj_diag.py
 V2_YAML = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
 
 
@@ -59,6 +62,57 @@ def ring_ids_from_z(coords, tol: float) -> np.ndarray:
     return ring
 
 
+def _raw_for_mesh(mesh):
+    """Raw builder arrays of a ``build_v2_blade`` mesh (cache memo of this process, else the disk cache)."""
+    from tests.support import v2_blade as vb
+
+    info = mesh.v2_info
+    raw = vb._MEMO.get(info["cache_key"])
+    if raw is None:  # same cache key as the build: load without regenerating
+        raw = vb.load_raw(info.get("element_size", 0.25), generate=False)
+        if raw["key"] != info["cache_key"]:
+            raise ValueError("raw v2 blade arrays for this mesh are not available (cache key mismatch)")
+    return raw
+
+
+def is_unstructured_v2_mesh(mesh) -> bool:
+    """True for a gmsh mesh: some element has other than exactly two ``params`` eta values (no shared eta row)."""
+    raw = _raw_for_mesh(mesh)
+    el, params = raw["elements"], raw["params"]
+    return any(len(np.unique(params[k, : len(e[e >= 0]), 0])) != 2 for k, e in enumerate(el))
+
+
+def _rows_from_quads(elements, eta) -> np.ndarray:
+    """Row index per raw node of a structured quad mesh (see ``ring_ids_for_v2_mesh``); -1 for nodes in no element."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    ia, ib = [], []
+    for e in elements:
+        q = e[e >= 0]
+        if len(q) == 3:  # triangle: its row edge is the one with the smallest eta difference
+            tri = [(0, 1), (1, 2), (2, 0)]
+            i, j = tri[int(np.argmin([abs(eta[q[i]] - eta[q[j]]) for i, j in tri]))]
+            ia.append(q[i])
+            ib.append(q[j])
+            continue
+        if len(q) != 4:
+            raise ValueError("row recovery needs 3- or 4-node elements (found a %d-node element)" % len(q))
+        along_a = abs(eta[q[0]] - eta[q[1]]) + abs(eta[q[2]] - eta[q[3]])
+        along_b = abs(eta[q[1]] - eta[q[2]]) + abs(eta[q[3]] - eta[q[0]])
+        for i, j in (((0, 1), (2, 3)) if along_a <= along_b else ((1, 2), (3, 0))):
+            ia.append(q[i])
+            ib.append(q[j])
+    n = len(eta)
+    _, comp = connected_components(coo_matrix((np.ones(len(ia)), (ia, ib)), shape=(n, n)), directed=False)
+    used = ~np.isnan(eta)
+    ids = np.unique(comp[used])
+    mean_eta = np.array([eta[used & (comp == c)].mean() for c in ids])
+    rank = np.empty(comp.max() + 1, dtype=np.int64)
+    rank[ids[np.argsort(mean_eta)]] = np.arange(len(ids))
+    return np.where(used, rank[comp], -1)
+
+
 def ring_ids_for_v2_mesh(mesh) -> np.ndarray:
     """Eta-row index per mesh node (0 = root ring) for a mesh built by ``tests.support.v2_blade.build_v2_blade``.
 
@@ -68,18 +122,21 @@ def ring_ids_for_v2_mesh(mesh) -> np.ndarray:
     from tests.support import v2_blade as vb
 
     info = mesh.v2_info
-    raw = vb._MEMO.get(info["cache_key"])
-    if raw is None:  # same cache key as the build: load without regenerating
-        raw = vb.load_raw(info.get("element_size", 0.25), generate=False)
-        if raw["key"] != info["cache_key"]:
-            raise ValueError("raw v2 blade arrays for this mesh are not available (cache key mismatch)")
+    raw = _raw_for_mesh(mesh)
     x = vb._inset(raw) if info["skin_reference"] == "mid" else np.asarray(raw["nodes"], float)
     el, params = raw["elements"], raw["params"]
     eta = np.full(len(x), np.nan)
     for k, e in enumerate(el):
         for j, i in enumerate(e[e >= 0]):
             eta[i] = params[k, j, 0]
-    _, raw_ring = np.unique(eta, return_inverse=True)
+    if is_unstructured_v2_mesh(mesh):
+        # gmsh mesh: ``params`` eta is a per-node parameter (a row spreads over ~1e-4 in eta), so np.unique(eta) gives
+        # hundreds of one-node "rings" (T14).  The rows are the mesher's own: every element is a quad of a structured
+        # chart mesh, whose two row-direction edges join nodes of one row (the pair of opposite edges with the smaller
+        # total eta difference); the rows are the connected components of those edges, ordered by mean eta (S11, T20).
+        raw_ring = _rows_from_quads(el, eta)
+    else:
+        _, raw_ring = np.unique(eta, return_inverse=True)
     lookup = {}
     for i, p in enumerate(x):
         key = p.tobytes()
@@ -199,6 +256,44 @@ def v2_extractor_substituted(ring_ids=None):
         sectional.SectionalExtractor = original
 
 
+def ea_clt_plane_cut(mesh, numad_data, z_stations) -> np.ndarray:
+    """EA(z) = sum over the walls the plane z = const cuts of A11_eff(layup) * (cut length) [N] (T14b).
+
+    The v1 CLT loop (``tools/run_s1_sectional.ea_gj_from_static_response``) counts the elements whose nodes all lie in a
+    station's node set and divides by the node-mean z difference.  That needs a partition of the elements into stations of
+    one element row each; on an unstructured gmsh mesh with strips of the element length it counts 2/3 or 4/3 of the
+    elements per strip (EA/EA_deck swings 0.67-1.43 outboard and moves with the strip width, T14b), whereas the plane cut
+    does not depend on any station membership.
+    """
+    import sys
+
+    sys.path.insert(0, str(REPO_ROOT / "tools"))
+    from run_s1_sectional import laminate_a11_eff
+
+    mats = {m["name"]: m for m in numad_data["materials"]}
+    sections = {s["elementSet"]: s for s in numad_data["sections"]}
+    elem_to_set = {}
+    for name, eset in mesh.element_sets.items():
+        for e in eset.elements:
+            elem_to_set.setdefault(e.id, name)
+    a11_of = {n: laminate_a11_eff(sections[n]["layup"], mats) for n in set(elem_to_set.values()) if n in sections}
+    idx = mesh.node_id_to_index
+    coords = np.asarray(mesh.coords_array, float)
+    polys = [coords[[idx[n] for n in e.node_ids]] for e in mesh.elements]
+    a11 = np.array([a11_of.get(elem_to_set.get(e.id), np.nan) for e in mesh.elements])
+    zlo = np.array([p[:, 2].min() for p in polys])
+    zhi = np.array([p[:, 2].max() for p in polys])
+    out = np.zeros(len(z_stations))
+    for i, zc in enumerate(z_stations):
+        for k in np.nonzero((zlo < zc) & (zhi > zc) & ~np.isnan(a11))[0]:
+            p = polys[k]
+            hits = [u + (v - u) * (zc - u[2]) / (v[2] - u[2])
+                    for u, v in zip(p, np.roll(p, -1, axis=0), strict=True) if (u[2] <= zc) != (v[2] <= zc)]
+            if len(hits) == 2:
+                out[i] += a11[k] * np.linalg.norm(hits[0] - hits[1])
+    return out
+
+
 def ea_gj_from_static_response_v2(mesh, props, *, numad_data=None, stations=None, ring_ids=None, **kw):
     """v1 ``ea_gj_from_static_response`` (GJ static torsion + EA CLT) on the v2 station membership."""
     import sys
@@ -207,4 +302,8 @@ def ea_gj_from_static_response_v2(mesh, props, *, numad_data=None, stations=None
     from run_s1_sectional import ea_gj_from_static_response
 
     with v2_extractor_substituted(ring_ids):
-        return ea_gj_from_static_response(mesh, props, numad_data=numad_data, stations=stations, **kw)
+        zs, ea_static, gj_static, ea_clt = ea_gj_from_static_response(
+            mesh, props, numad_data=numad_data, stations=stations, **kw)
+    if numad_data is not None and is_unstructured_v2_mesh(mesh):  # gmsh: the element-count CLT loop aliases (T14b)
+        ea_clt = ea_clt_plane_cut(mesh, numad_data, zs)
+    return zs, ea_static, gj_static, ea_clt

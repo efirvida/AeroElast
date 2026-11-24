@@ -139,7 +139,7 @@ class TestV2BladeNaturalFrequencies:
         reference value and was cited after the number was known, so the 10 % is
         withdrawn (ADJ-1034, docs/validation/adjudications/32-blade_v02_natural_frequencies.yaml)
         and the test is red by design. The reference itself describes the v1.0
-        blade, while the decks and tests/IEA-15-240-RWT.yaml are v1.1
+        blade, while the decks and the retired windIO 1.x tests/IEA-15-240-RWT.yaml were v1.1
         (odd/tasks/validation-l3-b3-audit.md, "published blade frequencies are for
         IEA-15 v1.0"), so it cannot arbitrate this blade either way.
         """

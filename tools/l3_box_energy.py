@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Box rigid fit and extractor-free energy check of the S-1 / S-7 reads (odd/tasks/l3-closure.md, T15 + T16).
 
-Blade mode (default). Builds the mesh as the S-1 test does (``BladeMesh(skin_reference="mid")``, ``renumber="rcm"``,
+Blade mode (default). Builds the mesh as the S-1 test does (``GmshBladeMesh(skin_reference="mid")``, ``renumber="rcm"``,
 ``build_rust_properties``, stations = ``native_bay_centres``), runs the S-1 solves (tip edge +X and tip flap +Y of
 ``ei_from_static_response``; pure torque of ``ea_gj_from_static_response``) once and reports
 
@@ -28,8 +28,8 @@ Other modes:  --mode tube       closed forms (uniform thin-walled tube, tip torq
               --mode prismatic  GJ all vs box on a prismatic extrusion vs its mesh Bredt (core-torsion C4 / P1);
               --mode selftest   the beam-energy integral on a synthetic deck.
 
-  python tools/l3_box_energy.py --yaml tests/IEA-15-240-RWT.yaml \\
-      --deck tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat --element-size 0.25 --out logs/check/l3/t15/iea15.json
+  python tools/l3_box_energy.py --yaml tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml \\
+      --deck tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat --out logs/check/l3/t15/iea15.json
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
-from l3_bredt_yaml import interp_deck, load_beamdyn_6x6  # noqa: E402
+from bredt_deck import interp_deck, load_beamdyn_6x6  # noqa: E402
 
 ETA_CUTS = (0.85, 0.90, 0.95, 1.0)
 S7_ETA_CUT = 0.9504  # 111.2 m of the 117 m IEA-15 blade: the last valid BeamDyn station of run_s7_torsion
@@ -303,21 +303,21 @@ def _nodal_vector(n_dof, dpn, nodes, forces) -> np.ndarray:
 def blade_mode(args) -> dict:
     import yaml as _yaml
 
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.models.blade.model import build_rust_properties
     from aeroelast.postprocess.sectional import SectionalExtractor
     from beam_reference import load_beamdyn_blade
     from run_s1_sectional import ea_gj_from_static_response, native_bay_centres
     import run_s7_torsion as s7
+    from v2_blade_mesh import blade_generator
 
-    ra = _yaml.safe_load(open(args.yaml))["components"]["blade"]["outer_shape_bem"]["reference_axis"]
+    ra = _yaml.safe_load(open(args.yaml))["components"]["blade"]["reference_axis"]
     length = float(args.blade_length or ra["z"]["values"][-1])
     deck = Path(args.deck)
     main_file = Path(args.bd_main) if args.bd_main else deck.with_name(deck.name.replace("_blade", ""))
     bd = load_beamdyn_blade(deck, blade_length=length)
     etas, ks = load_beamdyn_6x6(deck)
 
-    gen = BladeMesh(yaml_file=args.yaml, element_size=args.element_size, skin_reference="mid")
+    gen = blade_generator(args.yaml, args.element_size)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     coords = np.asarray(mesh.coords_array)
@@ -535,11 +535,12 @@ def prismatic_mode(args) -> dict:
     import l3_bredt_mesh as bm
     from run_s1_sectional import ea_gj_from_static_response, native_bay_centres
 
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import blade_generator
+
     from aeroelast.models.blade.model import build_rust_properties
 
     gen, sections, mats, elements = bm.build_mesh(args.yaml, args.element_size)
-    gen2 = BladeMesh(yaml_file=args.yaml, element_size=args.element_size, skin_reference="mid")
+    gen2 = blade_generator(args.yaml, args.element_size)
     mesh = gen2.generate(renumber="rcm")
     props = build_rust_properties(gen2.numad_mesh_data)
     rows = np.unique(np.round([zm for _, _, zm in elements], 6))
@@ -571,7 +572,7 @@ def main(argv=None) -> int:
     ap.add_argument("--deck", help="BeamDyn blade file (6x6 per station)")
     ap.add_argument("--bd-main", help="BeamDyn main file with the key points (default: the deck name without _blade)")
     ap.add_argument("--blade-length", type=float, help="deck eta scale (default: the yaml reference axis z at the tip)")
-    ap.add_argument("--element-size", type=float, default=0.25)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--tube-length", type=float, nargs="+", default=[24.0, 48.0])
     ap.add_argument("--out")
     args = ap.parse_args(argv)
@@ -579,7 +580,7 @@ def main(argv=None) -> int:
         return selftest()
     if not args.out:
         ap.error("--out is required")
-    if args.mode in ("blade", "prismatic") and args.element_size >= 0.3:
+    if args.mode in ("blade", "prismatic") and args.element_size is not None and args.element_size >= 0.3:
         raise SystemExit("element_size >= 0.3 is not converged (docs/blade_mesh_size_rule.md)")
     if args.mode in ("blade", "prismatic") and not args.yaml:
         ap.error("--yaml is required")

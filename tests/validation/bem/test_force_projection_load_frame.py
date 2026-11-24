@@ -64,9 +64,9 @@ from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Production defaults of the standalone / FSI projectors, after the P5
@@ -329,7 +329,12 @@ def blade_case():
         tangential_direction=TANGENTIAL_DIR,
     )
 
-    stations = _physical_stations(coords)
+    # gmsh-official-mesher T14: the stations are the production physical rings (physical_ring_labels), not exact-z buckets:
+    # the gmsh mesh has no constant-z rings.  Rings of < 3 nodes cannot bound a section and are not stations.
+    from tests.support.production_rings import mesh_rings
+
+    rings = mesh_rings(mesh, SPAN_DIR, min_nodes=3)
+    stations = [float((coords[g] @ SPAN_DIR).mean()) for g in rings]
     span_min = float((coords @ SPAN_DIR).min())
     s_span = blade_aero.r - blade_aero.r[0] + span_min
     z0, z1 = stations[0], stations[-1]
@@ -337,8 +342,8 @@ def blade_case():
     rows = []
     for frac in STATION_FRACTIONS:
         target = z0 + frac * (z1 - z0)
-        z = min(stations, key=lambda s: abs(s - target))
-        ring = np.where(np.abs(coords[:, 2] - z) < Z_MERGE_TOL)[0]
+        i_ring = int(np.argmin([abs(s - target) for s in stations]))
+        z, ring = stations[i_ring], rings[i_ring]
         # The strip that owns most of this ring's nodes: that is the strip a
         # single-station load reaches.
         overlap = [

@@ -128,6 +128,19 @@ output:
 """
 
 
+# Mesh-sizing keys of ``GmshBladeMesh`` that a case YAML may set; forwarded only when present so an absent key keeps the
+# generator's own default.
+_GMSH_SIZING_KEYS = ("chord_divisions", "span_aspect", "h_range", "min_band_elements", "min_band_fraction")
+
+
+def _gmsh_sizing_kwargs(params):
+    """The sizing keys present in ``params`` (``h_range`` as a tuple), for ``GmshBladeMesh``."""
+    kw = {k: params[k] for k in _GMSH_SIZING_KEYS if k in params}
+    if "h_range" in kw:
+        kw["h_range"] = tuple(kw["h_range"])
+    return kw
+
+
 def _element_properties_for(mesh: "MeshModel", generator: object) -> dict | None:
     """Build the deck's section-property map for the coupling mesh, or ``None``.
 
@@ -266,6 +279,9 @@ def _build_mesh(cfg: dict, config_path: Path):
         gen_cfg = mesh_cfg.get("generator", {})
         gen_type = gen_cfg.get("type", MeshGeneratorType.BLADE.value)
         params = gen_cfg.get("params", {})
+        from aeroelast.core.mesh.generators import reject_excel_file
+
+        reject_excel_file(params)
 
         logging.info("[BEM-FSI] Generating mesh with %s", gen_type)
 
@@ -277,53 +293,54 @@ def _build_mesh(cfg: dict, config_path: Path):
                 yaml_file=_resolve(params["yaml_file"]),
                 element_size=params.get("element_size", 0.25),
                 skin_reference=params.get("skin_reference", "oml"),
+                **_gmsh_sizing_kwargs(params),
             )
             mesh = generator.generate(renumber=None)
 
         elif gen_type == MeshGeneratorType.BLADE.value:
             yaml_file = params.get("yaml_file")
-            excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
             if yaml_file:
                 yaml_file = _resolve(yaml_file)
-            if excel_file:
-                excel_file = _resolve(excel_file)
             if airfoil_dir:
                 airfoil_dir = _resolve(airfoil_dir)
+            # only the keys the config gives reach BladeMesh: absent size = the S7c reference mesh, NuMAD-only keys = its S7b error
             generator = BladeMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
-                airfoil_dir=airfoil_dir,
-                element_size=params.get("element_size", 0.5),
-                n_samples=params.get("n_samples", 300),
-                span_grading=params.get("span_grading", "chord"),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **({"airfoil_dir": airfoil_dir} if airfoil_dir else {}),
+                **{
+                    k: params[k]
+                    for k in (
+                        "element_size", "n_samples", "span_grading", "airfoil_spacing", "refine_tip", "max_bay_length",
+                        "laminate_per_row", "include_webs", "chord_divisions", "span_aspect", "h_range", "min_band_elements",
+                        "min_band_fraction",
+                    )
+                    if k in params
+                },
             )
             mesh = generator.generate(renumber=None)
 
         elif gen_type == MeshGeneratorType.ROTOR.value:
             yaml_file = params.get("yaml_file")
-            excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
             hub_diameter = params.get("hub_diameter")
             rotor_diameter = params.get("rotor_diameter")
             if yaml_file:
                 yaml_file = _resolve(yaml_file)
-            if excel_file:
-                excel_file = _resolve(excel_file)
             if airfoil_dir:
                 airfoil_dir = _resolve(airfoil_dir)
             generator = RotorMesh(
                 yaml_file=yaml_file,
-                excel_file=excel_file,
                 airfoil_dir=airfoil_dir,
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
                 hub_diameter=hub_diameter,
                 rotor_diameter=rotor_diameter,
-                element_size=params.get("element_size", 0.5),
-                n_samples=params.get("n_samples", 300),
-                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
+                **{
+                    k: params[k]
+                    for k in ("element_size", "n_samples", "airfoil_spacing", "include_webs", "chord_divisions", "span_aspect")
+                    if k in params
+                },
             )
             mesh = generator.generate(renumber="rcm")
 
@@ -521,8 +538,6 @@ def main(argv=None) -> int:
     if "blade_file" in cfg:
         cfg["blade_file"] = _resolve(cfg["blade_file"])
     mesh_gen = cfg.get("mesh", {}).get("generator", {}).get("params", {})
-    if "excel_file" in mesh_gen:
-        mesh_gen["excel_file"] = _resolve(mesh_gen["excel_file"])
     if "airfoil_dir" in mesh_gen:
         mesh_gen["airfoil_dir"] = _resolve(mesh_gen["airfoil_dir"])
 

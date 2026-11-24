@@ -97,9 +97,11 @@ PRIMARY = DECK / "case/IEA-15-240-RWT_AeroDyn15.dat"
 BLADE = DECK / "IEA-15-240-RWT/IEA-15-240-RWT_AeroDyn15_blade.dat"
 
 #: Common operating points (wind m/s, rpm, pitch deg).
-CASES = [(8.0, ob.IEA15MW_RATED_RPM, 0.0),
-         (9.0, ob.IEA15MW_RATED_RPM, 0.0),
-         (12.0, ob.IEA15MW_RATED_RPM, 0.0)]
+CASES = [
+    (8.0, ob.IEA15MW_RATED_RPM, 0.0),
+    (9.0, ob.IEA15MW_RATED_RPM, 0.0),
+    (12.0, ob.IEA15MW_RATED_RPM, 0.0),
+]
 
 #: Tolerances, justified against the measured margins in the module docstring.
 TOL_THRUST = 0.015  # relative
@@ -118,10 +120,11 @@ A2_TMAX = 80.0
 TOL_A2_THRUST = 0.015  # measured 0.33% (yaw) / 0.19% (shear)
 TOL_A2_TORQUE = 0.015  # measured -0.27% (yaw) / 0.33% (shear)
 
-#: A3: the repository's own WindIO polars (`tests/IEA-15-240-RWT.yaml`) instead
+#: A3: the repository's own WindIO polars (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`) instead
 #: of the official AeroDyn tables.  This is a sensitivity, not a parity claim.
-from tests.support.paths import DATA_DIR  # noqa: E402
-YAML_BLADE = DATA_DIR / "IEA-15-240-RWT.yaml"
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
+
+YAML_BLADE = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 TOL_POLAR_SET = 0.03  # measured worst 2.12% (torque at 12 m/s)
 
 #: A3 (Viterna): the repository's NeuralFoil + Viterna extrapolation, compared
@@ -207,9 +210,7 @@ def bem_yaw_shear() -> dict:
         td = Path(td)
         primary = ob.write_bem_primary(PRIMARY, td / "AD_clean.dat")
         blade_aero = ob.build_blade_aero_from_aerodyn(primary)
-        dvr = ob.write_aerodyn_dvr(
-            td / "a2.dvr", primary, A2_CASES, dt=A2_DT, tmax=A2_TMAX
-        )
+        dvr = ob.write_aerodyn_dvr(td / "a2.dvr", primary, A2_CASES, dt=A2_DT, tmax=A2_TMAX)
         outs = ob.run_aerodyn_driver(driver, dvr, td)
         reference = ob.parse_aerodyn_outs(outs)
 
@@ -271,9 +272,7 @@ def yaml_blade_aero():
 
 
 @pytest.mark.parametrize("case_index", range(len(CASES)))
-def test_bem_with_repo_default_polars_matches_aerodyn(
-    bem_parity, yaml_blade_aero, case_index
-):
+def test_bem_with_repo_default_polars_matches_aerodyn(bem_parity, yaml_blade_aero, case_index):
     """A3: the repository's own (YAML) polars move the BEM by <= 3% vs OpenFAST.
 
     This is a **sensitivity**, not a parity claim.  With the same polars A1
@@ -367,7 +366,9 @@ def test_viterna_extension_matches_official_from_official_data():
             f"[A3-official] alpha={a_deg:5.1f}: Cl {cl_v:.3f}/{cl_ref:.3f} "
             f"Cd {cd_v:.3f}/{cd_ref:.3f}"
         )
-    print(f"[A3-official] like-for-like worst: dCl={worst_cl * 100:.2f}%, dCd={worst_cd * 100:.2f}%")
+    print(
+        f"[A3-official] like-for-like worst: dCl={worst_cl * 100:.2f}%, dCd={worst_cd * 100:.2f}%"
+    )
     assert_residual_below(
         worst_cl,
         tol=TOL_VITERNA_LIKE_FOR_LIKE,
@@ -448,9 +449,7 @@ def test_neuralfoil_generated_polar_differs_from_official():
             f"(bound {100 * TOL_NEURALFOIL_POST:.0f}%) -- NeuralFoil input, not the Viterna "
             f"equation (which matches the official extension to <0.5% on official data)"
         )
-    assert worst_post <= TOL_NEURALFOIL_POST, (
-        f"post-stall Cl/Cd off by {100 * worst_post:.1f}%"
-    )
+    assert worst_post <= TOL_NEURALFOIL_POST, f"post-stall Cl/Cd off by {100 * worst_post:.1f}%"
 
 
 @pytest.mark.parametrize("case_index", range(len(CASES)))
@@ -484,6 +483,127 @@ def test_rotor_performance_matches_aerodyn(bem_parity, case_index):
     )
 
 
+#: V-01 operating points (wind m/s, rpm, pitch deg), from
+#: `tests/test_iea15mw_v01_rotor_performance.py`.  Same AeroDyn setup as A1
+#: (deck polars, tilt/precone, no shear, quasi-steady, tower off, dt 1 s).
+V01_CASES = [
+    (5.006, 5.0, 2.893),
+    (7.159, 5.10, 0.0),
+    (9.027, 6.43, 0.0),
+    (10.659, 7.518, 0.0),
+    (12.259, 7.518, 6.76),
+    (15.471, 7.518, 12.19),
+]
+
+
+@pytest.fixture(scope="module")
+def bem_v01_parity() -> dict:
+    """Run AeroDyn once at the V-01 operating points, as the A1 fixture does."""
+    driver = _openfast_driver_or_skip()
+    if not PRIMARY.exists():
+        pytest.skip(f"IEA 15 MW OpenFAST deck not found at {PRIMARY}")
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        primary = ob.write_bem_primary(PRIMARY, td / "AD_clean.dat")
+        blade_aero = ob.build_blade_aero_from_aerodyn(primary)
+        dvr = ob.write_aerodyn_dvr(td / "v01.dvr", primary, V01_CASES, tmax=60.0)
+        outs = ob.run_aerodyn_driver(driver, dvr, td)
+        reference = ob.parse_aerodyn_outs(outs)
+
+    assert len(reference) == len(V01_CASES)
+    solver = BEMSolver(
+        blade_aero,
+        rho=1.225,
+        mu=1.464e-5,
+        precone=ob.IEA15MW_PRECONE_DEG,
+        tilt=ob.IEA15MW_SHAFT_TILT_DEG,
+        yaw=0.0,
+        hub_height=ob.IEA15MW_HUB_HEIGHT,
+        shear_exp=0.0,
+    )
+    return {"solver": solver, "reference": reference}
+
+
+@pytest.mark.parametrize("case_index", range(len(V01_CASES)))
+def test_v01_points_match_aerodyn(bem_v01_parity, case_index):
+    """V-01 operating points: thrust and torque within 1.5% of AeroDyn (A1 setup)."""
+    case = V01_CASES[case_index]
+    ref = bem_v01_parity["reference"][case_index]
+    computed = bem_v01_parity["solver"].compute(*case)
+
+    err_thrust = (computed.thrust - ref.thrust) / ref.thrust
+    err_torque = (computed.torque - ref.torque) / ref.torque
+    print(
+        f"[V01] V={case[0]:.3f} m/s rpm={case[1]:.2f} pitch={case[2]:.3f}: "
+        f"thrust {computed.thrust:.0f}/{ref.thrust:.0f} N ({100 * err_thrust:+.3f}%), "
+        f"torque {computed.torque:.0f}/{ref.torque:.0f} N.m ({100 * err_torque:+.3f}%)"
+    )
+
+    assert_residual_below(
+        abs(err_thrust),
+        tol=TOL_THRUST,
+        kind="code",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
+        what="rotor thrust, V-01 point",
+    )
+    assert_residual_below(
+        abs(err_torque),
+        tol=TOL_TORQUE,
+        kind="code",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
+        what="rotor torque, V-01 point",
+    )
+
+
+#: Outboard window of the prebend check (m): where the deck cant is 1.5-5.6 deg.
+PREBEND_WINDOW_M = (80.0, 116.0)
+#: Mean outboard alpha offset, ours - AeroDyn (deg).  New bound (L10/T7): measured 0.056 / 0.111 deg
+#: WITHOUT prebend (pitch 0 / 12.19), -0.008 / +0.046 deg with it (L8); AeroDyn prebends its blade.
+TOL_PREBEND_ALPHA_DEG = 0.07
+
+
+@pytest.fixture(scope="module")
+def aerodyn_v01_fine() -> list:
+    """AeroDyn at the V-01 points with dt 0.25 s: the azimuth mean of alpha needs the resolution
+    (dt 1 s leaves ~0.04 deg of sampling noise in the outboard mean; A2 does the same)."""
+    driver = _openfast_driver_or_skip()
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        primary = ob.write_bem_primary(PRIMARY, td / "AD_clean.dat")
+        dvr = ob.write_aerodyn_dvr(td / "v01f.dvr", primary, V01_CASES, dt=0.25, tmax=40.0)
+        return ob.parse_aerodyn_outs(ob.run_aerodyn_driver(driver, dvr, td))
+
+
+@pytest.mark.parametrize("case_index", range(len(V01_CASES)))
+def test_prebend_outboard_alpha_matches_aerodyn(bem_v01_parity, aerodyn_v01_fine, case_index):
+    """The BEM carries the deck prebend (BlCrvAC) like AeroDyn: outboard mean alpha offset <= 0.07 deg.
+
+    Independent confirmation of the precurve sign (``precurve = -prebend``): a wrong sign or a
+    straight blade moves the pitched outboard alpha by 0.11 deg or more.
+    """
+    case = V01_CASES[case_index]
+    ref = aerodyn_v01_fine[case_index]
+    solver = bem_v01_parity["solver"]
+    # AeroDyn's output is the last-revolution mean; tilt makes alpha azimuth dependent, so average
+    # the BEM over 12 azimuths (the tilt harmonic averages out exactly).
+    alpha = np.mean(
+        [solver.compute(*case, azimuth=az).alpha for az in np.arange(12) * 30.0], axis=0
+    )
+    r = solver.blade_aero.r
+    window = (r > PREBEND_WINDOW_M[0]) & (r < PREBEND_WINDOW_M[1])
+    offset = float(np.mean(alpha[window] - ref.alpha_deg[window]))
+    print(f"[PB] V={case[0]:.3f} pitch={case[2]:.3f}: mean outboard d_alpha {offset:+.3f} deg")
+    assert_residual_below(
+        abs(offset),
+        atol=TOL_PREBEND_ALPHA_DEG,
+        unit="deg",
+        kind="code",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, outboard 80-116 m",
+        what="mean outboard angle-of-attack offset (prebend)",
+    )
+
+
 @pytest.mark.parametrize("case_index", range(len(CASES)))
 def test_spanwise_loads_match_aerodyn(bem_parity, case_index):
     """Interior-span angle of attack and normal coefficient match AeroDyn."""
@@ -493,9 +613,7 @@ def test_spanwise_loads_match_aerodyn(bem_parity, case_index):
     interior = bem_parity["interior"]
 
     d_alpha = np.abs(computed.alpha - ref.alpha_deg)[interior]
-    d_cn = np.abs(
-        (computed.cn - ref.cn) / np.where(ref.cn == 0.0, np.nan, ref.cn)
-    )[interior]
+    d_cn = np.abs((computed.cn - ref.cn) / np.where(ref.cn == 0.0, np.nan, ref.cn))[interior]
 
     max_alpha = float(d_alpha.max())
     mean_cn = float(np.nanmean(d_cn))

@@ -4,7 +4,7 @@ rows:
   group: '40'
   title: S-4 parked modes vs OpenFAST MBC3
   tests:
-  - tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0]
+  - tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py::test_v2_s4_parked_modal_vs_openfast
   validates: Parked blade modal frequencies against OpenFAST v5.0.0 MBC3.
   comparisons:
   - label: First flap frequency
@@ -15,16 +15,17 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:172
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:128
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.023348
-      margin_pct: 2.3348
-      text: 'S-4 parked 1F: 0.518922 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.507083 (error +2.3348 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+      run: 590ee3c
+      date: '2026-11-23'
+      raw: 0.51844
+      margin_pct: 2.2398
+      text: 'S-4 v2 parked 1F vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first flap, Hz: 0.51844 vs 0.507083 (error: 2.2398%, bound: 5.0000%)'
+      digest: ac5d8d87cde4b9e8
     expected: 0.507083
   - label: First edge frequency
     asserted: true
@@ -34,16 +35,17 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:172
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:133
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.005559
-      margin_pct: 0.5559
-      text: 'S-4 parked 1E: 0.697231 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.693376 (error +0.5559 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+      run: 590ee3c
+      date: '2026-11-23'
+      raw: 0.68469
+      margin_pct: 1.2527
+      text: 'S-4 v2 parked 1E vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first edge, Hz: 0.68469 vs 0.693376 (error: 1.2527%, bound: 5.0000%)'
+      digest: 89f6affe38bbc74b
     expected: 0.693376
   - label: Second flap frequency
     asserted: true
@@ -53,24 +55,35 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:172
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:138
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.001974
-      margin_pct: 0.1974
-      text: 'S-4 parked 2F: 1.483824 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 1.4809 (error +0.1974 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+      run: 590ee3c
+      date: '2026-11-23'
+      raw: 1.48156
+      margin_pct: 0.0444
+      text: 'S-4 v2 parked 2F vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked second flap, Hz: 1.48156 vs 1.4809 (error: 0.0444%, bound: 5.0000%)'
+      digest: 8db91a9d5ebc52bc
     expected: 1.4809
   flags: []
-  notes: Judged against BeamDyn p20 (K8) at 4d64ea8, es 0.25, mid-surface; ElastoDyn printed as comparison only. Parked es 0.125 (SLURM 11619955) moves each family <= 0.14 pp (K7.2), all within 5 % of BeamDyn. Rated 1E is judged in the rated row against the BeamDyn driver (K10). Verdicts in contract.yaml.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0], deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 40`. Earlier note: Judged against BeamDyn p20 (K8) at 4d64ea8, es 0.25, mid-surface; ElastoDyn printed as comparison only. Parked es 0.125 (SLURM 11619955) moves each family <= 0.14 pp (K7.2), all within 5 % of BeamDyn. Rated 1E is judged in the rated row against the BeamDyn driver (K10). Verdicts in contract.yaml.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''First flap frequency'': raw 0.023348, margin 2.3348 %, 2026-10-24. S-4 parked 1F: 0.518922 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.507083 (error +2.3348 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+    evidence: git show c70247c^:tests/test_iea15mw_s4_rotating_modal.py
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''First edge frequency'': raw 0.005559, margin 0.5559 %, 2026-10-24. S-4 parked 1E: 0.697231 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.693376 (error +0.5559 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+    evidence: git show c70247c^:tests/test_iea15mw_s4_rotating_modal.py
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Second flap frequency'': raw 0.001974, margin 0.1974 %, 2026-10-24. S-4 parked 2F: 1.483824 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 1.4809 (error +0.1974 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+    evidence: git show c70247c^:tests/test_iea15mw_s4_rotating_modal.py
 - id: blade_rotating_modes.s4_rated_openfast_modes
   group: '40'
   title: S-4 rated modes vs OpenFAST MBC3
   tests:
-  - tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]
+  - tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py::test_v2_s4_rated_modal_vs_openfast
   validates: Rated blade modal frequencies against OpenFAST v5.0.0 MBC3.
   comparisons:
   - label: First flap frequency
@@ -81,16 +94,17 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:172
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:149
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.018451
-      margin_pct: 1.8451
-      text: 'S-4 rated first flap (7.56 rpm): 0.541819 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.532003 (error +1.8451 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+      run: 590ee3c
+      date: '2026-11-23'
+      raw: 0.541401
+      margin_pct: 1.7665
+      text: 'S-4 v2 rated 1F vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) rated first flap at 7.56 rpm, Hz: 0.541401 vs 0.532003 (error: 1.7665%, bound: 5.0000%)'
+      digest: d007615626e468bc
     expected: 0.532003
   - label: First edge frequency
     asserted: true
@@ -100,16 +114,17 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:172
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:154
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.004424
-      margin_pct: 0.4424
-      text: 'S-4 rated 1E (7.56 rpm): 0.702508 Hz vs OpenFAST v5.0.0 BeamDyn driver p20 (dynamic free vibration, official v1.1 deck, hub 0) 0.699413 (error +0.4424 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+      run: 590ee3c
+      date: '2026-11-23'
+      raw: 0.690059
+      margin_pct: 1.3375
+      text: 'S-4 v2 rated 1E vs OpenFAST v5.0.0 BeamDyn driver, dynamic, p20 (official v1.1 deck, hub 0) rated first edge at 7.56 rpm, Hz: 0.690059 vs 0.699413 (error: 1.3375%, bound: 5.0000%)'
+      digest: 8b1aa367ef92ec4c
     expected: 0.699413
   - label: Second flap frequency
     asserted: true
@@ -119,16 +134,27 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:172
+      source: tests/validation/blade/v2/test_v2_iea15mw_s4_rotating_modal.py:159
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: d5d0fd2
-      date: '2026-10-24'
-      raw: 0.000598
-      margin_pct: 0.0598
-      text: 'S-4 rated second flap (7.56 rpm): 1.508960 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 1.508057 (error +0.0598 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+      run: 590ee3c
+      date: '2026-11-23'
+      raw: 1.50711
+      margin_pct: 0.0626
+      text: 'S-4 v2 rated 2F vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) rated second flap at 7.56 rpm, Hz: 1.50711 vs 1.50806 (error: 0.0626%, bound: 5.0000%)'
+      digest: a2e4c8c6f783d516
     expected: 1.508057
   flags: []
-  notes: Judged against BeamDyn p20 (K8) at 4d64ea8, es 0.25, mid-surface; ElastoDyn printed as comparison only. Parked es 0.125 (SLURM 11619955) moves each family <= 0.14 pp (K7.2), all within 5 % of BeamDyn. Rated 1E is asserted against the OpenFAST v5.0.0 BeamDyn driver (dynamic, p20, hub 0; K10, odd/tasks/validation-l3-b3-audit.md, B3-2.2 K10.3-K10.5 RESULT) at 2eab2c6, +0.121 % es 0.25, +0.204 % es 0.125; the MBC3 rated 1E stays inadmissible (T1/T7 artefact). Verdicts in contract.yaml.
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56], deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 40`. Earlier note: Judged against BeamDyn p20 (K8) at 4d64ea8, es 0.25, mid-surface; ElastoDyn printed as comparison only. Parked es 0.125 (SLURM 11619955) moves each family <= 0.14 pp (K7.2), all within 5 % of BeamDyn. Rated 1E is asserted against the OpenFAST v5.0.0 BeamDyn driver (dynamic, p20, hub 0; K10, odd/tasks/validation-l3-b3-audit.md, B3-2.2 K10.3-K10.5 RESULT) at 2eab2c6, +0.121 % es 0.25, +0.204 % es 0.125; the MBC3 rated 1E stays inadmissible (T1/T7 artefact). Verdicts in contract.yaml.'
+  history:
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''First flap frequency'': raw 0.018451, margin 1.8451 %, 2026-10-24. S-4 rated first flap (7.56 rpm): 0.541819 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.532003 (error +1.8451 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+    evidence: git show c70247c^:tests/test_iea15mw_s4_rotating_modal.py
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''First edge frequency'': raw 0.004424, margin 0.4424 %, 2026-10-24. S-4 rated 1E (7.56 rpm): 0.702508 Hz vs OpenFAST v5.0.0 BeamDyn driver p20 (dynamic free vibration, official v1.1 deck, hub 0) 0.699413 (error +0.4424 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+    evidence: git show c70247c^:tests/test_iea15mw_s4_rotating_modal.py
+  - rev: d5d0fd2
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56] (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''Second flap frequency'': raw 0.000598, margin 0.0598 %, 2026-10-24. S-4 rated second flap (7.56 rpm): 1.508960 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 1.508057 (error +0.0598 %, bound 5 %) PASS; blade input audit T9 tree, es 0.25, skin on mid-surface; SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-s4.log, capture-s4.pkl) at d5d0fd2. es 0.125 and the ElastoDyn comparison are not re-measured here.'
+    evidence: git show c70247c^:tests/test_iea15mw_s4_rotating_modal.py

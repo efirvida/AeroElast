@@ -17,9 +17,9 @@ pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[
 from aeroelast.models.blade.aerodynamics import load_blade_aero
 from aeroelast.solvers.bem.engine import BEMResult, BEMSolver
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
 
-IEA_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+IEA_YAML = str(V2_BLADE_YAML)  # windIO 2.x official file (gmsh-official-mesher T14)
 
 # Published IEA-15-240-RWT rated aerodynamic power (Gaertner et al. 2020,
 # NREL/TP-5000-75698).  The BEM result is aerodynamic power, so it sits a few

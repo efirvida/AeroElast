@@ -7,7 +7,7 @@ rows:
   - tests/validation/parity/test_thin_walled_tube_torsion.py::test_self_equilibrated_isotropic_reproduces_bredt
   validates: 'Boundary-layer-free torsion, isotropic MITC4: both metrics equal ``T/GJ``.'
   comparisons:
-  - label: rtol at line 527
+  - label: rtol at line 533
     asserted: true
     reference:
       kind: analytical
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:527
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:533
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -26,7 +26,7 @@ rows:
       margin_pct: 0.3052
       text: 'isotropic theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.996948 vs 1 (error: 0.3052%, bound: 5.0000%)'
       digest: 899d34c384d6e6d6
-  - label: rtol at line 535
+  - label: rtol at line 541
     asserted: true
     reference:
       kind: analytical
@@ -34,7 +34,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:535
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:541
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -54,7 +54,7 @@ rows:
   - tests/validation/parity/test_thin_walled_tube_torsion.py::test_self_equilibrated_laminate_reproduces_bredt
   validates: 'Boundary-layer-free torsion, MITC4Composite ``[45,-45]s``: both metrics equal ``T/GJ``.'
   comparisons:
-  - label: rtol at line 550
+  - label: rtol at line 556
     asserted: true
     reference:
       kind: analytical
@@ -62,7 +62,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:550
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:556
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -73,7 +73,7 @@ rows:
       margin_pct: 0.5815
       text: 'laminate theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.994185 vs 1 (error: 0.5815%, bound: 5.0000%)'
       digest: 15010bb92140e19d
-  - label: rtol at line 558
+  - label: rtol at line 564
     asserted: true
     reference:
       kind: analytical
@@ -81,7 +81,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:558
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:564
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -101,7 +101,7 @@ rows:
   - tests/validation/parity/test_thin_walled_tube_torsion.py::test_clamped_root_metric_convergence_identifies_the_section_rotation
   validates: 'Clamped root + tip shear flow: which metric is the section rotation, and how long is the layer.'
   comparisons:
-  - label: rtol at line 614 (thickness=0.01, ref_rate=ref_10)
+  - label: rtol at line 620 (thickness=0.01, ref_rate=ref_10)
     asserted: true
     reference:
       kind: analytical
@@ -109,7 +109,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:614
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:620
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -120,7 +120,7 @@ rows:
       margin_pct: 0.0216
       text: 't=10.0 mm asymptotic theta_z rate at L=24 m vs the idealised limit: at L=24 m the section rotation rate is T/GJ, so the theta_z rate on it must reach 1: 0.999784 vs 1 (error: 0.0216%, bound: 5.0000%)'
       digest: 2baddc6fe393a5f0
-  - label: rtol at line 614 (thickness=0.0005, ref_rate=ref_05)
+  - label: rtol at line 620 (thickness=0.0005, ref_rate=ref_05)
     asserted: true
     reference:
       kind: analytical
@@ -128,7 +128,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:614
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:620
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -148,7 +148,7 @@ rows:
   - tests/validation/parity/test_thin_walled_tube_torsion.py::test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist
   validates: The rated case's load pattern on a geometry whose twist is known exactly.
   comparisons:
-  - label: rtol at line 877
+  - label: rtol at line 883
     asserted: true
     reference:
       kind: analytical
@@ -156,7 +156,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:877
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:883
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -167,7 +167,7 @@ rows:
       margin_pct: 0.5433
       text: 'tip theta_z, 10 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.000985095 vs 0.000990476 (error: 0.5433%, bound: 5.0000%)'
       digest: c0113edd9f75b870
-  - label: rtol at line 885
+  - label: rtol at line 891
     asserted: true
     reference:
       kind: analytical
@@ -175,7 +175,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:885
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:891
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -186,7 +186,7 @@ rows:
       margin_pct: 0.5433
       text: 'tip theta_z, 10 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.00197019 vs 0.00198095 (error: 0.5433%, bound: 5.0000%)'
       digest: c0b5474b9594261b
-  - label: rtol at line 893
+  - label: rtol at line 899
     asserted: true
     reference:
       kind: analytical
@@ -194,7 +194,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:893
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:899
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -205,7 +205,7 @@ rows:
       margin_pct: 0.4108
       text: 'tip theta_z, 0.5 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0197282 vs 0.0198095 (error: 0.4108%, bound: 5.0000%)'
       digest: c8454927bfad6d4e
-  - label: rtol at line 901
+  - label: rtol at line 907
     asserted: true
     reference:
       kind: analytical
@@ -213,7 +213,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_thin_walled_tube_torsion.py:901
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:907
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

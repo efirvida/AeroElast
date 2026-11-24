@@ -176,11 +176,11 @@ def station_fields(coords, u, ring_id, w, box, z_st, fit: str = "all"):
     return interp(mean[:, 0]), interp(mean[:, 1]), interp(theta)
 
 
-def chord_at(z, yaml_file: Path = ROOT / "tests/IEA-15-240-RWT.yaml") -> np.ndarray:
+def chord_at(z, yaml_file: Path = ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml") -> np.ndarray:
     """Local chord (m) of the official yaml at ``z`` (the yaml chord grid is the fraction z / 117)."""
     import yaml
 
-    c = yaml.safe_load(yaml_file.read_text())["components"]["blade"]["outer_shape_bem"]["chord"]
+    c = yaml.safe_load(yaml_file.read_text())["components"]["blade"]["outer_shape"]["chord"]
     return np.interp(np.asarray(z) / BLADE_LENGTH, c["grid"], c["values"])
 
 
@@ -266,7 +266,7 @@ def step_bd():
 def step_shell(key):
     from run_s4_rotating_modal import assemble_rotating, omega_from_rpm
     from s2_ring_metric_blade import ring_profile
-    from tests.test_iea15mw_s4_rotating_modal import _build_assembly
+    from tests.validation.blade.v2.test_v2_iea15mw_s4_rotating_modal import _build_assembly
     from aeroelast.postprocess.sectional import box_node_mask
 
     rpm = 0.0 if key == "parked" else RPM_RATED

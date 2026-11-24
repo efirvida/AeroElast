@@ -35,8 +35,9 @@ Design notes (see tools/run_s5_oneway.py for the full rationale):
     injected a spurious ~13%; that premise came from the OML skin placement,
     whose flap stiffness hid the stiffening.  The shell's rotating modes close
     against OpenFAST at the same speed (S-4: 1st flap -1.4%).
-  * The section frames come from the AD geometric twist (BlTwist, negated —
-    the shell is built mirrored in the twist), so the Fn/Ft mapping is exact.
+  * The section frames come from the AD geometric twist: the mesh chord sits at psi = -BlTwist
+    (AeroDyn twist is positive to feather; numad v1 always, windIO-v2/gmsh since the T11 pretwist
+    fix), and ``apply_ad_loads`` builds the Fn/Ft frame at psi = -BlTwist, so the mapping is exact.
   * The loads artifact (tests/IEA15MW/reference/s5_ad_blade1_loads.csv) makes
     the test OpenFAST-independent.
 

@@ -12,14 +12,21 @@ rows:
     reference:
       kind: paper
       citation: gaertner2020
-      label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s'
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s
     tolerance:
       kind: rtol
       value: 0.05
       source: tests/test_iea15mw_v01_rotor_performance.py:76
       justified: true
       justification: Source-stated 5% relative bound; retained without an independence claim.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 2.1036
+      text: 'rated rotor thrust vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 2.1036% (bound: 5.0000%)'
+      digest: 60fc97f4e4590d08
     expected: 2457000.0
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -35,14 +42,21 @@ rows:
     reference:
       kind: paper
       citation: gaertner2020
-      label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s'
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s
     tolerance:
       kind: rtol
       value: 0.05
       source: tests/test_iea15mw_v01_rotor_performance.py:84
       justified: true
       justification: Source-stated 5% relative bound; retained without an independence claim.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 2.8754
+      text: 'rated rotor torque vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 2.8754% (bound: 5.0000%)'
+      digest: 55b843f4da9938e3
     expected: 19910000.0
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -58,14 +72,21 @@ rows:
     reference:
       kind: paper
       citation: gaertner2020
-      label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s'
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s
     tolerance:
       kind: atol
       value: 0.02
       source: tests/test_iea15mw_v01_rotor_performance.py:92
       justified: true
       justification: Source-stated absolute Cp bound, not a relative 2% tolerance; classification is deferred to the audit.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.00992022
+      text: 'rated Cp vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.00992022 (bound: 0.02)'
+      digest: 0cf4d5c0b1621afc
     expected: 0.4618
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -81,14 +102,21 @@ rows:
     reference:
       kind: paper
       citation: gaertner2020
-      label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s'
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s
     tolerance:
       kind: atol
       value: 0.05
       source: tests/test_iea15mw_v01_rotor_performance.py:100
       justified: true
       justification: Source-stated absolute Ct bound; retained without a verdict.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.0104281
+      text: 'rated Ct vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.0104281 (bound: 0.05)'
+      digest: 26867ce08c1381b4
     expected: 0.7718
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -101,15 +129,45 @@ rows:
   comparisons:
   - label: Cp absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=5.006 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:135', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=5.006 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:135
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.0137297
+      text: 'Cp at V=5.006 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.0137297 (bound: 0.05)'
+      digest: 9cd38602294d0d36
     expected: 0.4164
   - label: Ct absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=5.006 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:138', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=5.006 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:138
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.013016
+      text: 'Ct at V=5.006 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.013016 (bound: 0.05)'
+      digest: 51f399e872262869
     expected: 0.7842
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -122,15 +180,45 @@ rows:
   comparisons:
   - label: Cp absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=7.159 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:135', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=7.159 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:135
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.010199
+      text: 'Cp at V=7.159 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.010199 (bound: 0.05)'
+      digest: 78dd398a41d83992
     expected: 0.4616
   - label: Ct absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=7.159 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:138', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=7.159 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:138
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.0108649
+      text: 'Ct at V=7.159 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.0108649 (bound: 0.05)'
+      digest: 02825ddb9714093d
     expected: 0.7783
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -143,15 +231,45 @@ rows:
   comparisons:
   - label: Cp absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=9.027 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:135', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=9.027 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:135
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.010199
+      text: 'Cp at V=9.027 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.010199 (bound: 0.05)'
+      digest: 78dd398a41d83992
     expected: 0.4616
   - label: Ct absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=9.027 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:138', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=9.027 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:138
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.0107844
+      text: 'Ct at V=9.027 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.0107844 (bound: 0.05)'
+      digest: b1ff0f9d9d268803
     expected: 0.7783
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -164,15 +282,45 @@ rows:
   comparisons:
   - label: Cp absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:135', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:135
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.00992022
+      text: 'Cp at V=10.659 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.00992022 (bound: 0.05)'
+      digest: 0cf4d5c0b1621afc
     expected: 0.4618
   - label: Ct absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:138', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=10.659 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:138
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.0104281
+      text: 'Ct at V=10.659 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.0104281 (bound: 0.05)'
+      digest: 26867ce08c1381b4
     expected: 0.7718
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -185,15 +333,45 @@ rows:
   comparisons:
   - label: Cp absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=12.259 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:135', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=12.259 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:135
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.00722447
+      text: 'Cp at V=12.259 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.00722447 (bound: 0.05)'
+      digest: f855a204c8be91b9
     expected: 0.3036
   - label: Ct absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=12.259 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:138', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=12.259 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:138
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.00501369
+      text: 'Ct at V=12.259 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.00501369 (bound: 0.05)'
+      digest: 46609604fcfe9924
     expected: 0.3875
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).
@@ -206,15 +384,45 @@ rows:
   comparisons:
   - label: Cp absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=15.471 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:135', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=15.471 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:135
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.00227278
+      text: 'Cp at V=15.471 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.00227278 (bound: 0.05)'
+      digest: a2e0bc6f6f4496cb
     expected: 0.1511
   - label: Ct absolute difference
     asserted: true
-    reference: {kind: paper, citation: gaertner2020, label: 'NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=15.471 m/s'}
-    tolerance: {kind: atol, value: 0.05, source: 'tests/test_iea15mw_v01_rotor_performance.py:138', justified: true, justification: Source-stated absolute coefficient bound; no verdict or independence claim.}
-    measured: {status: not_measured}
+    reference:
+      kind: paper
+      citation: gaertner2020
+      label: NREL/TP-5000-75698, Table 3-1; IEA-15-240-RWT_tabular.xlsx, sheet "Rotor Performance" (auto-generated from WISDEM quasi-static), V=15.471 m/s
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/test_iea15mw_v01_rotor_performance.py:138
+      justified: true
+      justification: Source-stated absolute coefficient bound; no verdict or independence claim.
+    measured:
+      status: measured
+      run: 1fb16f8
+      date: '2026-11-15'
+      raw: null
+      margin_pct: 0.00105629
+      text: 'Ct at V=15.471 m/s vs WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance: 0.00105629 (bound: 0.05)'
+      digest: fb80d8b2d57240b4
     expected: 0.1796
   flags: []
   notes: Manual source assertion import only; WISDEM/CCBlade is not an independent arbiter (T5 K6).

@@ -47,11 +47,11 @@ from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E40
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
-from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
+from tests.support.production_rings import strip_station_rings  # noqa: E402
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import DATA_DIR, V2_BLADE_YAML  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = V2_BLADE_YAML  # windIO 2.x official file (gmsh-official-mesher T14)
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Rated point.  ``bem_config["omega"]`` is rad/s and ``_compute_forces`` converts back to
@@ -139,7 +139,10 @@ def fsi():
     u = np.zeros(n)
     u[free] = np.asarray(spsolve(K[np.ix_(free, free)], load[free]))
 
-    phys_stations = _physical_stations(coords)
+    # gmsh-official-mesher T14: the ring a strip's twist is measured on is the production physical ring at the strip centre
+    # (ForceProjector._strip_ring_groups, as BEMFSIParticipant._find_strip_rings picks it), not a z-bucket merge: a gmsh mesh has
+    # no constant-z rings, so a z strip is a different node set than the one production fits.  Built here from its own projector.
+    strip_rings = strip_station_rings(mesh, blade_aero)
     return {
         "participant": participant,
         "participant_prod": participant_prod,
@@ -148,11 +151,7 @@ def fsi():
         "u": u,
         "displacements": np.column_stack([u[0::6], u[1::6], u[2::6]]),
         "bem_rigid": bem_rigid,
-        "phys_stations": phys_stations,
-        "phys_rings": {
-            zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0]
-            for zz in phys_stations
-        },
+        "strip_rings": strip_rings,
     }
 
 
@@ -279,7 +278,7 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
 
     rows = []
     for k in outer:
-        ring = fsi["phys_rings"][_nearest_station(fsi["phys_stations"], mesh_station[k])]
+        ring = fsi["strip_rings"][k]
         rows.append(
             (
                 k,
@@ -513,3 +512,44 @@ def test_reversed_tangential_direction_is_refused(fsi):
             fsi["participant"]._blade_aero,
             {**BEM_CONFIG, "tangential_direction": [-1.0, 0.0, 0.0]},
         )
+
+
+# --- one-way toggles (L5 T6): `deformed_twist` / `deformed_radius`, default True --------------------------------------------
+
+def _geometry_with(participant, monkeypatch, displacements, **toggles):
+    base = getattr(participant, "_test_base_cfg", None)
+    if base is None:  # the module-scoped participant keeps its original config across tests
+        base = participant._test_base_cfg = dict(participant._bem_cfg)
+    cfg = {**base, **toggles}
+    monkeypatch.setattr(participant, "_bem_cfg", cfg)
+    return participant._compute_deformed_geometry(displacements)
+
+
+def test_toggles_false_return_the_reference_radius_and_twist(fsi, monkeypatch):
+    p = fsi["participant"]
+    r_def, twist_def = _geometry_with(p, monkeypatch, fsi["displacements"], deformed_twist=False, deformed_radius=False)
+    np.testing.assert_array_equal(r_def, p._ref_r)
+    np.testing.assert_array_equal(twist_def, p._ref_twist)
+
+
+def test_each_toggle_switches_only_its_own_feedback(fsi, monkeypatch):
+    p = fsi["participant"]
+    u = fsi["displacements"]
+    r_full, t_full = p._compute_deformed_geometry(u)
+    assert not np.array_equal(r_full, p._ref_r) and not np.array_equal(t_full, p._ref_twist)  # the loaded blade moves both
+    r_a, t_a = _geometry_with(p, monkeypatch, u, deformed_twist=False)
+    np.testing.assert_array_equal(r_a, r_full)
+    np.testing.assert_array_equal(t_a, p._ref_twist)
+    r_b, t_b = _geometry_with(p, monkeypatch, u, deformed_radius=False)
+    np.testing.assert_array_equal(r_b, p._ref_r)
+    np.testing.assert_array_equal(t_b, t_full)
+
+
+def test_toggles_default_true_leave_the_deformed_geometry_unchanged(fsi, monkeypatch):
+    p = fsi["participant"]
+    u = fsi["displacements"]
+    assert "deformed_twist" not in p._bem_cfg and "deformed_radius" not in p._bem_cfg  # absent = default
+    r0, t0 = p._compute_deformed_geometry(u)
+    r1, t1 = _geometry_with(p, monkeypatch, u, deformed_twist=True, deformed_radius=True)
+    np.testing.assert_array_equal(r1, r0)
+    np.testing.assert_array_equal(t1, t0)

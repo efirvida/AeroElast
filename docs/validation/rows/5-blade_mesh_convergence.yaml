@@ -7,7 +7,7 @@ rows:
   - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py::test_blade_modal_gap_converges_with_mesh
   validates: The AeroElast-vs-CCX modal gap is discretisation for the low modes.
   comparisons:
-  - label: rtol at line 172
+  - label: rtol at line 234
     asserted: true
     reference:
       kind: code
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:172
+      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:234
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -26,7 +26,7 @@ rows:
       margin_pct: 0.5138
       text: 'worst low-mode gap on the finest mesh vs the CalculiX frequencies for the same blade and mesh: 0.5138 %, bound 1 % PASS (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; first printed value of this comparison in a full-suite log, the 0.1948 % stored at 1d9a665 is the previous record).'
       digest: 80a7c7a60508611e
-  - label: rtol at line 179
+  - label: rtol at line 241
     asserted: true
     reference:
       kind: code
@@ -34,7 +34,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:179
+      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:241
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

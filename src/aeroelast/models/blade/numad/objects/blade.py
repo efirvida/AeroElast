@@ -2,7 +2,6 @@
 import numpy as np
 from numpy import ndarray
 
-from aeroelast.models.blade.numad.io.excel_to_blade import excel_to_blade
 from aeroelast.models.blade.numad.io.yaml_to_blade import yaml_to_blade
 from aeroelast.models.blade.numad.objects.bom import BillOfMaterials
 from aeroelast.models.blade.numad.objects.definition import Definition
@@ -62,12 +61,8 @@ class Blade:
         if filename:
             if "yaml" in filename or "yml" in filename:
                 self.read_yaml(filename)
-            elif "xls" in filename or "xlsx" in filename:
-                self.read_excel(filename)
             else:
-                raise Exception(
-                    "Unknown filetype. Currently supported inputs are excel and yaml files."
-                )
+                raise ValueError(f"{filename}: only windIO yaml blade files are read (NuMAD Excel is retired).")
             self.name = filename.split(".")[0]
         else:
             self.name = "blade"
@@ -98,25 +93,6 @@ class Blade:
 
         """
         yaml_to_blade(self, filename)
-        return self
-
-    def read_excel(self, filename: str, airfoil_dir: str | None = None):
-        """Populate blade attributes with NuMAD Excel file data.
-
-        Parameters
-        ----------
-        filename : str
-            Path to ``.xlsx`` file in the standard NuMAD 3-sheet format
-            (Geometry / Components / Materials).
-        airfoil_dir : str, optional
-            Directory containing airfoil coordinate ``.txt`` files.
-            If *None*, looks for an ``airfoils/`` directory next to *filename*.
-
-        Returns
-        -------
-        self
-        """
-        excel_to_blade(self, filename, airfoil_dir=airfoil_dir)
         return self
 
     def update_blade(self):

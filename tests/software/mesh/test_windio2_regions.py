@@ -6,7 +6,7 @@ import yaml
 from scipy.interpolate import PchipInterpolator
 
 from aeroelast.models.blade.numad.objects.blade import Blade
-from tests.software.mesh.test_windio2_official import OFFICIAL, ROOT, source_reference_length
+from tests.software.mesh.test_windio2_official import OFFICIAL, source_reference_length
 
 
 @pytest.fixture(scope="module")
@@ -71,14 +71,3 @@ def test_reinforcement_boundary_arcs_and_coordinates(official, anchor, handle):
                   if ('anchor', anchor, handle) in p.identities]
         assert point.arc == pytest.approx(expected[k], abs=1e-12)
         np.testing.assert_allclose(point.xyz, xyz[:, k], rtol=1e-12, atol=1e-12)
-
-
-def test_v1_public_web_origin_remains_corner_based():
-    blade = Blade().read_yaml(str(ROOT / "tests/IEA-15-240-RWT.yaml"))
-    g = blade.geometry
-    eta = (g.ispan - g.ispan[0]) / (g.ispan[-1] - g.ispan[0])
-    for actual, (grid, start, end) in zip(blade.keypoints.web_attach_arcs,
-                                         blade.definition.web_nd_arc, strict=True):
-        expected = np.array([g.arclength[1] + (1 - np.interp(eta, grid, nd)) *
-                             (g.arclength[-2] - g.arclength[1]) for nd in (end, start)])
-        np.testing.assert_array_equal(actual, expected)

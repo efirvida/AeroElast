@@ -7,7 +7,7 @@ rows:
   - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_axial
   validates: Test orthotropic composite shell under transverse (out-of-plane) load.
   comparisons:
-  - label: rtol at line 345
+  - label: rtol at line 340
     asserted: true
     reference:
       kind: code
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_orthotropic_shell_parity.py:345
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:340
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -35,7 +35,7 @@ rows:
   - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_bending
   validates: '[0/90/90/0] in-plane lateral bending (Fx) vs Euler-Bernoulli analytical.'
   comparisons:
-  - label: rtol at line 407
+  - label: rtol at line 402
     asserted: true
     reference:
       kind: analytical
@@ -43,7 +43,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_orthotropic_shell_parity.py:407
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:402
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -63,7 +63,7 @@ rows:
   - tests/validation/parity/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence
   validates: N identical isotropic plies must give same K as a single layer of total thickness.
   comparisons:
-  - label: rtol at line 496
+  - label: rtol at line 495
     asserted: true
     reference:
       kind: self
@@ -71,7 +71,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.0001
-      source: tests/validation/parity/test_orthotropic_shell_parity.py:496
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:495
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

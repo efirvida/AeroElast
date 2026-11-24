@@ -1,5 +1,7 @@
 # Diagnóstico: twist elástico y distorsión de sección del shell
 
+> **Superseded method (note 2026-11-20):** the NuMAD model inspected here was removed; the blade mesher is gmsh on the windIO v2 yaml. Findings below are a dated record.
+
 **Fecha**: 2026-09-16
 **Estado**: diagnóstico abierto — documentación de los hallazgos y evidencia hasta la fecha.
 

@@ -1,0 +1,8 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont18
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+built solid z=45 eta=0.3846 level A: NQ=813 nz=43 elements=34959 nodes=157255 L=28.72 chord=4.786
+solid z=45 level A: psi=-7.545 fe/ff=-0.0617 GJ=2.5911e+08 EIf=9.9746e+09 EIe=1.8358e+10 sym_err=0.000 GJ_st2d=1.8908e+08

@@ -50,7 +50,7 @@ skips only when even that lower-bound projection is already over a limit; a
 
 Usage:
     python tools/diagnose_multicell_convergence.py
-    python tools/diagnose_multicell_convergence.py --element-sizes 1.0 0.5
+    python tools/diagnose_multicell_convergence.py --element-sizes 0.25 0.177
     python tools/diagnose_multicell_convergence.py --max-seconds 600 --max-rss-gb 64
 """
 
@@ -91,7 +91,7 @@ from tests.validation.blade.test_blade_rated_twist import (  # noqa: E402
 
 #: Effective default element sizes.  ``0.25`` is attempted last and skipped
 #: gracefully when the stated time / memory limits would be exceeded.
-DEFAULT_ELEMENT_SIZES = (1.0, 0.5, 0.25)
+DEFAULT_ELEMENT_SIZES = (0.25, 0.177)  # certified gmsh sizes; the 1.0 / 0.5 m NuMAD sizes are outside the gmsh range
 
 
 def _peak_rss_gb() -> float:
@@ -190,7 +190,7 @@ def main() -> None:
         type=float,
         nargs="+",
         default=list(DEFAULT_ELEMENT_SIZES),
-        help="chordwise/spanwise mesh sizes to sweep (default: 1.0 0.5 0.25)",
+        help="mesh sizes to sweep [m] (default: 0.25 0.177)",
     )
     parser.add_argument(
         "--max-seconds",

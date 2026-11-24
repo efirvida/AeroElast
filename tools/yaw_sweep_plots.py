@@ -756,12 +756,12 @@ _OMEGA = 0.7906  # rad/s  (7.55 rpm)
 _PITCH = 0.0  # deg  (from fluid_yaw_0.yaml)
 
 # IEA 15 MW YAML file (tests directory, checked in)
-_IEA_YAML = Path(__file__).parent.parent / "tests" / "IEA-15-240-RWT.yaml"
+_IEA_YAML = Path(__file__).parent.parent / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"
 
 
 def _load_iea_twist() -> tuple[np.ndarray, np.ndarray] | None:
     """
-    Load the design twist from tests/IEA-15-240-RWT.yaml.
+    Load the design twist from the windIO 2.x tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml.
 
     Returns (r_norm, twist_deg) where r_norm is the normalized blade span
     [0, 1] and twist_deg is the design twist in degrees.  Returns None when
@@ -775,10 +775,10 @@ def _load_iea_twist() -> tuple[np.ndarray, np.ndarray] | None:
         return None
     with open(_IEA_YAML) as fh:
         d = yaml.safe_load(fh)
-    blade = d["components"]["blade"]["outer_shape_bem"]
+    blade = d["components"]["blade"]["outer_shape"]
     grid = np.asarray(blade["twist"]["grid"], dtype=float)  # 0→1, 50 pts
-    twist_rad = np.asarray(blade["twist"]["values"], dtype=float)
-    return grid, np.degrees(twist_rad)
+    twist_deg = np.asarray(blade["twist"]["values"], dtype=float)  # windIO 2.x upstream file: degrees
+    return grid, twist_deg
 
 
 def _load_bem_spanwise_mean(

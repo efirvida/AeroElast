@@ -3,23 +3,21 @@ config_file: ../precice-config.xml
 coupling_mesh: Fluid-Mesh
 displacement_data: Displacement
 velocity_data: Velocity
-blade_file: ../../IEA-15-240-RWT.yaml
+blade_file: ../reference/upstream/IEA-15-240-RWT.yaml
 mesh:
   source: generator
   generator:
     type: RotorMesh
     params:
-      yaml_file: ../../IEA-15-240-RWT.yaml
-      airfoil_dir: ../../airfoils
-      element_size: 2.0
-      n_samples: 80
-      airfoil_spacing: constant
+      yaml_file: ../reference/upstream/IEA-15-240-RWT.yaml
+      chord_divisions: 20  # reference mesh N20, span AR 1 (AGENTS.md rule 9)
+      span_aspect: 1
       n_blades: 3
       hub_radius: 3.0
   output_file: fluid_mesh.vtu
 aero:
   backend: sharpy
-  blade_file: ../../IEA-15-240-RWT.yaml
+  blade_file: ../reference/upstream/IEA-15-240-RWT.yaml
   rotor:
     n_blades: 3
     hub_radius: 3.0

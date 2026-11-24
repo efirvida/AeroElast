@@ -1,11 +1,11 @@
 """S-4 mesh study: official IEA 15 MW blade, rotating modal (K + K_G + K_SP) vs element size.
 
-Same construction as tests/test_iea15mw_s4_rotating_modal.py (BladeMesh + build_rust_properties +
+Same construction as tests/test_iea15mw_s4_rotating_modal.py (GmshBladeMesh + build_rust_properties +
 assemble_rotating from tools/run_s4_rotating_modal.py, clamped root, mode families by beam projection, classify_modes),
-but with the element size as an argument so the 0.5 m default can be shown to be unconverged.
+but with the element size as an argument so the convergence of the blade mesh can be shown (certified sizes 0.25-0.125 m).
 Prints 1st flap / 1st edge / 2nd flap per element size and rpm against OpenFAST v5.0.0 MBC3,
 preceded by one MODE line per computed mode (frequency, family label, tip translations).
-Usage: scripts/aeroenv.sh python tools/s4_modal_convergence.py 0.5 0.25 [0.125] [--rpm=7.56]
+Usage: scripts/aeroenv.sh python tools/s4_modal_convergence.py 0.25 0.177 [0.125] [--rpm=7.56]
 es=0.125 needs --ntasks=12 on SLURM (OOM with one task).
 """
 import sys
@@ -27,11 +27,12 @@ def run(es: float, rpm: float) -> dict:
     from run_s4_rotating_modal import assemble_rotating, classify_modes, omega_from_rpm
 
     from aeroelast.core.assembler import MeshAssembler
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=es, yaml_file=str(REPO_ROOT / "tests/IEA-15-240-RWT.yaml"))
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
+    gen = blade_generator(V2_IEA15, es)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {"elements": {"element_family": ElementFamily.SHELL, "span_direction": (0.0, 0.0, 1.0), "properties": props}}

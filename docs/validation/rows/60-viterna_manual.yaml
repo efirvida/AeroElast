@@ -18,7 +18,14 @@ rows:
       source: tests/validation/bem/test_bem_polars.py:257
       justified: true
       justification: Source-stated absolute CL bound at every angle in the loop; retained without measurement.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1f0adaf
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 0.0
+      text: 'CL, worst over 20/30/45/60/90 deg vs AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982): 0 (bound: 1e-10)'
+      digest: 5b1f209017e5e986
     expected: cl_ref
   - label: CD absolute difference at 20, 30, 45, 60 and 90 deg
     asserted: true
@@ -31,7 +38,14 @@ rows:
       source: tests/validation/bem/test_bem_polars.py:258
       justified: true
       justification: Source-stated absolute CD bound at every angle in the loop; retained without measurement.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1f0adaf
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 0.0
+      text: 'CD, worst over 20/30/45/60/90 deg vs AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982): 0 (bound: 1e-10)'
+      digest: 5b1f209017e5e986
     expected: cd_ref
   - label: CL absolute value at 90 deg
     asserted: true
@@ -44,7 +58,14 @@ rows:
       source: tests/validation/bem/test_bem_polars.py:261
       justified: true
       justification: Source-stated absolute bound for the manual's zero-lift limit; retained without measurement.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1f0adaf
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 8.6705e-17
+      text: 'CL at 90 deg vs AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982): 8.6705e-17 (bound: 1e-10)'
+      digest: 46545f3873a95f0d
     expected: 0.0
   - label: CD absolute difference from Cd_max at 90 deg
     asserted: true
@@ -57,7 +78,14 @@ rows:
       source: tests/validation/bem/test_bem_polars.py:262
       justified: true
       justification: Source-stated absolute bound for the manual's maximum-drag limit; retained without measurement.
-    measured: {status: not_measured}
+    measured:
+      status: measured
+      run: 1f0adaf
+      date: '2026-11-14'
+      raw: null
+      margin_pct: 0.0
+      text: 'CD minus Cd_max at 90 deg vs AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982): 0 (bound: 1e-10)'
+      digest: 5b1f209017e5e986
     expected: cd_max
   flags: []
   notes: Manual source assertion import only; no execution result or verdict. All other tests in this file are declared non-validation in group 60.

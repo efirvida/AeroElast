@@ -129,8 +129,6 @@ def _resolve_config_paths(cfg: dict, config_path: Path) -> None:
                 wind_cfg["file"] = _resolve(wind_cfg["file"])
 
     mesh_gen = cfg.get("mesh", {}).get("generator", {}).get("params", {})
-    if "excel_file" in mesh_gen:
-        mesh_gen["excel_file"] = _resolve(mesh_gen["excel_file"])
     if "airfoil_dir" in mesh_gen:
         mesh_gen["airfoil_dir"] = _resolve(mesh_gen["airfoil_dir"])
 

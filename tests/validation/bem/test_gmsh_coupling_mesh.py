@@ -75,3 +75,78 @@ def test_projector_rings_are_realisable_on_the_gmsh_mesh(coupling):
     assert sections, "the projector precomputed no ring section"
     # strict about strips: every strip that has a ring must realise the wall flow on at least one of them
     assert not fallback, f"strips {fallback} have no realisable ring and fall back to the minimum-norm field"
+
+
+# --- mesh-size keys reach GmshBladeMesh (L5 T6): forwarded only when present, defaults untouched ---------------------------
+
+class _Stop(Exception):
+    pass
+
+
+class _StubGmsh:
+    """Records the constructor kwargs; ``generate`` stops the caller before any meshing."""
+
+    calls: list = []
+
+    def __init__(self, **kwargs):
+        type(self).calls.append(kwargs)
+
+    def generate(self, *args, **kwargs):
+        raise _Stop
+
+
+
+_MESH_KEYS = {"chord_divisions": 20, "span_aspect": 1.0, "h_range": [0.05, 0.25], "min_band_elements": 2,
+              "min_band_fraction": 1.0}
+
+
+def _cli_kwargs(monkeypatch, tmp_path, params):
+    import aeroelast.core.mesh.gmsh_blade as gb
+
+    _StubGmsh.calls = []
+    monkeypatch.setattr(gb, "GmshBladeMesh", _StubGmsh)
+    cfg = {"mesh": {"source": "generator", "generator": {"type": "GmshBladeMesh", "params": params}}}
+    with pytest.raises(_Stop):
+        _build_mesh(cfg, tmp_path / "case.yaml")
+    assert len(_StubGmsh.calls) == 1
+    return _StubGmsh.calls[0]
+
+
+def _runner_kwargs(monkeypatch, params):
+    from types import SimpleNamespace
+
+    import aeroelast.solvers.fsi.runner as runner
+
+    _StubGmsh.calls = []
+    monkeypatch.setattr(runner, "GmshBladeMesh", _StubGmsh)
+    runner.FSIRunner._gmsh_blade_generator(SimpleNamespace(config_path=None), params)
+    assert len(_StubGmsh.calls) == 1
+    return _StubGmsh.calls[0]
+
+
+def test_cli_forwards_chord_sizing_keys_to_gmsh_blade_mesh(monkeypatch, tmp_path):
+    kw = _cli_kwargs(monkeypatch, tmp_path, {"yaml_file": "/abs/blade.yaml", "skin_reference": "mid", **_MESH_KEYS})
+    assert kw["chord_divisions"] == 20
+    assert kw["span_aspect"] == 1.0
+    assert tuple(kw["h_range"]) == (0.05, 0.25)
+    assert kw["min_band_elements"] == 2
+    assert kw["min_band_fraction"] == 1.0
+
+
+def test_runner_forwards_chord_sizing_keys_to_gmsh_blade_mesh(monkeypatch):
+    kw = _runner_kwargs(monkeypatch, {"yaml_file": "/abs/blade.yaml", "skin_reference": "mid", **_MESH_KEYS})
+    assert kw["chord_divisions"] == 20
+    assert kw["span_aspect"] == 1.0
+    assert tuple(kw["h_range"]) == (0.05, 0.25)
+    assert kw["min_band_elements"] == 2
+    assert kw["min_band_fraction"] == 1.0
+
+
+def test_cli_without_chord_keys_keeps_the_previous_kwargs(monkeypatch, tmp_path):
+    kw = _cli_kwargs(monkeypatch, tmp_path, {"yaml_file": "/abs/blade.yaml"})
+    assert kw == {"yaml_file": "/abs/blade.yaml", "element_size": 0.25, "skin_reference": "oml"}
+
+
+def test_runner_without_chord_keys_keeps_the_previous_kwargs(monkeypatch):
+    kw = _runner_kwargs(monkeypatch, {"yaml_file": "/abs/blade.yaml"})
+    assert kw == {"yaml_file": "/abs/blade.yaml", "element_size": 0.25, "skin_reference": "mid"}

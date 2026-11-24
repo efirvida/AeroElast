@@ -42,7 +42,7 @@ vendored copy).  Theirs: `$SCRATCH/ofruns/OpenFAST/.../IEA-15-240-RWT-Monopile_A
 | A14 | unsteady aero | none (quasi-steady) | `UA_Mod=3` (B-L Minnema/Pierce) | CLASS |
 | A15 | tower influence/shadow/drag | none | deck `TwrPotent=1`, `TwrShadow=1`, `TwrAero=True`; driver 0/0/False | MATCH in our runs |
 | A16 | nacelle drag | none | `NacelleDrag=False` | MATCH |
-| A17 | blade geometry source | WindIO `tests/IEA-15-240-RWT.yaml` | `IEA-15-240-RWT_AeroDyn15_blade.dat` | MATCH provenance (same official data) |
+| A17 | blade geometry source | WindIO `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml` | `IEA-15-240-RWT_AeroDyn15_blade.dat` | MATCH provenance (same official data) |
 | A18 | span discretization | 53 stations | 50 nodes | MISMATCH (interpolation) |
 | A19 | sweep / curve offsets | **not used** — `BEMSolver` passes only `r, chord, theta` | `BlSwpAC`, `BlCrvAC` used | MISMATCH, TO CLOSE magnitude |
 | A20 | polar / Re model | NeuralFoil at the local Re (fallback 1e7) | tabulated single design-Re table per airfoil | MISMATCH — measured ~1–3 % on aligned power |
@@ -58,7 +58,7 @@ are *measured* and small — which is why the aero is not the dominant defect.
 
 ## B. Structural side
 
-Ours: WindIO `components`/`materials` (`tests/IEA-15-240-RWT.yaml`) through
+Ours: WindIO `components`/`materials` (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`) through
 `aeroelast` shell model (MITC4+/SRI, `element_size 0.25`).  Theirs: the IEA
 reference — `Blade Structural Properties` sheet of `IEA-15-240-RWT_tabular.xlsx`
 (the BeamDyn coordinate system: 6×6 mass `M_ij` and stiffness `K_ij` matrices
@@ -168,7 +168,7 @@ closed: it is not GJ, and it is not the twist metric.
 states: *"parses the ``outer_shape_bem`` section for chord, twist, pitch axis
 and reference axis, and the ``airfoils`` section for polar data. When an
 airfoil entry has no ``polars`` key, NeuralFoil is used as a fallback"*.
-The WindIO file **does** carry `polars:` blocks (`tests/IEA-15-240-RWT.yaml`
+The WindIO file **does** carry `polars:` blocks (`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`
 lines 565-715): circular `re 3.0e6`, SNL-FFA-W3-500 `re 8.1e6`, and the
 FFA-W3-* family at `re 1.0e7`.  Therefore:
 
@@ -220,7 +220,7 @@ Rotor radius: **official blade coordinate 117.0 m**, **AeroDyn 118.5 m** (BlSpn
 Sources: official = the `Blade Geometry` sheet of
 `IEA-15-240-RWT_tabular.xlsx` (Blade Span [r/R], Rotor Coordinate, Chord,
 Twist, Prebend, Sweep); AD = `IEA-15-240-RWT_AeroDyn15_blade.dat`;
-ours = `tests/IEA-15-240-RWT.yaml` through `load_blade_aero`.
+ours = `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml` through `load_blade_aero`.
 
 **Reading.** The AeroDyn blade tracks the official sheet to 0.2–1.2 %.
 **Our blade does not**: chord +0.1…+3.0 %, twist up to **+1.44°** inboard,
@@ -253,7 +253,7 @@ so was itself a parity error.
 
 **S7 — the pitch axis: present in the data, carried to the stations, not used
 by the aero.**
-`tests/IEA-15-240-RWT.yaml:24` defines `pitch_axis` as a grid/values pair;
+`tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml:24` defines `pitch_axis` as a grid/values pair;
 `aerodynamics.py:672-673` reads it and `:769` hands it to each station;
 `fsi_participant.py:866` re-supplies it when rebuilding stations on the
 deformed geometry.  But `BEMSolver` builds CCBlade from `(r, chord, theta)`

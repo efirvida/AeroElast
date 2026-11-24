@@ -136,7 +136,8 @@ def test_cli_rejected_output_is_clean(tmp_path):
 @pytest.mark.parametrize('unsupported', [False, True])
 def test_panel_report_numpy_section_metadata(tmp_path, monkeypatch, capsys, unsupported):
     """Exercise panel's real report path; replace only expensive external inputs."""
-    from aeroelast.core.mesh import generators
+    monkeypatch.syspath_prepend(str(Path(t7.__file__).parent))  # panel() imports tools/v2_blade_mesh top-level
+    import v2_blade_mesh
 
     source = patch(blade_plane=True)
     source.add_element_set(ElementSet(t7.PANEL, source.elements))
@@ -149,13 +150,15 @@ def test_panel_report_numpy_section_metadata(tmp_path, monkeypatch, capsys, unsu
     data = {'materials': [{'name': 'steel', 'density': 7800.,
                           'elastic': {'E': 210e9, 'nu': 0.}}], 'sections': [section]}
 
-    def synthetic_blade(**kwargs):
-        assert kwargs['element_size'] == .25
-        assert kwargs['skin_reference'] == 'oml'
+    def synthetic_blade(yaml_file, element_size, skin_reference):
+        assert yaml_file == v2_blade_mesh.V2_IEA15
+        assert element_size == .25
+        assert skin_reference == 'oml'
         return SimpleNamespace(numad_mesh_data=data, generate=lambda **kw: source)
 
-    # Substitute the mesher factory, not mesh/assembler/writer production methods.
-    monkeypatch.setattr(generators, 'BladeMesh', synthetic_blade)
+    # Substitute the mesher factory (the gmsh windIO v2 generator since gmsh-official-mesher T17),
+    # not mesh/assembler/writer production methods.
+    monkeypatch.setattr(v2_blade_mesh, 'blade_generator', synthetic_blade)
     monkeypatch.setattr(t7, 'solve_ccx', lambda mesh, props, force, deck, ccx:
                         (1., np.zeros((len(mesh.nodes), 3))))
     if unsupported:

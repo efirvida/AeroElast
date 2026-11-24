@@ -122,7 +122,7 @@ class BEMStandaloneSolver:
         if blade_file is None:
             raise RuntimeError(
                 "No blade file specified. Ensure the mesh generator config "
-                "contains a yaml_file or excel_file parameter."
+                "contains a yaml_file parameter."
             )
 
         return load_blade_aero(

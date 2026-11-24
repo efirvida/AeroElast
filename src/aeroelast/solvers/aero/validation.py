@@ -203,7 +203,7 @@ def build_reduced_vlm_rotor_mesh(
             twists,
             pitch_axes,
             prebend,
-            sweep,
+            sweep, strict=False,
         ):
             chord_direction = (
                 -math.cos(twist) * tangential_direction - math.sin(twist) * rotation_axis

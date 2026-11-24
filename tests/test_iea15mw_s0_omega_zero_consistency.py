@@ -32,7 +32,6 @@ from test_box_torsion_bending_benchmark import (  # noqa: E402
     L,
     NU,
     T,
-    W,
     _assemble,
     _box_mesh,
 )

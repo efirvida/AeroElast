@@ -25,7 +25,7 @@ B8 (centrifugal) has no CalculiX counterpart -- the writer emits no
 centrifugal *DLOAD -- so it is verified on the AeroElast side only (modal vs
 OpenFAST, S-4).
 
-Mesh: element_size defaults to 0.25 m, the converged size from the S-x study
+Mesh: gmsh on the windIO 2.x yaml, reference mesh N20 AR 1 unless --element-size (0.25 m, the converged size from the S-x study)
 (0.25 -> 0.125 moves f1f by 0.1% and the OoP deflection by 0.5%), which is
 also the finest one full-blade CalculiX can realistically factor.
 
@@ -66,8 +66,8 @@ CASES = (
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--element-size", type=float, default=0.25)
-    ap.add_argument("--blade", type=Path, default=REPO / "tests" / "IEA-15-240-RWT.yaml")
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
+    ap.add_argument("--blade", type=Path, default=REPO / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")
     ap.add_argument("--csv", type=Path,
                     default=REPO / "docs" / "validation_data" / "generated"
                     / "blade_structural_matrix.csv")
@@ -82,7 +82,6 @@ def main() -> None:
                     default=Path("/scratch/leahk/eduardo.donestevez/tmp/opencode/blade_ccx"))
     args = ap.parse_args()
 
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.models.blade.model import build_rust_properties
     from beam_reference import BeamReference
     from run_s2_static_cases import (
@@ -92,7 +91,9 @@ def main() -> None:
     )
 
     print(f"building blade mesh (element_size={args.element_size} m) ...")
-    gen = BladeMesh(element_size=args.element_size, yaml_file=str(args.blade))
+    from v2_blade_mesh import blade_generator
+
+    gen = blade_generator(args.blade, args.element_size)
     mesh = gen.generate(renumber="rcm", verbose=False)
     props = build_rust_properties(gen.numad_mesh_data)
     print(f"  mesh: {mesh.node_count} nodes, {mesh.elements_count} elements, "

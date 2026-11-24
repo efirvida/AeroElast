@@ -1216,6 +1216,162 @@ def test_parse_prints_reads_the_shape_pytest_actually_emits() -> None:
     assert not any("1 passed" in line for line in prints[HOOK_NODE])
 
 
+@pytest.mark.parametrize("group", ["11", "59", "60"])
+def test_l4_groups_read_percent_degree_and_unitless_residuals(group: str) -> None:
+    """The helper prints `x% (bound: y%)`, `x deg (bound: y deg)` and a unit-free `x (bound: y)`.
+
+    Group 11's spanwise test prints the degree form for alpha and the percent form for Cn, so a
+    percent-only pattern read one of its two comparisons (UNMAPPED, 1 print for 2). Groups 59 and
+    60 declare the same canonical shapes.
+    """
+    module = _load_tool_module()
+    patterns = json.loads((REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8"))
+    residual = patterns["patterns"][group]
+    lines = [
+        "interior angle of attack vs OpenFAST 5.0.0 AeroDyn, interior stations: 0.38 deg (bound: 2 deg)",
+        "interior mean normal force coefficient vs OpenFAST 5.0.0 AeroDyn, interior stations: 1.5800% (bound: 2.5000%)",
+        "Cp vs WISDEM: 0.0120153 (bound: 0.02)",
+        "[A1] V=8.0 m/s interior: max|d alpha|=0.380 deg, mean|d Cn|=1.58%",
+    ]
+    asserted, _ = module.extract_residuals(lines, residual)
+    expected = [("0.38", "2"), ("1.5800", "2.5000"), ("0.0120153", "0.02")]
+    # Group 11 never prints a unit-free residual, so its pattern does not claim one.
+    if group == "11":
+        expected = expected[:2]
+    assert [(item["error"], item["bound"]) for item in asserted] == expected
+
+
+def _helper_line(helper: str, *args: Any, **kwargs: Any) -> str:
+    """The line the suite's own assertion helper prints (the helper raises after printing)."""
+    import contextlib
+    import io
+
+    sys.path.insert(0, str(REPO_ROOT))
+    from tests.support import assertions
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.suppress(AssertionError):
+        getattr(assertions, helper)(*args, **kwargs)
+    return buffer.getvalue().strip()
+
+
+@pytest.mark.parametrize(
+    ("group", "line", "error"),
+    [
+        (
+            "38",
+            _helper_line(
+                "assert_residual_below",
+                0.086534,
+                tol=0.05,
+                kind="code",
+                reference_name="BeamDyn blade deck",
+                what="S-1 EI_edge mid-span mean |rel err| (windIO v2 mesh)",
+            ),
+            "8.6534",
+        ),
+        (
+            "39",
+            "S-2 v2 LC1_gravity uy [m]: shell -2.190924 vs OpenFAST BeamDyn p60 -2.231483 "
+            "(signed error: -1.8176%, bound: 5.0000%)",
+            "1.8176",
+        ),
+        (
+            "39",
+            _helper_line(
+                "assert_residual_below",
+                0.0156,
+                tol=0.05,
+                kind="code",
+                reference_name="OpenFAST v5.0.0 BeamDyn p60 node 56 (z 114.845 m, 4.35 chords)",
+                what="S-2 v2 LC1 station uy [m] shell z-slab mean (|dz|<0.5 m, area weighted) "
+                "-2.124655 (BeamDyn -2.158325, signed -1.5600%)",
+            ),
+            "1.5600",
+        ),
+        (
+            "40",
+            _helper_line(
+                "assert_relative_error",
+                0.5,
+                0.51,
+                tol=0.05,
+                kind="code",
+                reference_name="OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first flap, Hz",
+                what="S-4 v2 parked 1F",
+            ),
+            "1.9608",
+        ),
+        (
+            "41",
+            _helper_line(
+                "assert_relative_error",
+                67150.0,
+                67921.0,
+                tol=0.05,
+                kind="code",
+                reference_name="IEA-15-240-RWT_tabular.xlsx, Overview declared mass, 67,921 kg",
+                what="V-03 v2 assembled total blade mass [kg]",
+            ),
+            "1.1351",
+        ),
+        (
+            "42",
+            _helper_line(
+                "assert_relative_error",
+                67000.0,
+                66996.9,
+                tol=0.05,
+                kind="code",
+                reference_name="BeamDyn v1.1 deck mass",
+                what="V-05 v2 assembled shell mass [kg]",
+            ),
+            "0.0046",
+        ),
+        (
+            "71",
+            _helper_line(
+                "assert_residual_below",
+                0.0,
+                tol=1e-12,
+                kind="analytical",
+                reference_name="tau_aero * omega",
+                what="aero power",
+            ),
+            "0.0000",
+        ),
+    ],
+)
+def test_the_residual_patterns_of_the_v2_blade_and_rotor_groups_read_the_real_prints(
+    group: str, line: str, error: str
+) -> None:
+    """The line each test prints is read as one asserted residual, with its error as a number.
+
+    The lines come from the suite's own helpers (or, for the S-2 tip tests, the test's f-string),
+    so a change to the print format breaks here and not in a SLURM regression that reads nothing.
+    """
+    module = _load_tool_module()
+    store = module.load_store(REAL_STORE)
+    asserted, _ = module.extract_residuals([line], store.residual_patterns[group])
+    assert len(asserted) == 1, line
+    assert asserted[0]["error"].lstrip("+-") == error
+
+
+def test_the_s2_tip_prints_of_flap_and_edge_load_cases_are_never_asserted() -> None:
+    """LC2 and LC3 tip rows are not asserted, so their prints are informational, not residuals."""
+    module = _load_tool_module()
+    store = module.load_store(REAL_STORE)
+    lines = [
+        "S-2 v2 LC2_tip_flap uy [m]: shell 90.829308 vs OpenFAST BeamDyn p60 82.273278 "
+        "(signed error: +10.3995%, bound: 5.0000%)",
+        "S-2 v2 LC3_tip_edge ux [m]: shell 38.637278 vs OpenFAST BeamDyn p60 34.469441 "
+        "(signed error: +12.0914%, bound: 5.0000%); tip ring mean 38.794224 (node vs ring -0.4000%)",
+    ]
+    asserted, unasserted = module.extract_residuals(lines, store.residual_patterns["39"])
+    assert asserted == []
+    assert [item["error"] for item in unasserted] == ["10.3995", "12.0914"]
+
+
 def test_extract_residuals_uses_the_declared_group_patterns() -> None:
     module = _load_tool_module()
     patterns = json.loads((REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8"))
@@ -2456,8 +2612,28 @@ def test_the_real_store_status_reports_no_pending_migration() -> None:
     payload = json.loads(completed.stdout)
     groups = {row["group"]: row for row in payload["groups"]}
     assert groups["3"]["rows"] == 31
-    assert groups["10"]["rows"] == 1
+    # Group 10 (out-of-band Scordelis-Lo) was replaced by group 45 at ce87317 (2026-10-13).
+    assert groups["45"]["rows"] == 4
     assert payload["ungrouped_validation_files"] == []
+
+
+def test_status_counts_a_file_claimed_by_a_hand_driven_groups_rows_as_grouped(
+    tmp_path: Path,
+) -> None:
+    """A group with no `source_files` is driven by hand; the files its rows' tests name are grouped.
+
+    The twins of the blade anchors (tests/validation/blade/v2/...) sit under tests/validation and
+    their groups carry hand-written rows, so reading only `source_files` reported them as
+    forgotten although a row cites each. A file no group and no row names stays reported.
+    """
+    groups = copy.deepcopy(GROUPS)
+    groups["groups"][0]["source_files"] = []
+    store = write_store(tmp_path, [make_row()], groups=groups)
+    completed = run(store, "status", "--json")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    ungrouped = json.loads(completed.stdout)["ungrouped_validation_files"]
+    assert GROUP_SOURCE not in ungrouped
+    assert ungrouped, "a validation file no group and no row names must still be reported"
 
 
 def test_duplicate_gap_ids_are_reported(tmp_path: Path) -> None:
@@ -2673,7 +2849,9 @@ def _aeroelast_files_imported_by(source: Path) -> set[str]:
     files: set[str] = set()
     for module in modules:
         base = REPO_ROOT / "src" / Path(*module.split("."))
-        for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        # A package directory wins over a same-named module in Python's import system
+        # (src/aeroelast/core/mesh/ shadows the stale core/mesh.py).
+        for candidate in (base / "__init__.py", base.with_suffix(".py")):
             if candidate.exists():
                 files.add(candidate.relative_to(REPO_ROOT).as_posix())
                 break
@@ -2811,7 +2989,9 @@ def test_contract_only_an_unbounded_gap_blocks_its_level(
     assert contract_report(store)["levels"][0]["closed"] is closed
 
 
-def test_head_revision_on_a_node_without_git_reads_the_submission_snapshot(tmp_path, monkeypatch) -> None:
+def test_head_revision_on_a_node_without_git_reads_the_submission_snapshot(
+    tmp_path, monkeypatch
+) -> None:
     # Compute nodes have no git (l3-closure T21, job 11627035): `regression --write` must record the
     # revision scripts/check_sbatch.sh snapshotted on the login node, not crash after the run.
     module = _load_tool_module()
@@ -2831,5 +3011,7 @@ def test_head_revision_with_git_ignores_the_snapshot(tmp_path, monkeypatch) -> N
     snap.mkdir()
     (snap / "revision").write_text("abc1234\n")
     monkeypatch.setenv("CHECK_GIT_SNAPSHOT", str(snap))
-    expected = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True).stdout.strip()
+    expected = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True
+    ).stdout.strip()
     assert module.head_revision() == expected

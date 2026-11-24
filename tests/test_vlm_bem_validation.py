@@ -7,8 +7,8 @@ import pytest
 
 ccblade = pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[bem]')")
 
-from aeroelast.models.blade.aerodynamics import load_blade_aero
-from aeroelast.solvers.aero.validation import (
+from aeroelast.models.blade.aerodynamics import load_blade_aero  # noqa: E402
+from aeroelast.solvers.aero.validation import (  # noqa: E402
     IEA15MW_REFERENCE_OPERATING_POINTS,
     IEA15MW_ZERO_PITCH_TSR_SWEEP,
     build_reduced_vlm_rotor_mesh,
@@ -21,7 +21,7 @@ from aeroelast.solvers.aero.validation import (
     compute_vlm_polar_corrected_reduced_rotor_metrics,
     compute_vlm_sectional_diagnostics,
 )
-from aeroelast.solvers.bem.engine import BEMSolver
+from aeroelast.solvers.bem.engine import BEMSolver  # noqa: E402
 
 
 def test_build_reduced_vlm_rotor_mesh_has_expected_topology(iea_blade_yaml: str):
@@ -269,7 +269,7 @@ def test_vlm_sectional_diagnostics_have_expected_strip_shapes(iea_blade_yaml: st
     assert (
         max(
             abs(inc - total)
-            for inc, total in zip(diagnostics.alpha_incident_deg, diagnostics.alpha_total_deg)
+            for inc, total in zip(diagnostics.alpha_incident_deg, diagnostics.alpha_total_deg, strict=False)
         )
         > 1.0e-6
     )
@@ -311,7 +311,7 @@ def test_experimental_lift_mode_runs_and_returns_finite_metrics(iea_blade_yaml: 
 
     assert any(
         abs(exp.vlm.torque - base.vlm.torque) > 1.0e-9
-        for exp, base in zip(experimental_rows, baseline_hybrid_rows)
+        for exp, base in zip(experimental_rows, baseline_hybrid_rows, strict=False)
     )
 
 
@@ -355,9 +355,9 @@ def test_reduced_vlm_inboard_negative_torque_extent_matches_bem(iea_blade_yaml: 
         pitch=operating_point.pitch_deg,
     )
 
-    bem_negative_radii = [radius for radius, tp in zip(bem.r, bem.Tp) if tp < 0.0]
+    bem_negative_radii = [radius for radius, tp in zip(bem.r, bem.Tp, strict=False) if tp < 0.0]
     vlm_negative_radii = [
-        radius for radius, dq in zip(diagnostics.radii, diagnostics.strip_base_torque) if dq < 0.0
+        radius for radius, dq in zip(diagnostics.radii, diagnostics.strip_base_torque, strict=False) if dq < 0.0
     ]
 
     assert bem_negative_radii

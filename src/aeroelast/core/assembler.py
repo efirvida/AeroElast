@@ -458,17 +458,9 @@ class MeshAssembler:
             span_dir_list = list(span_dir_raw) if span_dir_raw is not None else None
             self._rust = PyMeshAssembler.from_model(rust_mesh, rust_properties, span_dir_list, None)
             self._row_nnz = np.asarray(self._rust.nnz_per_row(), dtype=PETSc.IntType)
-            self._rho_per_elem = np.asarray(self._rust.rho_per_elem(), dtype=np.float64)
-            # Rust exposes volumetric rho for isotropic specs, but the
-            # centrifugal-load kernel integrates over area, not volume.
-            # Laminate values are already kg/m² and must not be rescaled.
-            thickness_by_element = {}
-            for set_name, prop in rust_properties.items():
-                if isinstance(prop, dict) and prop.get("type") == "isotropic":
-                    for element_id in rust_esets.get(set_name, []):
-                        thickness_by_element[element_id] = float(prop["thickness"])
-            for i, element_id in enumerate(element_ids_arr):
-                self._rho_per_elem[i] *= thickness_by_element.get(element_id, 1.0)
+            # Mass per area (kg/m^2) per element, computed once in Rust (rho*t for
+            # isotropic shells, laminate mass_per_area for composites).
+            self._rho_per_elem = np.asarray(self._rust.mass_per_area(), dtype=np.float64)
             logger.info("[assembler] from_model() done in %.2fs", time.perf_counter() - _t)
             return
 
@@ -529,11 +521,6 @@ class MeshAssembler:
             elem_types.append(code)
             materials_list.append(mat_dict)
 
-        self._rho_per_elem = np.array(
-            [m["rho"] * m["thickness"] if m["type"] == "isotropic"
-             else m["mass_per_area"] for m in materials_list], dtype=np.float64
-        )
-
         try:
             _t_rust = time.perf_counter()
             self._rust = PyMeshAssembler(node_coords, connectivity, elem_types, materials_list)
@@ -541,6 +528,7 @@ class MeshAssembler:
                 "[assembler] PyMeshAssembler() constructed in %.2fs", time.perf_counter() - _t_rust
             )
             self._row_nnz = np.asarray(self._rust.nnz_per_row(), dtype=PETSc.IntType)
+            self._rho_per_elem = np.asarray(self._rust.mass_per_area(), dtype=np.float64)
         except Exception as exc:  # noqa: BLE001
             logger.error("[assembler] PyMeshAssembler() FAILED: %s", exc)
             self._rust = None
@@ -831,36 +819,15 @@ class MeshAssembler:
                     )
                 free_dofs = np.asarray(free_dofs, dtype=np.int64)
 
-                # 1. Centrifugal nodal load (Rust, lumped per element)
-                f_full = self.assemble_centrifugal_load(
-                    omega, rotation_axis, rotation_center
+                # Static-solve prestress K u = f_cf -> membrane state -> K_G: one
+                # implementation in Rust (aeroelast-solvers CentrifugalPrestress),
+                # shared with the RotorFsi / InertialRotorFsi K_G rebuilds.
+                rows, cols, vals = self._rust.assemble_centrifugal_geometric_k(
+                    float(omega),
+                    list(map(float, rotation_axis)),
+                    list(map(float, rotation_center)),
+                    free_dofs,
                 )
-
-                # 2. Static solve K u = f on the free DOFs
-                k_rows, k_cols, k_vals = self._rust.assemble_k()
-                K_full = self._coo_to_petsc(k_rows, k_cols, k_vals)
-                is_free = PETSc.IS().createGeneral(
-                    free_dofs.astype(PETSc.IntType), comm=self.comm
-                )
-                K_red = K_full.createSubMatrix(is_free, is_free)
-
-                u_red = PETSc.Vec().createSeq(len(free_dofs), comm=self.comm)
-                f_red = PETSc.Vec().createSeq(len(free_dofs), comm=self.comm)
-                f_red.setArray(f_full[free_dofs])
-                ksp = PETSc.KSP().create(self.comm)
-                ksp.setOperators(K_red)
-                ksp.setType("preonly")
-                pc = ksp.getPC()
-                pc.setType("lu")
-                pc.setFactorSolverType("mumps")
-                ksp.setFromOptions()
-                ksp.solve(f_red, u_red)
-
-                u_full = np.zeros(self.dofs_count, dtype=np.float64)
-                u_full[free_dofs] = u_red.getArray()
-
-                # 3. K_G from the membrane state of the pre-stress solution
-                rows, cols, vals = self._rust.assemble_geometric_k_from_disp(u_full)
             return self._coo_to_petsc(rows, cols, vals)
 
         # ------------------------------------------------------------------

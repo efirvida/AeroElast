@@ -161,8 +161,7 @@ def test_build_full_rotor_aero_surface_from_rotormesh(iea_blade_yaml: str):
         yaml_file=iea_blade_yaml,
         n_blades=3,
         hub_radius=None,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,  # was element_size=12.0, n_samples=60 (NuMAD-only, rejected by BladeMesh S7b); gmsh-official-mesher T14
     )
     mesh = rotor.generate(renumber=None, verbose=False)
 
@@ -171,7 +170,7 @@ def test_build_full_rotor_aero_surface_from_rotormesh(iea_blade_yaml: str):
 
     assert surface.n_blades == 3
     assert surface.n_panels == mesh.elements_count
-    for blade_surface, blade_geometry in zip(surface.blades, geometry.blades):
+    for blade_surface, blade_geometry in zip(surface.blades, geometry.blades, strict=False):
         assert blade_surface.n_panels == blade_geometry.element_count
         assert np.all(blade_surface.panel_areas > 0.0)
         assert blade_surface.root_reference_radius >= 0.0

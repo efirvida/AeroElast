@@ -412,7 +412,7 @@ class FullRotorAeroSurface:
             )
 
         global_forces = np.zeros((self.total_parent_nodes, 3), dtype=float)
-        for blade, panel_forces in zip(self.blades, blade_panel_forces):
+        for blade, panel_forces in zip(self.blades, blade_panel_forces, strict=False):
             blade_nodal_forces = blade.assemble_nodal_forces(panel_forces)
             global_forces[blade.parent_node_indices] += blade_nodal_forces
         return global_forces
@@ -428,7 +428,7 @@ class FullRotorAeroSurface:
             )
 
         global_forces = np.zeros((self.total_parent_nodes, 3), dtype=float)
-        for blade, panel_pressures in zip(self.blades, blade_panel_pressures):
+        for blade, panel_pressures in zip(self.blades, blade_panel_pressures, strict=False):
             blade_nodal_forces = blade.assemble_nodal_forces_from_pressure(panel_pressures)
             global_forces[blade.parent_node_indices] += blade_nodal_forces
         return global_forces

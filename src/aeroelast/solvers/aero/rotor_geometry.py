@@ -235,7 +235,7 @@ class FullRotorAeroGeometry:
         assembled: np.ndarray | None = None
         field_width = dofs_per_node
 
-        for blade, blade_field in zip(self.blades, blade_fields):
+        for blade, blade_field in zip(self.blades, blade_fields, strict=False):
             scattered = blade.scatter_blade_field(blade_field, dofs_per_node=field_width)
             field_width = scattered.shape[1]
             if assembled is None:

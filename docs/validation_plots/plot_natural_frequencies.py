@@ -9,7 +9,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 modes = ["1F", "1E", "2F", "2E"]
 f_ref = np.array([0.5585, 0.6406, 1.6590, 2.1670])
 
-# AeroElast values extracted with module load gcc + modal solve using tests/NuMAD_utd_iea15mw.xlsx.
+# AeroElast values extracted with module load gcc + modal solve using the retired UTD NuMAD xlsx blade (historical values).
 f_model = np.array([0.5537166320, 0.6289939601, 1.6946080421, 1.9795958844])
 
 x = np.arange(len(modes))

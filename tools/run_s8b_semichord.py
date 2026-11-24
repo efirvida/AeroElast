@@ -123,7 +123,7 @@ def beam_semichord_response(mesh, load_dir_deg: float) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--element-size", type=float, default=0.25)
     args = ap.parse_args()
 
     print(f"[S-8b] Building mesh (element_size={args.element_size}) ...")

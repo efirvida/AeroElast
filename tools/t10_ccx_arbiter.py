@@ -207,15 +207,15 @@ def offset_sections(deck, mesh, props):
 def blade(ref, out):
     if not os.environ.get('SLURM_JOB_ID'):
         raise RuntimeError('blade runs require SLURM')
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
     from aeroelast.core.mesh.io.writers import write_ccx_mesh
     from aeroelast.models.blade.model import build_rust_properties
     from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
     from tests.support.ccx_io import run_ccx, parse_frd_disp, parse_ccx_frequencies
     from run_s2_static_cases import run_shell_case
 
-    gen = BladeMesh(yaml_file=str(REPO / 'tests/IEA-15-240-RWT.yaml'),
-                    element_size=.25, skin_reference=ref)
+    gen = blade_generator(V2_IEA15, .25, ref)
     mesh = gen.generate(renumber='rcm')
     props = build_rust_properties(gen.numad_mesh_data)
     xyz = mesh.coords_array
@@ -223,8 +223,7 @@ def blade(ref, out):
     ccx_mesh = mesh
     ccx_props = props
     if ref == 'mid':
-        oml_gen = BladeMesh(yaml_file=str(REPO / 'tests/IEA-15-240-RWT.yaml'),
-                            element_size=.25, skin_reference='oml')
+        oml_gen = blade_generator(V2_IEA15, .25, 'oml')
         ccx_mesh = oml_gen.generate(renumber='rcm')
         ccx_props = build_rust_properties(oml_gen.numad_mesh_data)
         conn = lambda m: [[m.node_id_to_index[k] for k in e.node_ids] for e in m.elements]

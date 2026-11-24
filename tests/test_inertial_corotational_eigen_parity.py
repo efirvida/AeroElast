@@ -69,7 +69,7 @@ def _build_ksp_vals_python(
         [-nz * nx, -nz * ny, 1 - nz * nz],
     ]
     result = []
-    for r_red, c_red in zip(k_rows, k_cols):
+    for r_red, c_red in zip(k_rows, k_cols, strict=False):
         if r_red >= len(free_dofs) or c_red >= len(free_dofs):
             result.append(0.0)
             continue
@@ -166,8 +166,8 @@ class TestKspFrameInvariance:
             masses, axis, 20.0, dofs_per_node, rows, cols, free_dofs, n_full_dofs
         )
         # |K_SP(2ω)| = 4 · |K_SP(ω)|
-        ratio = [a / b if b != 0.0 else None for a, b in zip(ksp_20, ksp_10)]
-        for r, v10, v20 in zip(ratio, ksp_10, ksp_20):
+        ratio = [a / b if b != 0.0 else None for a, b in zip(ksp_20, ksp_10, strict=False)]
+        for r, v10, v20 in zip(ratio, ksp_10, ksp_20, strict=False):
             if v10 != 0.0:
                 assert abs(r - 4.0) < 1e-12, (
                     f"K_SP should scale as ω²: ratio {r} != 4 for v10={v10}, v20={v20}"

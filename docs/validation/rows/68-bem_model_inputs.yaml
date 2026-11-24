@@ -1,0 +1,76 @@
+group: '68'
+rows:
+- id: bem_model_inputs.test_polar_evaluation_equals_table_at_ev.single
+  group: '68'
+  title: test_polar_evaluation_equals_table_at_every_node
+  tests:
+  - tests/validation/bem/test_bem_prebend_polar_interp.py::test_polar_evaluation_equals_table_at_every_node
+  validates: polar_evaluation_equals_table_at_every_node
+  comparisons:
+  - label: atol at line 92
+    asserted: true
+    reference:
+      kind: self
+      label: pol.cl
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/bem/test_bem_prebend_polar_interp.py:92
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 93
+    asserted: true
+    reference:
+      kind: self
+      label: pol.cd
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/bem/test_bem_prebend_polar_interp.py:93
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 94
+    asserted: true
+    reference:
+      kind: self
+      label: pol.cm
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/bem/test_bem_prebend_polar_interp.py:94
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: bem_model_inputs.test_solution_cl_is_the_table_value_at_t.single
+  group: '68'
+  title: test_solution_cl_is_the_table_value_at_the_solved_alpha
+  tests:
+  - tests/validation/bem/test_bem_prebend_polar_interp.py::test_solution_cl_is_the_table_value_at_the_solved_alpha
+  validates: 'End to end: the Cl the BEM reports is the tabulated Cl at its own alpha.'
+  comparisons:
+  - label: atol at line 111
+    asserted: true
+    reference:
+      kind: self
+      label: cl_table
+    tolerance:
+      kind: atol
+      value: 1.0e-06
+      source: tests/validation/bem/test_bem_prebend_polar_interp.py:111
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

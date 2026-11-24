@@ -7,7 +7,6 @@ Covers:
 - BladeAero property accessors (r, chord, twist)
 """
 
-
 import numpy as np
 import pytest
 
@@ -17,9 +16,10 @@ from aeroelast.models.blade.aerodynamics import (
     load_blade_aero,
 )
 
-from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
+from tests.support.assertions import assert_residual_below  # noqa: E402
 
-IEA_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+IEA_YAML = str(V2_BLADE_YAML)  # windIO 2.x official file (gmsh-official-mesher T14)
 
 
 # =====================================================================
@@ -248,15 +248,49 @@ def test_viterna_matches_aerodyn_theory_manual():
     sin_s, cos_s = np.sin(alpha_s), np.cos(alpha_s)
     a2 = (cl_s - cd_max * sin_s * cos_s) * sin_s / cos_s**2
     b2 = (cd_s - cd_max * sin_s**2) / cos_s
+    worst_cl = 0.0
+    worst_cd = 0.0
     for a_deg in (20.0, 30.0, 45.0, 60.0, 90.0):
         a = np.deg2rad(a_deg)
         cl_ref = cd_max / 2.0 * np.sin(2.0 * a) + a2 * np.cos(a) ** 2 / np.sin(a)
         cd_ref = cd_max * np.sin(a) ** 2 + b2 * np.cos(a)
         cl = float(np.interp(a, alpha_full, cl_full))
         cd = float(np.interp(a, alpha_full, cd_full))
-        assert abs(cl - cl_ref) < 1e-10, f"alpha={a_deg}: CL {cl} != manual {cl_ref}"
-        assert abs(cd - cd_ref) < 1e-10, f"alpha={a_deg}: CD {cd} != manual {cd_ref}"
+        worst_cl = max(worst_cl, abs(cl - cl_ref))
+        worst_cd = max(worst_cd, abs(cd - cd_ref))
+
+    _manual = "AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982)"
+    assert_residual_below(
+        worst_cl,
+        atol=1e-10,
+        unit="",
+        reference_name=_manual,
+        kind="analytical",
+        what="CL, worst over 20/30/45/60/90 deg",
+    )
+    assert_residual_below(
+        worst_cd,
+        atol=1e-10,
+        unit="",
+        reference_name=_manual,
+        kind="analytical",
+        what="CD, worst over 20/30/45/60/90 deg",
+    )
 
     # The manual's two named limits at 90 deg: CL = 0 and CD = Cd_max.
-    assert abs(float(np.interp(np.pi / 2, alpha_full, cl_full))) < 1e-10
-    assert abs(float(np.interp(np.pi / 2, alpha_full, cd_full)) - cd_max) < 1e-10
+    assert_residual_below(
+        abs(float(np.interp(np.pi / 2, alpha_full, cl_full))),
+        atol=1e-10,
+        unit="",
+        reference_name=_manual,
+        kind="analytical",
+        what="CL at 90 deg",
+    )
+    assert_residual_below(
+        abs(float(np.interp(np.pi / 2, alpha_full, cd_full)) - cd_max),
+        atol=1e-10,
+        unit="",
+        reference_name=_manual,
+        kind="analytical",
+        what="CD minus Cd_max at 90 deg",
+    )

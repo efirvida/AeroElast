@@ -1,6 +1,6 @@
 """V-02 mesh study: official IEA 15 MW blade, clamped-root shell modal frequencies vs element size.
 
-Same construction as tests/validation/blade/test_iea15mw_v02_natural_frequencies.py (BladeMesh +
+Same construction as tests/validation/blade/test_iea15mw_v02_natural_frequencies.py (GmshBladeMesh +
 build_rust_properties + ModalSolver, root fixed). Prints the closest-to-reference frequency for the
 first flap/edge modes and the 2nd flap/edge, per element size. Run through scripts/aeroenv.sh on a
 compute node; es=0.125 needs ~12 GB.
@@ -11,17 +11,18 @@ from pathlib import Path
 import numpy as np
 
 REF = {"1F": 0.5585, "1E": 0.6406, "2F": 1.659, "2E": 2.167}
-YAML = Path("tests/IEA-15-240-RWT.yaml")
+YAML = Path("tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml")
 
 
 def modal(es: float) -> np.ndarray:
     from aeroelast.core.bc import DirichletCondition
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
     from aeroelast.solvers.modal import ModalSolver
 
-    gen = BladeMesh(yaml_file=str(YAML), element_size=es)
+    from v2_blade_mesh import blade_generator
+
+    gen = blade_generator(YAML, es)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     cfg = {

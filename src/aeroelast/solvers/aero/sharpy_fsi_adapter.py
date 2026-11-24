@@ -355,7 +355,7 @@ class SharpyRotorFSICaseAdapter:
         radial_ref = self._radial_distance(rotor_coords, rotation_axis, rotation_center)
         sharpy_radial = self._radial_distance(ref_pos, rotation_axis, rotation_center)
 
-        for blade, sharpy_indices in zip(context.geometry.blades, sharpy_nodes_by_blade):
+        for blade, sharpy_indices in zip(context.geometry.blades, sharpy_nodes_by_blade, strict=False):
             fe_indices = np.asarray(blade.parent_node_indices, dtype=int)
             fe_radii = radial_ref[fe_indices]
             sharpy_indices = np.asarray(sharpy_indices, dtype=int)

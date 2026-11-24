@@ -141,6 +141,7 @@ class AeroDynBlade:
     chord: np.ndarray  # [m]
     twist_deg: np.ndarray  # [deg]
     af_id: np.ndarray  # 1-based airfoil table id
+    crv_ac: np.ndarray | None = None  # BlCrvAC out-of-plane prebend [m], negative = upwind
 
 
 def parse_aerodyn_blade(path: str | Path) -> AeroDynBlade:
@@ -183,6 +184,7 @@ def parse_aerodyn_blade(path: str | Path) -> AeroDynBlade:
         chord=data[:, 5],
         twist_deg=data[:, 4],
         af_id=data[:, 6].astype(int),
+        crv_ac=data[:, 1],
     )
 
 
@@ -299,9 +301,7 @@ def write_bem_primary(
             break
     text = "\n".join(lines) + "\n"
     for label, value in defaults.items():
-        text = re.sub(
-            rf"^(\s*)\S+(\s+{label}\b)", rf"\g<1>{value}\g<2>", text, flags=re.M
-        )
+        text = re.sub(rf"^(\s*)\S+(\s+{label}\b)", rf"\g<1>{value}\g<2>", text, flags=re.M)
     dst = Path(dst)
     dst.write_text(text)
     return dst
@@ -332,6 +332,7 @@ def build_blade_aero_from_aerodyn(
                 twist=float(np.deg2rad(blade.twist_deg[i])),
                 pitch_axis=0.25,
                 airfoil=af,
+                prebend=float(blade.crv_ac[i]) if blade.crv_ac is not None else 0.0,
             )
         )
 
@@ -516,9 +517,7 @@ def parse_aerodyn_out(path: str | Path) -> List[AeroDynResult]:
     steady row at the end of every case; DBEMT transients are discarded).
     """
     lines = Path(path).read_text(errors="replace").splitlines()
-    header_idx = next(
-        i for i, ln in enumerate(lines) if ln.startswith(" Time") or "\tTime" in ln
-    )
+    header_idx = next(i for i, ln in enumerate(lines) if ln.startswith(" Time") or "\tTime" in ln)
     header = lines[header_idx].split()
 
     data_lines = []

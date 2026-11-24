@@ -6,13 +6,13 @@
 # verdict on a bound lives here, where `check` validates it, not in the row.
 
 group: "32"
-scope: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py
+scope: tests/validation/blade/v2/test_v2_iea15mw_v02_natural_frequencies.py
 run: 11f62c3
 date: 2026-10-06
 
 adjudications:
   - id: ADJ-1032
-    row: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+    row: blade_v02_natural_frequencies.testv2bladenaturalfrequencies_test_1st_e.single
     field: comparisons[*].tolerance.justification
     candidate_code: "_FREQ_TOL_EDGE = 0.10, a module literal of 0.10"
     verdict: the 10% is the published dispersion of this mode, not a fitted margin
@@ -58,7 +58,7 @@ adjudications:
     status: resolved
 
   - id: ADJ-1034
-    row: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+    row: blade_v02_natural_frequencies.testv2bladenaturalfrequencies_test_1st_e.single
     field: comparisons[*].tolerance.justification
     candidate_code: "_FREQ_TOL_EDGE = 0.05, a module literal of 0.05 (was 0.10)"
     verdict: ADJ-1032 is withdrawn; the 1st edgewise bound is the 5 % L3 ceiling

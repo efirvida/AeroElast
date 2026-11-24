@@ -43,7 +43,7 @@ local distortion as well as the global one.
 
 Usage:
 
-    python tools/blade_ccx_convergence.py [--element-sizes 2.0,1.0,0.5] [--ccx PATH]
+    python tools/blade_ccx_convergence.py [--element-sizes 0.25,0.177] [--ccx PATH]
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ from tests.validation.blade.test_blade_iea15mw_validation import (  # noqa: E402
     _to_rust_mesh,
 )
 
-BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
+BLADE_YAML = REPO / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"
 CASES = {
     "flap": [0.0, 1e5, 0.0],
     "edge": [1e5, 0.0, 0.0],
@@ -126,7 +126,7 @@ def _load_nset(nam_path: Path, name: str) -> list[int]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    ap.add_argument("--element-sizes", default="2.0,1.0,0.5")
+    ap.add_argument("--element-sizes", default="0.25,0.177")
     ap.add_argument("--ccx", default=shutil.which("ccx") or "ccx")
     ap.add_argument("--work-dir", type=Path, default=Path("blade_ccx_convergence"))
     args = ap.parse_args()

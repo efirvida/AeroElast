@@ -934,3 +934,60 @@ group re-extracts to the number of rows already on disk, 190 in all, so none of 
 was a row the change removed. Groups 6, 7, 9 and 14 hold the comparisons that were converted and
 report the rest as nodes with no comparison, which is what they always were.
 
+
+## 19. 2026-11-23 (L-S85): repointing the rows of the deleted v1 blade tests
+
+The v1 retirement (c70247c, odd/tasks/gmsh-official-mesher.md T12) deleted the test files that groups
+32, 34 and 38-42 were built on; `check` went red (29 errors) and two `test_validation_matrix.py` tests
+with it. The user chose to repoint (L-S85), so the store now treats a twin as a *new test with the old
+reference*, not as the same measurement:
+
+- **Where the rows point.** `groups.yaml`, `levels.yaml` (L3 `depends_on`), adjudication 32 and every
+  row's `tests` / `tolerance.source` name `tests/validation/blade/v2/test_v2_iea15mw_*`. Groups 38-42 had
+  `physical_test_files` only because the v1 files sat at the `tests/` root; the twins are under
+  `tests/validation`, so the allow-list is gone. Row ids of the hand-driven groups (38-42) are kept, so
+  `contract.yaml` verdicts and `gaps.yaml` keep resolving; groups 32 and 34 re-derive their ids from the
+  twin's names (`...testv2bladenaturalfrequencies_*`, `...test_v2_s7_*`) and the three `contract.yaml`
+  targets and the two adjudication `row:` keys were renamed with them.
+- **What the numbers are.** Every comparison is `measured: {status: not_measured, margin_pct: null}`. The
+  v1 value, run id, date and text sit in the row's `history` (schema: `rev`, `note`, `evidence`) as "v1
+  measurement, NOT the current one"; the windIO-v2-mesher values staged in `_pending/61..67` are also
+  history, labelled as the retired mesher. Reference, tolerance kind/value and band are those of the v1
+  row. The `contract.yaml` verdicts were not touched: they read `stale` because a commit touched the
+  rows' files after `audited_rev`, which is the intended behaviour.
+- **New rows.** Group 39 gains four interior-station (S12) rows; groups 68-72 cover the BEM/rotor guards and
+  the gmsh fidelity test. A test with no independent reference is not given one: the extractor keeps
+  `reference.kind: self` (68-70) with the code expression as the label, tests with no comparison are
+  `non_validation_tests` with a reason, a file with nothing but such tests is `out_of_scope`
+  (`test_matched_pairs_order.py`). Group 72 is hand-driven (plain asserts the extractor cannot read).
+- **Tool fix.** `status` counted a file as grouped only through `source_files`, so every hand-driven group
+  whose rows cite a file under `tests/validation` left it "forgotten"; it now also counts the files of the
+  rows' `tests` of groups without a source file (pinned by
+  `test_status_counts_a_file_claimed_by_a_hand_driven_groups_rows_as_grouped`).
+- **Left open.** Group 7's comparison (`test_shell_stress_ccx_parity.py:200`, `rtol` against beam theory at
+  mid-span) is not paired by `coherence`; running it rewrites the row (new id, `measured` dropped, hand
+  justification replaced), so the row was restored and the case is a finding for the maintainer. Groups
+  68-72 are on no level (a level assignment is a verdict decision).
+- **Re-measure** with `tools/validation_matrix.py regression --group G` (hand-driven groups 38-42 and 72
+  need `--scope <file>`); `--write` only when the residuals are new baselines for these `not_measured`
+  comparisons, never over a moved one.
+
+### 19.1 Residual patterns for the repointed groups (L-S87)
+
+SLURM regressions of 38-42 and 68-72 stopped with "declares no residual patterns". Patterns now exist for
+38, 39, 40, 41, 42 and 71 (`residual-patterns.json`), proven on the helpers' real output by
+`test_the_residual_patterns_of_the_v2_blade_and_rotor_groups_read_the_real_prints` and, for 71, by a real
+`regression --group 71` (12 `new_baseline`, nothing written). `compare_row` pairs the Nth asserted print with the
+Nth asserted comparison of a row, so a pattern is only usable where each asserted comparison prints one line:
+
+- 39 tip tests print `... (signed error: -1.8176%, bound: 5.0000%)` through an f-string, not a helper; the pattern
+  reads the unsigned magnitude (`margin_pct` has minimum 0) and excludes the `LC2_`/`LC3_` cases, whose rows are
+  not asserted and whose prints are `unasserted`. The station LC3 diagnostic is not read (informational only).
+  The station LC2 comparison was `asserted: false` by mistake (the test asserts it, `_STATION_ASSERTED`); corrected.
+- 68, 69, 70 compare with `np.testing.assert_allclose` and print nothing; 72 prints its masses without a bound and
+  asserts one comparison per material, so its prints cannot be paired one-to-one. These four groups stay without
+  a pattern: they need a test-side change (route the comparison through `assert_residual_below` /
+  `assert_relative_error`), which is outside the store's surfaces.
+- Group 7: a pre-refreshed citation (`label: rtol at line 200`, `source: ...:200`) makes `coherence` pair the
+  comparison and keep the measured block and the hand justification; what it still rewrites is the row id
+  (`..._beam_th.single` -> `..._beam_the.single`), which orphans `contract.yaml:1681`. Left as is.

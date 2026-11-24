@@ -1,13 +1,13 @@
 group: '34'
 rows:
-- id: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
+- id: blade_s7_torsion.test_v2_s7_global_torsion_ratio_within_b.single
   group: '34'
-  title: test_s7_global_torsion_ratio_within_band
+  title: test_v2_s7_global_torsion_ratio_within_band
   tests:
-  - tests/validation/blade/test_iea15mw_s7_torsion.py::test_s7_global_torsion_ratio_within_band
+  - tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py::test_v2_s7_global_torsion_ratio_within_band
   validates: The shell's global torsional response — the tip twist under a tip torsional moment — against the BeamDyn blade deck of the official IEA 15 MW model.
   comparisons:
-  - label: rtol at line 107
+  - label: rtol at line 94
     asserted: true
     reference:
       kind: code
@@ -15,16 +15,24 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_iea15mw_s7_torsion.py:107
+      source: tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py:94
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The bound was 0.30 ([0.7, 1.3]) until 19ff1a3 and is now 0.05 on the ratio ([0.95, 1.05]). Reference is the BeamDyn deck K[5,5] integrated by our own Timoshenko torsion integral: one published numerical source, single arbiter. Measured 0.909073 at es 0.25 on the OML skin (as tools/run_s7_torsion.py builds it): the shell twists 9.1 % less than the beam, so its global GJ sits above the deck, the side S-1 GJ also takes on OML (signed +7.37 % at 7324508; on mid S-1 GJ reads -4.55 %). Over the ceiling with no quantified exception: a finding, not a pass.'
     measured:
       status: measured
-      run: f1c9e91
-      date: '2026-10-27'
-      raw: 1.07171
-      margin_pct: 7.1712
-      text: 'shell/beam tip twist ratio over the 0.3-0.9 span band vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.07171 vs 1 (error: 7.1712%, bound: 5.0000%)'
-      digest: d706c4d3d05e24cc
+      run: 92515f2
+      date: '2026-11-23'
+      raw: 1.08596
+      margin_pct: 8.596
+      text: 'shell/beam tip twist ratio over the 0.3-0.9 span band (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.08596 vs 1 (error: 8.5960%, bound: 5.0000%)'
+      digest: c51a63256df91759
   flags: []
-  notes: 'Corrected twice. 2026-10-10 (72f64de): the tip couple under-delivered the applied moment by kappa = 0.8978 at this mesh; with the load honoured the ratio read 1.046588. 2026-10-11 (E8): beam_twist_profile_deg integrated 1/GJ only up to the last BeamDyn station at or below each section and dropped the partial segment, under-stating the beam twist by 16% on average over the band (37% at worst). Integrated to z, the convergence record reads 0.9251 / 0.9227 / 0.8874 / 0.8670 at element_size 2.0 / 1.0 / 0.5 / 0.25, and about 0.861 derived at 0.125. The sectional-versus-global sign disagreement that E7 left open was this reference error: S-1 at HEAD gives +10.8% signed (12.7% mean |rel|, not the 23.9% its docstring states), on the same side. A counterfactual that moves the skin nodes to the laminate mid-surface closes the ratio to 0.973 at es=0.25. Evidence: issue #20, odd/tasks/s7-torsion-ratio.md sections E7 and E8, tools/diagnose_s7_beam_reference.py, tools/diagnose_oml_reference_surface.py.'
+  notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/validation/blade/test_iea15mw_s7_torsion.py::test_s7_global_torsion_ratio_within_band, deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 34`. Earlier note: Corrected twice. 2026-10-10 (72f64de): the tip couple under-delivered the applied moment by kappa = 0.8978 at this mesh; with the load honoured the ratio read 1.046588. 2026-10-11 (E8): beam_twist_profile_deg integrated 1/GJ only up to the last BeamDyn station at or below each section and dropped the partial segment, under-stating the beam twist by 16% on average over the band (37% at worst). Integrated to z, the convergence record reads 0.9251 / 0.9227 / 0.8874 / 0.8670 at element_size 2.0 / 1.0 / 0.5 / 0.25, and about 0.861 derived at 0.125.
+    The sectional-versus-global sign disagreement that E7 left open was this reference error: S-1 at HEAD gives +10.8% signed (12.7% mean |rel|, not the 23.9% its docstring states), on the same side. A counterfactual that moves the skin nodes to the laminate mid-surface closes the ratio to 0.973 at es=0.25. Evidence: issue #20, odd/tasks/s7-torsion-ratio.md sections E7 and E8, tools/diagnose_s7_beam_reference.py, tools/diagnose_oml_reference_surface.py.'
+  history:
+  - rev: f1c9e91
+    note: 'v1 measurement, NOT the current one (L-S85): taken on tests/validation/blade/test_iea15mw_s7_torsion.py::test_s7_global_torsion_ratio_within_band (deleted at c70247c, NuMAD mesh es 0.25 mid-surface), comparison ''rtol at line 107'': raw 1.07171, margin 7.1712 %, 2026-10-27. shell/beam tip twist ratio over the 0.3-0.9 span band vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.07171 vs 1 (error: 7.1712%, bound: 5.0000%)'
+    evidence: git show c70247c^:tests/validation/blade/test_iea15mw_s7_torsion.py
+  - rev: 0da03be
+    note: 'windIO-v2-mesher measurement staged before the gmsh mesher (retired mesher, NOT the current one): margin 7.0281 %, 2026-11-03. shell/beam tip twist ratio over the 0.3-0.9 span band (windIO v2 mesh) vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.07028 vs 1 (error: 7.0281%, bound: 5.0000%)'
+    evidence: docs/validation/_pending/62-v2_blade_s7_torsion/rows.yaml

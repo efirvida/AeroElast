@@ -16,9 +16,9 @@ from aeroelast.core.mesh.io.writers import write_mesh
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 from tests.support.paths import DATA_DIR  # noqa: E402
-_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+_YAML = str(DATA_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")  # windIO 2.x
 
-# IEA-15-240-RWT reference values (tests/IEA-15-240-RWT.yaml).
+# IEA-15-240-RWT reference values (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml).
 _TOWER_Z_BASE = 15.0
 _TOWER_Z_TOP = 144.386
 _TOWER_DIAMETER_BASE = 10.0
@@ -74,7 +74,7 @@ def test_read_windio_components_parses_all_blocks():
 
     assert definition.number_of_blades == 3
     assert definition.hub_height == pytest.approx(150.0)
-    assert definition.rotor_diameter == pytest.approx(242.23775645)
+    assert definition.rotor_diameter == pytest.approx(241.35064632)  # the v2 file's own assembly.rotor_diameter (v1: 242.23775645)
 
     tower = definition.tower
     assert tower is not None
@@ -94,6 +94,17 @@ def test_read_windio_components_parses_all_blocks():
     assert nacelle.nose_diameter == pytest.approx(2.2)
     assert nacelle.length == pytest.approx(_BODY_LENGTH)
     assert nacelle.distance_tt_hub == pytest.approx(5.614)
+
+
+_YAML_V2 = _YAML
+
+
+def test_windio2_angles_are_read_in_radians():
+    """windIO 2.x gives uptilt / cone_angle in degrees (6.0, 4.0); the definition carries radians."""
+    v2 = read_windio_components(_YAML_V2)
+    assert v2.nacelle is not None and v2.tower is not None and v2.hub is not None
+    assert v2.nacelle.uptilt == pytest.approx(np.deg2rad(6.0), rel=1e-12)
+    assert v2.hub.cone_angle == pytest.approx(np.deg2rad(4.0), rel=1e-12)
 
 
 def test_from_windio_raises_when_component_missing(tmp_path):

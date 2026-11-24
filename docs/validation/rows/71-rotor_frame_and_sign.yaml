@@ -1,0 +1,284 @@
+group: '71'
+rows:
+- id: rotor_frame_and_sign.test_window_torques_not_modulated_by_the.0_0
+  group: '71'
+  title: test_window_torques_not_modulated_by_theta[0.0]
+  tests:
+  - tests/validation/rotor/test_rotor_callback_torque_frame.py::test_window_torques_not_modulated_by_theta[0.0]
+  validates: window_torques_not_modulated_by_theta
+  comparisons:
+  - label: rtol at line 50 (name=aero, tau=tau_aero)
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:50
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'aero torque at theta = 0.0 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 50 (name=total, tau=tau_total)
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:50
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'total torque at theta = 0.0 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_frame_and_sign.test_window_torques_not_modulated_by_the.90_0
+  group: '71'
+  title: test_window_torques_not_modulated_by_theta[90.0]
+  tests:
+  - tests/validation/rotor/test_rotor_callback_torque_frame.py::test_window_torques_not_modulated_by_theta[90.0]
+  validates: window_torques_not_modulated_by_theta
+  comparisons:
+  - label: rtol at line 50 (name=aero, tau=tau_aero)
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:50
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'aero torque at theta = 90.0 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 50 (name=total, tau=tau_total)
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:50
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'total torque at theta = 90.0 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_frame_and_sign.test_window_torques_not_modulated_by_the.180_0
+  group: '71'
+  title: test_window_torques_not_modulated_by_theta[180.0]
+  tests:
+  - tests/validation/rotor/test_rotor_callback_torque_frame.py::test_window_torques_not_modulated_by_theta[180.0]
+  validates: window_torques_not_modulated_by_theta
+  comparisons:
+  - label: rtol at line 50 (name=aero, tau=tau_aero)
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:50
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'aero torque at theta = 180.0 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 50 (name=total, tau=tau_total)
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:50
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'total torque at theta = 180.0 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_frame_and_sign.test_window_torques_inertial_and_gravity.single
+  group: '71'
+  title: test_window_torques_inertial_and_gravity_not_modulated_by_theta
+  tests:
+  - tests/validation/rotor/test_rotor_callback_torque_frame.py::test_window_torques_inertial_and_gravity_not_modulated_by_theta
+  validates: window_torques_inertial_and_gravity_not_modulated_by_theta
+  comparisons:
+  - label: rtol at line 65 (name=inertial, tau=out[2])
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:65
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'inertial torque at theta = 90 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 65 (name=gravity, tau=out[3])
+    asserted: true
+    reference:
+      kind: analytical
+      label: sum (X + u) x F . axis on the rotating-frame data (as Rust)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_callback_torque_frame.py:65
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'gravity torque at theta = 90 deg vs sum (X + u) x F . axis on the rotating-frame data (as Rust): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_frame_and_sign.test_cp_cq_positive_for_driving_torque.single
+  group: '71'
+  title: test_cp_cq_positive_for_driving_torque
+  tests:
+  - tests/validation/rotor/test_rotor_power_sign.py::test_cp_cq_positive_for_driving_torque
+  validates: cp_cq_positive_for_driving_torque
+  comparisons:
+  - label: rtol at line 47 (name=CP, val=cp, ref=TAU * OMEGA / (q_dyn * area * V))
+    asserted: true
+    reference:
+      kind: analytical
+      label: tau * omega / (q A V) and tau / (q A R)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_power_sign.py:47
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'CP vs tau * omega / (q A V) and tau / (q A R): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 47 (name=CQ, val=cq, ref=TAU / (q_dyn * area * R))
+    asserted: true
+    reference:
+      kind: analytical
+      label: tau * omega / (q A V) and tau / (q A R)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_power_sign.py:47
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'CQ vs tau * omega / (q A V) and tau / (q A R): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_frame_and_sign.test_aerodynamic_power_positive_for_driv.single
+  group: '71'
+  title: test_aerodynamic_power_positive_for_driving_torque
+  tests:
+  - tests/validation/rotor/test_rotor_power_sign.py::test_aerodynamic_power_positive_for_driving_torque
+  validates: aerodynamic_power_positive_for_driving_torque
+  comparisons:
+  - label: rtol at line 58
+    asserted: true
+    reference:
+      kind: analytical
+      label: tau_aero * omega
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_power_sign.py:58
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'aerodynamic power vs tau_aero * omega: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 65
+    asserted: true
+    reference:
+      kind: analytical
+      label: tau_total * omega
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_power_sign.py:65
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: null
+      margin_pct: 0.0
+      text: 'total power vs tau_total * omega: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

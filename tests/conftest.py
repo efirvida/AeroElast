@@ -159,96 +159,27 @@ _ensure_shared_lib("libGLU.so.1", _GLU_LIB_PATH)
 # ---------------------------------------------------------------------------
 # Blade YAML fixture
 # ---------------------------------------------------------------------------
-# Candidate paths for the IEA-15-240-RWT turbine definition YAML.
-# The file is large so it lives outside the repo in the simulations tree,
-# but a copy may also exist inside examples/.
-_BLADE_YAML_CANDIDATES = [
-    # Co-located with tests (highest priority)
+# The official windIO v2 IEA-15-240-RWT file (upstream copy). The former v1
+# candidate list (tests/, examples/, ../simulations) is retired.
+_OFFICIAL_BLADE_YAML = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
+        "IEA15MW",
+        "reference",
+        "upstream",
         "IEA-15-240-RWT.yaml",
-    ),
-    # Inside repo (preferred when present)
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "examples",
-        "reference_turbines",
-        "yamls",
-        "IEA-15-240-RWT.yaml",
-    ),
-    # Sibling simulations directory (dev environment)
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "simulations",
-        "blade",
-        "solid",
-        "IEA-15-240-RWT.yaml",
-    ),
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "simulations",
-        "IEA-15-240-RWT",
-        "fsi",
-        "NoTower",
-        "solid",
-        "IEA-15-240-RWT.yaml",
-    ),
-]
+    )
+)
 
 
 def _find_blade_yaml():
-    for p in _BLADE_YAML_CANDIDATES:
-        resolved = os.path.abspath(p)
-        if os.path.isfile(resolved):
-            return resolved
-    return None
+    return _OFFICIAL_BLADE_YAML if os.path.isfile(_OFFICIAL_BLADE_YAML) else None
 
 
 @pytest.fixture(scope="session")
 def iea_blade_yaml():
-    """Return the path to IEA-15-240-RWT.yaml or skip the test."""
+    """Return the path to the official windIO v2 IEA-15-240-RWT.yaml or skip."""
     path = _find_blade_yaml()
     if path is None:
-        pytest.skip(
-            "IEA-15-240-RWT.yaml not found. "
-            "Place a copy at examples/reference_turbines/yamls/ or alongside "
-            "the simulations/blade/solid/ tree."
-        )
-    return path
-
-
-@pytest.fixture(scope="session")
-def iea_numad_blade(iea_blade_yaml):
-    """Return a fully initialised numadBlade for the IEA-15-240-RWT."""
-    import numpy as np
-
-    from aeroelast.models.blade.numad import Blade as numadBlade
-
-    # Same setup sequence used by BladeMesh.generate()
-    blade = numadBlade()
-    blade.read_yaml(iea_blade_yaml)
-    for stat in blade.definition.stations:
-        stat.airfoil.resample(n_samples=150)
-    blade.update_blade()
-    n_stations = blade.geometry.coordinates.shape[2]
-    blade.expand_blade_geometry_te(0.001 * np.ones(n_stations))
-    return blade
-
-
-@pytest.fixture(scope="session")
-def iea_blade_xlsx():
-    """Return the Path to NuMAD_utd_iea15mw.xlsx or skip the test."""
-    from pathlib import Path
-
-    path = Path(__file__).parent / "NuMAD_utd_iea15mw.xlsx"
-    if not path.is_file():
-        pytest.skip(
-            "NuMAD_utd_iea15mw.xlsx not found. "
-            "Place a copy in the tests/ directory."
-        )
+        pytest.skip(f"official IEA-15-240-RWT.yaml not found at {_OFFICIAL_BLADE_YAML}")
     return path

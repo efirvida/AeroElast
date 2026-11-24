@@ -146,13 +146,13 @@ def blade(realisation, out, stage='all'):
     if not os.environ.get('SLURM_JOB_ID'):
         raise RuntimeError('es=0.25 blade runs require sbatch')
     from aeroelast.core.assembler import MeshAssembler
-    from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.core.mesh.io.writers import write_ccx_mesh
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=.25, skin_reference='oml',
-                    yaml_file=str(REPO / 'tests/IEA-15-240-RWT.yaml'))
+    from v2_blade_mesh import V2_IEA15, blade_generator
+
+    gen = blade_generator(V2_IEA15, .25, 'oml')
     mesh = gen.generate(renumber='rcm')
     props = build_rust_properties(gen.numad_mesh_data)
     deck = out / 'template.inp'

@@ -80,8 +80,7 @@ for yaw in "${YAW_ANGLES[@]}"; do
     if [[ "$SMOKE" == "1" ]]; then
         # Point the case at the short preCICE config.  The copy has to live at the
         # SAME depth as frontiersin_2025_yaw/, because every other path in these
-        # YAMLs is relative to the case file (yaml_file: ../../IEA-15-240-RWT.yaml,
-        # airfoil_dir: ../../airfoils).  A flat copy resolves those one directory
+        # YAMLs is relative to the case file (yaml_file: ../reference/upstream/IEA-15-240-RWT.yaml).  A flat copy resolves those one directory
         # too shallow and the run dies on a missing blade file — which is exactly
         # what the first smoke attempt did.
         mkdir -p "${SMOKE_CASES_DIR}"

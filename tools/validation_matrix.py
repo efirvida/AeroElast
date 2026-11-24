@@ -3745,6 +3745,13 @@ def command_status(args: argparse.Namespace) -> int:
     grouped = {
         str(source) for group in store.groups.values() for source in group.get("source_files") or []
     }
+    # A group with no source file is driven by hand (see below); the files its rows' tests name
+    # are the only trace of which test file it covers, so they count as grouped too.
+    for ref in store.rows:
+        owner = store.groups.get(str(ref.data.get("group")))
+        if owner is not None and not owner.get("source_files"):
+            for node in ref.data.get("tests") or []:
+                grouped.add(str(node).split("::", 1)[0])
     root = REPO_ROOT / "tests" / "validation"
     # Declared out of scope is not the same as forgotten, and only the second is a to-do.
     declared_out = {str(item) for entry in store.out_of_scope for item in entry.get("files") or []}

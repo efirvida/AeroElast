@@ -1,8 +1,8 @@
-"""Mesh-free principal EI of the WindIO layup (thin-wall Steiner integral).
+"""Mesh-free principal EI of the WindIO 2.x layup (thin-wall Steiner integral).
 
 Only NumPy/PyYAML/SciPy plus tools/yaml_layup_independent.py (itself mesh-free).
-Every layer is a thin strip on the airfoil contour (nd_arc interval, TE-anchored
-width, or straight web segment) with Ex(theta) * t * ds. EA-weighted centroid,
+Every layer is a thin strip on the airfoil contour (nd_arc interval resolved from its
+anchors by yaml_layup_independent, or straight web segment) with Ex(theta) * t * ds. EA-weighted centroid,
 then eigenvalues of the 2x2 bending block. Shear lag, warping and the offset of a
 layer from the contour are ignored; the 4 % mid-surface vs OML placement effect is
 therefore NOT in this number (it is a lower-order thin-wall estimate).
@@ -15,21 +15,20 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from yaml_layup_independent import contour, interp, load, moduli  # noqa: E402
+from yaml_layup_independent import anchor_table, contour, interp, layer_interval, load, moduli, web_endpoints  # noqa: E402
 
 
 def strips(data, eta, resolution=4001):
     blade = data["components"]["blade"]
-    structure = blade["internal_structure_2d_fem"]
+    structure = blade["structure"]
+    table = anchor_table(structure)
     u, xy, perimeter = contour(data, eta, resolution=resolution)
     ds = np.r_[np.diff(u) * perimeter, 0.0]
     mid_xy = xy
     mats = {m["name"]: m for m in data["materials"]}
     webs = {}
     for web in structure["webs"]:
-        a, b = [np.array([np.interp(interp(web[k], eta), u, xy[:, c]) for c in (0, 1)])
-                for k in ("start_nd_arc", "end_nd_arc")]
-        webs[web["name"]] = (a, b)
+        webs[web["name"]] = tuple(web_endpoints(table, web, eta, u, xy))
     out = []  # (EA, x, y) point masses of Ex*t*ds
     for layer in structure["layers"]:
         h = interp(layer["thickness"], eta)
@@ -44,11 +43,7 @@ def strips(data, eta, resolution=4001):
                 p = a + ti * (b - a)
                 out.append((ex * h * length / n, p[0], p[1]))
             continue
-        if "start_nd_arc" in layer and "end_nd_arc" in layer:
-            s, e = interp(layer["start_nd_arc"], eta), interp(layer["end_nd_arc"], eta)
-        else:
-            w = interp(layer["width"], eta) / perimeter
-            s, e = (0.0, w) if "start_nd_arc" in layer else (1.0 - w, 1.0)
+        s, e = layer_interval(table, layer, eta)
         sel = (u >= s) & (u <= e)
         for x, y, d in zip(mid_xy[sel, 0], mid_xy[sel, 1], ds[sel]):
             out.append((ex * h * d, x, y))

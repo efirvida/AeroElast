@@ -224,7 +224,6 @@ class TestFallbackAssemblerPropagation:
     @pytest.fixture
     def minimal_mesh(self):
         """Construct a minimal 4-node quad mesh that can be rotated."""
-        from aeroelast.core.mesh import MeshModel
 
         # 4 nodes in the XY plane forming a unit square
         node_coords = {
@@ -235,7 +234,7 @@ class TestFallbackAssemblerPropagation:
         }
 
         try:
-            from aeroelast.core.mesh import Node, Element, NodeSet, ElementSet
+            from aeroelast.core.mesh import Node
 
             nodes = {nid: Node(id=nid, coords=coords) for nid, coords in node_coords.items()}
             return nodes, node_coords
@@ -248,7 +247,6 @@ class TestFallbackAssemblerPropagation:
         not None (the old bug discarded the return value entirely).
         """
         pytest.importorskip("aeroelast.core.assembler", reason="Rust backend required")
-        from aeroelast.core.assembler import MeshAssembler
 
         nodes, node_coords = minimal_mesh
 
@@ -383,7 +381,7 @@ class TestTorqueLeverArms:
         thetas = [0.0, np.pi / 4, np.pi / 2, np.pi, 3 * np.pi / 2]
         expected_cos = [1.0, np.cos(np.pi / 4), 0.0, -1.0, 0.0]
 
-        for theta, cos_val in zip(thetas, expected_cos):
+        for theta, cos_val in zip(thetas, expected_cos, strict=False):
             X_rot = ct.rotate_point_cloud(X0, theta)
             tau_correct = self._torque_from_coords(X_rot, u_e, F_g, center, axis)
             tau_expected = m * g * R * cos_val

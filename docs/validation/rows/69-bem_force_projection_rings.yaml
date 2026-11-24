@@ -1,0 +1,81 @@
+group: '69'
+rows:
+- id: bem_force_projection_rings.test_an_unrealisable_ring_is_skipped_and.single
+  group: '69'
+  title: test_an_unrealisable_ring_is_skipped_and_the_others_keep_the_wall_flow
+  tests:
+  - tests/validation/bem/test_force_projection_strip_edge_ring.py::test_an_unrealisable_ring_is_skipped_and_the_others_keep_the_wall_flow
+  validates: A real (>= 3 node) ring with no section is skipped; its strip is not sent whole to the minimum-norm field.
+  comparisons:
+  - label: atol at line 131
+    asserted: true
+    reference:
+      kind: self
+      label: F
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/bem/test_force_projection_strip_edge_ring.py:131
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 132
+    asserted: true
+    reference:
+      kind: self
+      label: M
+    tolerance:
+      kind: atol
+      value: 1.0e-09
+      source: tests/validation/bem/test_force_projection_strip_edge_ring.py:132
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 133
+    asserted: true
+    reference:
+      kind: self
+      label: mn
+    tolerance:
+      kind: atol
+      value: 1.0e-06
+      source: tests/validation/bem/test_force_projection_strip_edge_ring.py:133
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 135
+    asserted: true
+    reference:
+      kind: self
+      label: realise_section_load(strip, F, M, span, ring_sections=without_bad)
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/bem/test_force_projection_strip_edge_ring.py:135
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 139
+    asserted: true
+    reference:
+      kind: self
+      label: mn
+    tolerance:
+      kind: atol
+      value: 1.0e-12
+      source: tests/validation/bem/test_force_projection_strip_edge_ring.py:139
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -19,9 +19,8 @@ the PreComp/VABS/BECAS results published for the IEA 15 MW.
 
 Usage (SDumont):
   module load glu gcc/14.2.0_sequana
-  python tools/run_s1_sectional.py [--blade-yaml tests/IEA-15-240-RWT.yaml]
-                                   [--blade-xlsx tests/NuMAD_utd_iea15mw.xlsx]
-                                   [--element-size 0.5] [--n-slices 26]
+  python tools/run_s1_sectional.py [--blade-yaml tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml]
+                                   [--element-size 0.25] [--n-slices 26]
 
 Outputs:
   docs/validation_data/generated/s1_sectional_properties.csv
@@ -102,26 +101,19 @@ def laminate_a11_eff(layup, mats) -> float:
     return float(1.0 / np.linalg.inv(laminate_a_matrix(layup, mats))[0, 0])
 
 
-def native_bay_centres(yaml_file, airfoil_dir=None):
-    """Span coordinates of the bay centres of the native (yaml grid) blade, no bay limit.
+def native_bay_centres(yaml_file):
+    """Span coordinates of the bay centres of the windIO 2.x reference-axis z grid [m].
 
-    The S-1 anchor 9f72c6b was extracted on these stations (about 2.39 m apart, plus the tip-chord
-    refinement bays of ``BladeMesh``). Passing them as ``stations`` makes the extraction independent of
-    ``BladeMesh.max_bay_length``. Only the NuMAD blade is built (no mesh).
+    The S-1 stations: centres of the bays between consecutive ``components.blade.reference_axis.z`` points of the v2
+    yaml (49 bays, about 2.4 m apart for the IEA 15 MW).  Passing them as ``stations`` makes the extraction independent
+    of the number of rings the mesher inserted.
     """
-    from aeroelast.core.mesh.generators import BladeMesh
+    import yaml
 
-    gen = BladeMesh(yaml_file=str(yaml_file), airfoil_dir=airfoil_dir, max_bay_length=None)
-    from aeroelast.models.blade.numad import Blade
-
-    blade = Blade()
-    blade.read_yaml(str(yaml_file))
-    blade.update_blade()
-    gen._numad_blade = blade
-    if gen.refine_tip:
-        gen._refine_high_gradient_sections(verbose=False)
-    ispan = np.asarray(blade.ispan, dtype=float)
-    return 0.5 * (ispan[:-1] + ispan[1:])
+    with open(yaml_file) as fh:
+        data = yaml.safe_load(fh)
+    z = np.asarray(data["components"]["blade"]["reference_axis"]["z"]["values"], dtype=float)
+    return 0.5 * (z[:-1] + z[1:])
 
 
 def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
@@ -312,31 +304,27 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--blade-yaml", default=str(REPO_ROOT / "tests" / "IEA-15-240-RWT.yaml"))
-    ap.add_argument("--blade-xlsx", default=None)
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--blade-yaml", default=str(REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"))
+    ap.add_argument("--element-size", type=float, default=None, help="uniform size [m]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--n-slices", type=int, default=26)
-    ap.add_argument("--airfoil-dir", default=str(REPO_ROOT / "tests" / "airfoils"))
     args = ap.parse_args()
 
-    from aeroelast.core.mesh.generators import BladeMesh
+    from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh
     from aeroelast.models.blade.model import build_rust_properties
     from aeroelast.postprocess.sectional import SectionalExtractor
 
     ed = load_elastodyn_blade(ELASTODYN_FILE)
     bd = load_beamdyn_blade(BEAMDYN_FILE)
 
-    generator = BladeMesh(
-        yaml_file=args.blade_yaml if not args.blade_xlsx else None,
-        excel_file=args.blade_xlsx,
-        airfoil_dir=args.airfoil_dir,
-        element_size=args.element_size,
-    )
+    # reference mesh (AGENTS rule 9): gmsh chord-scaled N20, span aspect 1, skin on the mid surface;
+    # --element-size switches to the uniform-size path instead
+    sizing = {"element_size": args.element_size} if args.element_size else {"chord_divisions": 20, "span_aspect": 1}
+    generator = GmshBladeMesh(yaml_file=args.blade_yaml, skin_reference="mid", **sizing)
     mesh = generator.generate(renumber="rcm")
     props = build_rust_properties(generator.numad_mesh_data)
     ext = SectionalExtractor(mesh, props)
-    # evaluate on the native (yaml grid) stations whatever bay limit the mesher applied
-    stations = None if args.blade_xlsx else native_bay_centres(args.blade_yaml, args.airfoil_dir)
+    # evaluate on the v2 reference-axis bay centres whatever rings the mesher inserted
+    stations = native_bay_centres(args.blade_yaml)
     print("[S1] extracting EI(r) via static tip-load curvature...")
     sec = ext.extract(n_slices=args.n_slices, stations=stations)
     z_static, ei_flap_static, ei_edge_static = ext.ei_from_static_response(

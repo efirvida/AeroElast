@@ -159,7 +159,7 @@ def compute_rigid_bem_reference(yaw_deg: float) -> tuple[dict[str, float], str]:
         from aeroelast.models.blade.aerodynamics import load_blade_aero
         from aeroelast.solvers.bem.engine import BEMSolver
 
-        blade_yaml = REPO_ROOT / "tests/IEA-15-240-RWT.yaml"
+        blade_yaml = REPO_ROOT / "tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml"
         blade = load_blade_aero(str(blade_yaml))
         bem = BEMSolver(
             blade,

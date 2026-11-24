@@ -43,14 +43,13 @@ from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 from tests.support.paths import DATA_DIR  # noqa: E402
 
-YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
+YAML = DATA_DIR / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"  # windIO 2.x: the gmsh mesher reads no 1.x file
 AIRFOILS = DATA_DIR / "airfoils"
 CASE_YAML = DATA_DIR / "smoke_fix" / "base_fix" / "fluid_yaw_0.yaml"
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: The working blade mesh (docs/blade_mesh_size_rule.md): ~27 609 coupling nodes on this deck.
 ELEMENT_SIZE = 0.25
-N_SAMPLES = 150
 
 SPAN_DIR = [0.0, 0.0, 1.0]
 NODE_SET = "allOuterShellNods"
@@ -65,11 +64,7 @@ def _production_cfg() -> dict:
                 "type": "BladeMesh",
                 "params": {
                     "yaml_file": str(YAML),
-                    "airfoil_dir": str(AIRFOILS),
                     "element_size": ELEMENT_SIZE,
-                    "n_samples": N_SAMPLES,
-                    "airfoil_spacing": "constant",
-                    "span_grading": "chord",
                 },
                 "coupling_node_set": NODE_SET,
             },

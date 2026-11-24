@@ -1887,6 +1887,40 @@ def conformity_report(nodes, elements, tol=1e-9, surfaces=None):
     return rep
 
 
+def weld_coincident_nodes(nodes, elements, attachments=None, tol=1e-9):
+    """Merge distinct node ids that sit at the same position (distance <= ``tol`` m, chained pairs form one group).
+
+    Two surfaces that share an attachment line (IEA-15: web0 and web1 at the root) are meshed independently, so the line carries
+    one node per surface.  Each group keeps its lowest id, the unused ids are dropped (the rest keep their order) and the element
+    connectivity (-1 padding kept) and the ``attachments`` chains ({key: tuple of ids}) are remapped.  Returns
+    ``(nodes, elements, attachments, n_removed)``; with no coincident pair the inputs come back unchanged."""
+    nodes = np.asarray(nodes, float)
+    pairs = cKDTree(nodes).query_pairs(tol, output_type="ndarray")
+    if not len(pairs):
+        return nodes, elements, attachments, 0
+    parent = np.arange(len(nodes))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for a, b in pairs:
+        ra, rb = find(int(a)), find(int(b))
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    rep = np.array([find(i) for i in range(len(nodes))])
+    keep = np.unique(rep)
+    new_id = np.full(len(nodes), -1, dtype=int)
+    new_id[keep] = np.arange(len(keep))
+    final = new_id[rep]
+    elements = np.where(elements >= 0, final[np.where(elements >= 0, elements, 0)], -1)
+    if attachments is not None:
+        attachments = {k: tuple(int(final[i]) for i in v) for k, v in attachments.items()}
+    return nodes[keep], elements, attachments, int(len(nodes) - len(keep))
+
+
 def mesh_web_chart(xyz, start_nodes, end_nodes, rows, active, h, size, length, eta0=0.0, eta1=1.0, *, n_new_first=None, **mesh_opts):
     """Mesh ONE shear web as a chart (span y, height x = q * width) between two skin attachment node chains.
 
@@ -1946,13 +1980,13 @@ def _chart_jacobian(params, elements):
 
 def _orient_positive(elements, params):
     """Reverse every element whose chart orientation is negative, so the connectivity normal follows the chart (what
-    ``windio2_mesh.map_mesh_materials`` assumes).  A zero Jacobian is not repaired: it raises."""
+    ``map_mesh_materials`` (the windio2 original, now :func:`map_mesh_materials_gmsh`) assumes).  A zero Jacobian is not repaired: it raises."""
     elements, params = elements.copy(), params.copy()
     det = _chart_jacobian(params, elements)
     if np.any(det == 0):
         raise MeshQualityError(f"{int((det == 0).sum())} elements have a zero chart Jacobian")
     tri = elements[:, 3] < 0
-    params[tri, 3] = params[tri, 0]  # triangles repeat one corner (windio2_mesh._centroid sums params * live-mask: NaN would poison it)
+    params[tri, 3] = params[tri, 0]  # triangles repeat one corner (gmsh_raw._centroid sums params * live-mask: NaN would poison it)
     for i in np.nonzero(det < 0)[0]:
         order = [0, 2, 1] if tri[i] else [0, 3, 2, 1]
         elements[i, : len(order)] = elements[i, order]
@@ -1961,7 +1995,7 @@ def _orient_positive(elements, params):
 
 
 def map_mesh_materials_gmsh(topology, mesh):
-    """``windio2_mesh.map_mesh_materials`` for the gmsh mesh: same frames, normals and web-to-LE orientation, with ONE change.
+    """The windIO v2 material mapping for the gmsh mesh: same frames, normals and web-to-LE orientation, with ONE change.
 
     An element whose frame is degenerate with the beam axis (``map_stack`` raises "Degenerate beam-axis") takes the element's first
     shell-basis axis as the reference direction instead.  Only the MAPPED fibre angle depends on it (the SOURCE angle, which the FEM
@@ -1971,7 +2005,7 @@ def map_mesh_materials_gmsh(topology, mesh):
 
     from ..objects.geometry import Geometry
     from .windio2_basis import map_stack, shell_bases
-    from .windio2_mesh import Pchip, _centroid
+    from .gmsh_raw import Pchip, _centroid
 
     eta = _centroid(mesh.element_parameters, mesh.elements)[:, 0]
     definition = topology._definition
@@ -2017,14 +2051,15 @@ def map_mesh_materials_gmsh(topology, mesh):
 def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=16, structured_options=None, le_landmark=True,
                        with_materials=False, material_dy=0.0, enforce_gate=True, h_range=(0.15, 0.25), loft=None,
                        return_info=False, max_strip_ar=5.0, chord_divisions=None, span_aspect=1.0, min_band_elements=2,
-                       min_band_fraction=1.0, te_coating_fill=True):
-    """Skin + webs raw mesh with the STRUCTURED gmsh mesher; a drop-in for ``windio2_mesh.generate_mesh`` outputs.
+                       min_band_fraction=1.0, te_coating_fill=True, eta_bounds=(0.0, 1.0)):
+    """Skin + webs raw mesh with the STRUCTURED gmsh mesher; returns a :class:`gmsh_raw.RawMesh`.
 
     ``chord_divisions`` N (default None: the ``element_size`` path, unchanged) sizes the mesh by the local chord c(eta) instead
     (see :func:`generate_skin_mesh`): chordwise c/N, spanwise ``span_aspect`` * c/N, at least ``min_band_elements`` elements across
     every material band of width >= ``min_band_fraction`` (default 1.0) * c/N; a narrower band gets its rounded count (>= 1).
     ``te_coating_fill`` (default True) gives a skin element whose source cell is TE coating only the laminate of its edge
     neighbour (:func:`fill_te_coating_cells`); the count is ``info['te_coating_filled']``.
+    ``eta_bounds`` (lo, hi) meshes only the span sub-range between those stations (:func:`source_from_topology`).
     ``min_band_fraction=None`` restores the floor on every band whatever its width.  ``element_size``, ``ring`` and ``h_range``
     are then unused.
 
@@ -2033,16 +2068,16 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
     webs   one structured chart (eta, q) per web with the SAME rows as the skin, only on the row intervals where the web
            layup has material (``thickness > 0``), q = distance between its two attachment nodes at the row;
            the q = 0 / 1 edges are the skin nodes (1 division per row segment, shared ids);
-    out    :class:`windio2_mesh.RawMesh` (nodes, elements with -1 padded triangles, cells, surfaces ['skin', web...],
+    out    :class:`gmsh_raw.RawMesh` (nodes, elements with -1 padded triangles, cells, surfaces ['skin', web...],
            element_parameters (eta, nd) / (eta, q), shell bases, attachments chains) and, with ``with_materials``,
-           ``map_mesh_materials``.  Nodes are float64 (the v2 mesher uses extended precision)."""
+           ``map_mesh_materials_gmsh``.  Nodes are float64 (the v2 mesher uses extended precision)."""
     from .windio2_basis import shell_bases
-    from .windio2_mesh import RawMesh
+    from .gmsh_raw import RawMesh
 
     t0 = time.perf_counter()
     h = float(element_size)
     loft = loft or RowLoft(topology, end_spacing=0.1)
-    src = source_from_topology(topology, loft, le_landmark=le_landmark)
+    src = source_from_topology(topology, loft, le_landmark=le_landmark, eta_bounds=eta_bounds)
     L = loft.length
     if chord_divisions is None:
         size = ring_size(h, loft.perimeter, ring)
@@ -2151,13 +2186,13 @@ def generate_mesh_gmsh(topology, element_size=0.25, *, tau=0.25, snap=0.4, ring=
         web_info[nm].update(elements=int(len(wel)), triangles=int((wel[:, 3] < 0).sum()), patches=wm["info"]["n_patches"],
                             count_changes=wm["info"]["n_count_changes"], nodes_new=int(len(wm["xyz_new"])), gmsh_seconds=wm["info"]["gmsh_seconds"])
 
-    nodes = np.vstack(nodes)
-    elements, params_all = _orient_positive(np.vstack(elements), np.vstack(params))
+    nodes, elements, attachments, n_welded = weld_coincident_nodes(np.vstack(nodes), np.vstack(elements), attachments)
+    elements, params_all = _orient_positive(elements, np.vstack(params))
     mesh = RawMesh(nodes, elements, tuple(cells), tuple(surfaces), params_all, shell_bases(nodes, elements), attachments)
     t0 = time.perf_counter()
     if with_materials:
         mesh = map_mesh_materials_gmsh(topology, mesh)
     info = {"skin_result": res, "webs": web_info, "n_skin_elements": len(skin_el), "gate": res.gate, "seconds_skin_mesh": t_skin,
-            "seconds_cells": t_cells, "te_coating_filled": n_te_filled, "seconds_materials_map": time.perf_counter() - t0, "rows": rows,
+            "seconds_cells": t_cells, "te_coating_filled": n_te_filled, "welded_nodes": n_welded, "seconds_materials_map": time.perf_counter() - t0, "rows": rows,
             "conformity": conformity_report(nodes, elements, surfaces=surfaces)}
     return (mesh, info) if return_info else mesh

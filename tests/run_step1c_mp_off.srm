@@ -57,7 +57,7 @@ with open(p) as fh:
             rows.append([float(x) for x in parts[:17]])
 rows = np.array(rows)
 from aeroelast.models.blade.aerodynamics import load_blade_aero
-blade = load_blade_aero('tests/IEA-15-240-RWT.yaml', hub_radius=0.0)
+blade = load_blade_aero('tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml', hub_radius=0.0)
 r = rows[:, 0]; twist_def = rows[:, 3]
 tw_ref = np.interp(r, [s.r for s in blade.stations], [np.rad2deg(s.twist) for s in blade.stations])
 d_twist = twist_def - tw_ref

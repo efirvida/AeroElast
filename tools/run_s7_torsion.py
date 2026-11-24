@@ -24,7 +24,7 @@ Output:
 
 Usage (SDumont):
   module load glu gcc/14.2.0_sequana
-  python tools/run_s7_torsion.py [--element-size 0.5] [--moment 1.0e6]
+  python tools/run_s7_torsion.py [--element-size 0.25] [--moment 1.0e6]
 """
 
 from __future__ import annotations
@@ -43,31 +43,24 @@ from tools.beam_reference import load_beamdyn_blade  # noqa: E402
 
 REF_DIR = REPO_ROOT / "tests" / "IEA15MW" / "reference"
 BEAMDYN_FILE = REF_DIR / "IEA-15-240-RWT_BeamDyn_blade.dat"
-BLADE_YAML = REPO_ROOT / "tests" / "IEA-15-240-RWT.yaml"
+BLADE_YAML = REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml"
 OUT_DIR = REPO_ROOT / "docs" / "validation_data" / "generated"
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def build_mesh_and_properties(element_size: float, skin_reference: str = "oml"):
-    """Build the official WindIO blade mesh (same generator as S-5/S-2).
+def build_mesh_and_properties(element_size: float | None, skin_reference: str = "oml"):
+    """Build the official windIO 2.x blade mesh with gmsh (same generator as S-5/S-2; ``None`` = reference mesh N20 AR 1).
 
-    ``skin_reference`` is passed to ``BladeMesh``: ``"oml"`` (the generator default, the
+    ``skin_reference`` is passed to ``GmshBladeMesh``: ``"oml"`` (the generator default, the
     CFD/FSI surface) or ``"mid"`` (nodes on the laminate mid-surface, as the S-1/S-2/V-02
     anchors build it).
     """
-    from aeroelast.core.mesh.generators import BladeMesh
+    from v2_blade_mesh import blade_generator
+
     from aeroelast.models.blade.model import build_rust_properties
 
-    generator = BladeMesh(
-        yaml_file=str(BLADE_YAML),
-        airfoil_dir=str(REPO_ROOT / "tests" / "airfoils"),
-        element_size=element_size,
-        n_samples=300,
-        airfoil_spacing="constant",
-        span_grading="chord",
-        skin_reference=skin_reference,
-    )
+    generator = blade_generator(BLADE_YAML, element_size, skin_reference)
     mesh = generator.generate(renumber="rcm")
     properties = build_rust_properties(generator.numad_mesh_data)
     return mesh, properties
@@ -227,7 +220,7 @@ def beam_twist_profile_deg(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--element-size", type=float, default=None, help="uniform element size [m, 0.05-0.25]; default: reference mesh chord_divisions 20, span_aspect 1")
     ap.add_argument("--moment", type=float, default=1000.0, help="Tip torsional moment [N·m]")
     args = ap.parse_args()
 

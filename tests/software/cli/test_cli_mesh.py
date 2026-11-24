@@ -8,8 +8,10 @@ from aeroelast.cli.aeroelast import main as cli_main
 from aeroelast.cli.mesh import main as mesh_main
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-from tests.support.paths import DATA_DIR  # noqa: E402
-_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
+from tests.support.paths import V2_BLADE_YAML  # noqa: E402
+# windIO 2.x everywhere: the 1.x file is rejected (commit ee28f23); components.py reads the 2.x tower/nacelle layout.
+_YAML = str(V2_BLADE_YAML)
+_V2 = _YAML
 
 _SURFACE = ["--n-circ", "8"]
 
@@ -118,9 +120,9 @@ def test_blade_no_webs(tmp_path):
     rc = mesh_main(
         [
             "blade",
-            _YAML,
-            "--element-size",
-            "15",
+            _V2,
+            "--chord-divisions",  # was --element-size 15 (NuMAD); gmsh-official-mesher T14, rule 9: nothing >= 0.3 m
+            "10",
             "--no-webs",
             "--quiet",
             "--out",
@@ -136,11 +138,11 @@ def test_rotor(tmp_path):
     rc = mesh_main(
         [
             "rotor",
-            _YAML,
+            _V2,
             "--n-blades",
             "2",
-            "--element-size",
-            "20",
+            "--chord-divisions",  # was --element-size 20 --no-webs (NuMAD)
+            "10",
             "--no-webs",
             "--quiet",
             "--out",
@@ -156,15 +158,15 @@ def test_turbine_writes_every_component(tmp_path):
     rc = mesh_main(
         [
             "turbine",
-            _YAML,
+            _V2,
             "--out-dir",
             str(out_dir),
             "--format",
             "stl",
             "--n-blades",
             "1",
-            "--element-size",
-            "20",
+            "--chord-divisions",  # was --element-size 20 (NuMAD); the turbine default is the surface-only blade
+            "10",
             "--tower-n-axial",
             "4",
             "--tower-n-circ",
@@ -191,15 +193,15 @@ def test_turbine_rotor_axis_is_configurable(tmp_path):
     rc = mesh_main(
         [
             "turbine",
-            _YAML,
+            _V2,
             "--out-dir",
             str(out_dir),
             "--format",
             "stl",
             "--n-blades",
             "1",
-            "--element-size",
-            "20",
+            "--chord-divisions",  # was --element-size 20 (NuMAD); the turbine default is the surface-only blade
+            "10",
             "--rotor-axis",
             "1,0,0",
             "--quiet",

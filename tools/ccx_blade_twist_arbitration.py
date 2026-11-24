@@ -42,8 +42,8 @@ _parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
 _parser.add_argument(
     "--element-size",
     type=float,
-    default=1.0,
-    help="blade mesh size in metres (default 1.0; the arbitration gets sharper at 0.5)",
+    default=0.25,
+    help="blade mesh size in metres, gmsh range 0.05-0.25 (default 0.25)",
 )
 _args = _parser.parse_args()
 

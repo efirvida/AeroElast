@@ -9,7 +9,30 @@ import numpy as np
 
 from aeroelast.models.blade.numad.objects.windio2_laminate import LayerSample
 
-from .mesh_tools import get_direction_cosines
+
+def cross_prod(v1, v2):
+    """Cross product, term by term (the arithmetic of the NuMAD ``element_utils.cross_prod`` it replaces)."""
+    cp = np.zeros(3, dtype=float)
+    cp[0] = v1[1] * v2[2] - v1[2] * v2[1]
+    cp[1] = v1[2] * v2[0] - v1[0] * v2[2]
+    cp[2] = v1[0] * v2[1] - v1[1] * v2[0]
+    return cp
+
+
+def get_direction_cosines(xDir, xyDir):
+    mag = np.linalg.norm(xDir)
+    a1 = (1.0 / mag) * xDir
+    zDir = cross_prod(xDir, xyDir)
+    mag = np.linalg.norm(zDir)
+    if mag < 1e-14:
+        # xyDir collapsed to zero (e.g. tip section with zero chord).
+        # Fall back to a global z-axis so the element is not degenerate.
+        zDir = np.array([0.0, 0.0, 1.0])
+        mag = 1.0
+    a3 = (1.0 / mag) * zDir
+    a2 = cross_prod(a3, a1)
+    dirCos = np.array([a1, a2, a3])
+    return dirCos
 
 
 def shell_bases(nodes, elements):

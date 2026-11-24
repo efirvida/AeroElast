@@ -19,8 +19,11 @@ import pytest
 
 ccblade = pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[bem]')")
 
-from aeroelast.models.blade.aerodynamics import load_blade_aero
-from aeroelast.solvers.bem.engine import BEMSolver
+from aeroelast.models.blade.aerodynamics import load_blade_aero  # noqa: E402
+from aeroelast.solvers.bem.engine import BEMSolver  # noqa: E402
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
+_REF_NAME = "WISDEM CCBlade, IEA-15-240-RWT_tabular.xlsx Rotor Performance"
 
 # ---------------------------------------------------------------------------
 # IEA 15 MW rated-condition reference values
@@ -73,32 +76,39 @@ class TestRatedConditions:
     def test_thrust_within_5pct(self, rated):
         """Rotor thrust must be within ±5 % of IEA reference [R3]."""
         rel_err = abs(rated.thrust - _REF_THRUST_ROTOR) / _REF_THRUST_ROTOR
-        assert rel_err < 0.05, (
-            f"Thrust {rated.thrust / 1e3:.1f} kN vs ref {_REF_THRUST_ROTOR / 1e3:.1f} kN "
-            f"(err={rel_err:.1%})"
+        assert_residual_below(
+            rel_err, tol=0.05, reference_name=_REF_NAME, kind="code", what="rated rotor thrust"
         )
 
     def test_torque_within_5pct(self, rated):
         """Rotor torque must be within ±5 % of IEA reference [R3]."""
         rel_err = abs(rated.torque - _REF_TORQUE_ROTOR) / _REF_TORQUE_ROTOR
-        assert rel_err < 0.05, (
-            f"Torque {rated.torque / 1e6:.3f} MN·m vs ref {_REF_TORQUE_ROTOR / 1e6:.3f} MN·m "
-            f"(err={rel_err:.1%})"
+        assert_residual_below(
+            rel_err, tol=0.05, reference_name=_REF_NAME, kind="code", what="rated rotor torque"
         )
 
     def test_cp_aero_within_tolerance(self, rated):
         """Cp_aero must be within ±0.02 of IEA reference [R3]."""
         assert rated.CP is not None, "BEMSolver did not return CP coefficient"
-        assert abs(rated.CP - _REF_CP_AERO) < 0.02, (
-            f"Cp_aero={rated.CP:.4f} vs ref={_REF_CP_AERO:.4f} "
-            f"(diff={rated.CP - _REF_CP_AERO:+.4f})"
+        assert_residual_below(
+            abs(rated.CP - _REF_CP_AERO),
+            atol=0.02,
+            unit="",
+            reference_name=_REF_NAME,
+            kind="code",
+            what="rated Cp",
         )
 
     def test_ct_within_tolerance(self, rated):
         """Ct must be within ±0.05 of IEA reference [R3]."""
         assert rated.CT is not None, "BEMSolver did not return CT coefficient"
-        assert abs(rated.CT - _REF_CT) < 0.05, (
-            f"Ct={rated.CT:.4f} vs ref={_REF_CT:.4f} (diff={rated.CT - _REF_CT:+.4f})"
+        assert_residual_below(
+            abs(rated.CT - _REF_CT),
+            atol=0.05,
+            unit="",
+            reference_name=_REF_NAME,
+            kind="code",
+            what="rated Ct",
         )
 
 
@@ -132,9 +142,19 @@ class TestPowerCurveShape:
         assert result.CP is not None, "BEMSolver did not return CP"
         assert result.CT is not None, "BEMSolver did not return CT"
 
-        assert abs(result.CP - cp_ref) < 0.05, (
-            f"V={v_inf} m/s: Cp={result.CP:.4f} vs ref={cp_ref:.4f}"
+        assert_residual_below(
+            abs(result.CP - cp_ref),
+            atol=0.05,
+            unit="",
+            reference_name=_REF_NAME,
+            kind="code",
+            what=f"Cp at V={v_inf} m/s",
         )
-        assert abs(result.CT - ct_ref) < 0.05, (
-            f"V={v_inf} m/s: Ct={result.CT:.4f} vs ref={ct_ref:.4f}"
+        assert_residual_below(
+            abs(result.CT - ct_ref),
+            atol=0.05,
+            unit="",
+            reference_name=_REF_NAME,
+            kind="code",
+            what=f"Ct at V={v_inf} m/s",
         )

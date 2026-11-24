@@ -3,12 +3,8 @@ mesh:
   generator:
     type: RotorMesh
     params:
-      yaml_file: ../../IEA-15-240-RWT.yaml
-      airfoil_dir: ../../airfoils
+      yaml_file: ../reference/upstream/IEA-15-240-RWT.yaml
       element_size: 0.25
-      n_samples: 300
-      airfoil_spacing: cosine
-      span_grading: chord
       n_blades: 3
       hub_radius: 3.0
   renumber: rcm

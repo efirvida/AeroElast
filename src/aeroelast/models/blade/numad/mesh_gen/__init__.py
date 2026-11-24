@@ -1,3 +1,1 @@
-from .mesh_gen import get_shell_mesh
-
-__all__ = ["get_shell_mesh"]
+"""Shell meshing of windIO v2 blades: the gmsh skin mesher (gmsh_skin), its raw-mesh container (gmsh_raw) and shell bases (windio2_basis)."""

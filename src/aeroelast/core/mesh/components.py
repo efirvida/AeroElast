@@ -267,8 +267,10 @@ def load_windio(path: str | Path) -> dict:
 def _read_tower(block: dict | None) -> Optional[TowerDefinition]:
     if not block:
         return None
-    outer = block.get("outer_shape_bem", block)
-    reference = outer.get("reference_axis")
+    # windIO 1.x: components.tower.outer_shape_bem.{reference_axis, outer_diameter};
+    # windIO 2.x: components.tower.outer_shape.outer_diameter and components.tower.reference_axis.
+    outer = block.get("outer_shape_bem") or block.get("outer_shape") or block
+    reference = outer.get("reference_axis") or block.get("reference_axis")
     diameter = outer.get("outer_diameter")
     if not reference or not diameter:
         return None
@@ -317,6 +319,22 @@ def _read_nacelle(block: dict | None) -> Optional[NacelleDefinition]:
     )
 
 
+def _windio2_nacelle(drivetrain: dict | None) -> dict | None:
+    """windIO 2.x moves ``components.nacelle.drivetrain`` to ``components.drivetrain``: the scalars sit
+    under ``outer_shape`` and the shaft diameters under ``lss.diameter`` / ``nose.diameter``.  Returns the
+    1.x-shaped ``{"drivetrain": ...}`` block :func:`_read_nacelle` reads, or None."""
+    if not drivetrain or "outer_shape" not in drivetrain:
+        return None
+    flat = dict(drivetrain["outer_shape"])
+    if "uptilt" in flat:  # windIO 2.x angles are degrees; 1.x (and the consumers) use radians
+        flat["uptilt"] = float(np.deg2rad(flat["uptilt"]))
+    for key, name in (("lss", "lss_diameter"), ("nose", "nose_diameter")):
+        diameter = (drivetrain.get(key) or {}).get("diameter")
+        if diameter is not None:
+            flat[name] = diameter
+    return {"drivetrain": flat}
+
+
 def read_windio_components(path: str | Path) -> TurbineDefinition:
     """Extract tower, hub, nacelle and assembly data from a WindIO YAML."""
     data = load_windio(path)
@@ -326,10 +344,15 @@ def read_windio_components(path: str | Path) -> TurbineDefinition:
     hub_height = assembly.get("hub_height")
     rotor_diameter = assembly.get("rotor_diameter")
 
+    hub = _read_hub(components.get("hub"))
+    if hub is not None and str(data.get("windIO_version", "1.0")).startswith("2"):
+        # windIO 2.x gives hub.cone_angle in degrees; 1.x in radians.
+        hub = HubDefinition(diameter=hub.diameter, cone_angle=float(np.deg2rad(hub.cone_angle)))
+
     return TurbineDefinition(
         tower=_read_tower(components.get("tower")),
-        hub=_read_hub(components.get("hub")),
-        nacelle=_read_nacelle(components.get("nacelle")),
+        hub=hub,
+        nacelle=_read_nacelle(components.get("nacelle") or _windio2_nacelle(components.get("drivetrain"))),
         number_of_blades=int(assembly.get("number_of_blades", 3)),
         hub_height=float(hub_height) if hub_height is not None else None,
         rotor_diameter=float(rotor_diameter) if rotor_diameter is not None else None,

@@ -9,10 +9,8 @@ NaN; an isotropic material without G gets G = E / (2 (1 + nu)).
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
 from aeroelast.models.blade.numad.io.yaml_to_blade import _add_materials
@@ -52,23 +50,3 @@ def test_complete_material_is_read_as_before():
 def test_orthotropic_material_without_shear_modulus_still_fails():
     with pytest.raises(KeyError):
         _parse([{"name": "bad", "orth": 1, "rho": 1.0, "E": [1.0, 1.0, 1.0], "nu": [0.3, 0.3, 0.3]}])
-
-
-IEA34_YAML = Path(__file__).resolve().parents[2] / "IEA-3.4-130-RWT.yaml"
-
-
-def test_iea34_blade_is_read_with_every_layer():
-    """The second validation blade reads end to end (fiber_orientation is optional in windIO v1)."""
-    import yaml
-
-    from aeroelast.models.blade.numad.objects.blade import Blade
-
-    blade = Blade()
-    blade.read_yaml(str(IEA34_YAML))
-    layers = yaml.safe_load(IEA34_YAML.read_text())["components"]["blade"]["internal_structure_2d_fem"]["layers"]
-    names = {c.name for c in blade.definition.components} if isinstance(blade.definition.components, list) \
-        else set(blade.definition.components)
-    assert names == {layer["name"] for layer in layers}
-    assert all(float(np.mean(c.fabricangle)) == 0.0 for c in (
-        blade.definition.components if isinstance(blade.definition.components, list)
-        else blade.definition.components.values()))

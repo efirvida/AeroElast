@@ -534,8 +534,13 @@ class Geometry:
             mx = np.array([[1., 0., 0.], [0., cx, -sx], [0., sx, cx]])
             my = np.array([[cy, 0., sy], [0., 1., 0.], [-sy, 0., cy]])
             mxy = my @ mx
+            # ``correction`` rotates the local frame so that Mxy @ Rz(correction) has no windIO-x component on
+            # its local-y (TE) axis: it defines the zero-twist reference (the in-plane rotation Mxy introduces)
+            # and keeps its sign.  windIO/AeroDyn twist is positive to feather (LE toward upwind): in the windIO
+            # frame (x suction/downwind, y TE) that is a NEGATIVE rotation about the section normal, so the
+            # twist enters with a minus sign: Mxy @ Rz(correction - twist).  (Was +twist: a mirrored pretwist.)
             correction = np.arctan2(mxy[0, 1], mxy[0, 0])
-            angle = np.deg2rad(self.idegreestwist[k]) + correction
+            angle = correction - np.deg2rad(self.idegreestwist[k])
             c, s = np.cos(angle), np.sin(angle)
             mz = np.array([[c, -s, 0.], [s, c, 0.], [0., 0., 1.]])
             self._windio2_frames[k] = to_numad @ mxy @ mz

@@ -14,7 +14,7 @@ from aeroelast.models.blade.numad.objects.definition import Definition
 from aeroelast.models.blade.numad.objects.material import Material
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 from aeroelast.models.blade.numad.utils.misc_utils import _parse_data, full_keys_from_substrings
-from aeroelast.models.blade.windio import is_windio2, normalize_windio
+from aeroelast.models.blade.windio import normalize_windio
 
 
 def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
@@ -47,13 +47,12 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     # initialize definition
     definition = Definition()
     blade.definition = definition
-    if is_windio2(data):
-        definition.windio2_reference_axis = copy.deepcopy(
-            data["components"]["blade"]["reference_axis"]
-        )
-        definition.windio2_outer_shape = copy.deepcopy(data["components"]["blade"]["outer_shape"])
-        names = {a["name"] for a in definition.windio2_outer_shape["airfoils"]}
-        definition.windio2_airfoils = copy.deepcopy([a for a in data["airfoils"] if a["name"] in names])
+    definition.windio2_reference_axis = copy.deepcopy(
+        data["components"]["blade"]["reference_axis"]
+    )
+    definition.windio2_outer_shape = copy.deepcopy(data["components"]["blade"]["outer_shape"])
+    names = {a["name"] for a in definition.windio2_outer_shape["airfoils"]}
+    definition.windio2_airfoils = copy.deepcopy([a for a in data["airfoils"] if a["name"] in names])
     try:
         blade.definition.hub_diameter = data["components"]["hub"]["outer_shape_bem"]["diameter"]
     except Exception:
@@ -134,23 +133,22 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     }
     # Spar caps
     _add_spar_caps(definition, blade_structure_dict)
-    if is_windio2(data):
-        # v2 supplies explicit cap edges, not v1 pitch-axis offsets. The zero
-        # offsets only initialize legacy fields; KeyPoints uses the arcs below.
-        definition.sparcapoffset_hp = np.zeros_like(definition.span)
-        definition.sparcapoffset_lp = np.zeros_like(definition.span)
-        definition.cap_nd_arc = {}
-        for name, layer in yaml_layers.items():
-            if "spar" not in name.lower():
-                continue
-            side = "hp" if blade_structure_dict[name.lower()]["side"] == "pressure" else "lp"
-            b, c = (("start_nd_arc", "end_nd_arc") if side == "hp"
-                    else ("end_nd_arc", "start_nd_arc"))
-            grid = np.union1d(layer[b]["grid"], layer[c]["grid"])
-            definition.cap_nd_arc[side] = [grid, *[
-                np.interp(grid, layer[key]["grid"], layer[key]["values"])
-                for key in (b, c)
-            ]]
+    # v2 supplies explicit cap edges, not v1 pitch-axis offsets. The zero
+    # offsets only initialize legacy fields; KeyPoints uses the arcs below.
+    definition.sparcapoffset_hp = np.zeros_like(definition.span)
+    definition.sparcapoffset_lp = np.zeros_like(definition.span)
+    definition.cap_nd_arc = {}
+    for name, layer in yaml_layers.items():
+        if "spar" not in name.lower():
+            continue
+        side = "hp" if blade_structure_dict[name.lower()]["side"] == "pressure" else "lp"
+        b, c = (("start_nd_arc", "end_nd_arc") if side == "hp"
+                else ("end_nd_arc", "start_nd_arc"))
+        grid = np.union1d(layer[b]["grid"], layer[c]["grid"])
+        definition.cap_nd_arc[side] = [grid, *[
+            np.interp(grid, layer[key]["grid"], layer[key]["values"])
+            for key in (b, c)
+        ]]
 
     # TE Bands
     _add_te_bands(definition, blade_structure_dict)
@@ -170,7 +168,6 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     # turns the load upwind: ForceProjector's load frame then reads the section normal the
     # opposite way (tests/validation/bem/test_force_projection_load_frame.py) and the elastic
     # twist changes sign, away from the 1D beam built from the published deck (-1.7765 deg).
-    # The Excel path still sets it from the ``CW``/``CCW`` flag (see excel_to_blade.py).
 
     blade.update_blade()
 
@@ -187,12 +184,11 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
         blade.definition.rotor_diameter = float(blade.definition.span[-1]) * 2
         blade.definition.hub_height = blade.definition.rotor_diameter / 2 * 1.3
 
-    if is_windio2(data):
-        from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
+    from aeroelast.models.blade.numad.objects.windio2_topology import WindIO2Topology
 
-        blade.windio2_topology = WindIO2Topology(
-            source, hashlib.sha256(source_bytes).hexdigest(), blade.definition
-        )
+    blade.windio2_topology = WindIO2Topology(
+        source, hashlib.sha256(source_bytes).hexdigest(), blade.definition
+    )
     # save(blade_name)
     # BladeDef_to_NuMADfile(obj,numad_name,matdb_name,numad_af_folder)
     return blade

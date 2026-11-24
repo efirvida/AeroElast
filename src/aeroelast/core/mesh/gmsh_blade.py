@@ -111,6 +111,36 @@ def numad_data(tables: Dict[str, Any], layup_names: list) -> Dict[str, Any]:
     return {"materials": materials, "sections": sections}
 
 
+def drop_webs(arrays: Dict[str, Any]) -> Dict[str, Any]:
+    """Arrays of the outer shell only: every non-skin element, the nodes only they used and the layups only they used are removed.
+
+    The kept elements and nodes keep their relative order (the skin mesh is the webbed one, not a re-mesh); node ids in
+    ``elements`` and layup ids are renumbered densely.
+    """
+    keep = np.array([str(s) == "skin" for s in arrays["surfaces"]], bool)
+    if keep.all():
+        return arrays
+    elements = np.asarray(arrays["elements"])[keep]
+    used = np.zeros(len(arrays["nodes"]), bool)
+    used[elements[elements >= 0]] = True
+    new_id = np.cumsum(used) - 1
+    remapped = np.where(elements >= 0, new_id[np.where(elements >= 0, elements, 0)], -1).astype(np.int64)
+    layup_id = np.asarray(arrays["layup_id"])[keep]
+    kept_layups = np.unique(layup_id)
+    dense = {int(old): i for i, old in enumerate(kept_layups)}
+    tables = json.loads(bytes(arrays["tables_json"]).decode())
+    tables["layups"] = [tables["layups"][int(i)] for i in kept_layups]
+    tables["surfaces"] = [s for s in tables["surfaces"] if s == "skin"]
+    out = {k: np.asarray(v)[keep] for k, v in arrays.items() if k in ("surfaces", "params", "normals", "offsets", "areas")}
+    out.update(
+        nodes=np.asarray(arrays["nodes"])[used],
+        elements=remapped,
+        layup_id=np.array([dense[int(i)] for i in layup_id], dtype=np.int64),
+        tables_json=np.frombuffer(json.dumps(tables).encode(), dtype=np.uint8),
+    )
+    return out
+
+
 def mesh_from_arrays(arrays: Dict[str, Any], skin_reference: str = "mid", renumber: Optional[str] = "rcm"):
     """``(MeshModel, rust_properties)`` from the arrays of :func:`raw_to_arrays`."""
     from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
@@ -185,6 +215,8 @@ class GmshBladeMesh:
         N elements per chord (>= 4).  When given, ``element_size`` and ``h_range`` are not used: the chordwise size is c(eta)/N,
         the spanwise size ``span_aspect`` * c(eta)/N and every material band gets at least ``min_band_elements`` elements across.
         None (default) keeps the uniform ``element_size`` path.
+    eta_bounds : (float, float)
+        Spanwise sub-range ``(lo, hi)`` of the blade to mesh (normalised grid, default the whole blade).
     min_band_fraction : float, optional
         With ``chord_divisions``: the ``min_band_elements`` floor applies only to a band at least this fraction of c/N wide
         (default 1.0, the S3 rule; narrower bands get their rounded count, >= 1).  None = the floor on every band.
@@ -193,7 +225,7 @@ class GmshBladeMesh:
     def __init__(self, yaml_file: str, element_size: float = 0.25, skin_reference: str = "mid",
                  h_range: Tuple[float, float] = (0.05, 0.25), chord_divisions: Optional[float] = None,
                  span_aspect: float = 1.0, min_band_elements: int = 2,
-                 min_band_fraction: Optional[float] = 1.0) -> None:
+                 min_band_fraction: Optional[float] = 1.0, eta_bounds: Tuple[float, float] = (0.0, 1.0)) -> None:
         if skin_reference not in SKIN_REFERENCES:
             raise ValueError(f"skin_reference must be one of {SKIN_REFERENCES}, got {skin_reference!r}")
         self.yaml_file = yaml_file
@@ -204,6 +236,9 @@ class GmshBladeMesh:
         self.span_aspect = float(span_aspect)
         self.min_band_elements = int(min_band_elements)
         self.min_band_fraction = None if min_band_fraction is None else float(min_band_fraction)
+        self.eta_bounds = (float(eta_bounds[0]), float(eta_bounds[1]))
+        if not 0.0 <= self.eta_bounds[0] < self.eta_bounds[1] <= 1.0:
+            raise ValueError(f"eta_bounds must satisfy 0 <= lo < hi <= 1, got {tuple(eta_bounds)}")
         self.mesh = None
         self.numad_mesh_data: Dict[str, Any] = {}
         self.numad_blade = None
@@ -220,12 +255,20 @@ class GmshBladeMesh:
             "chord_divisions": self.chord_divisions, "span_aspect": self.span_aspect, "min_band_elements": self.min_band_elements}
         if chord:
             chord["min_band_fraction"] = self.min_band_fraction
+        if self.eta_bounds != (0.0, 1.0):  # a spanwise patch of the blade (default: the full blade, call unchanged)
+            chord["eta_bounds"] = self.eta_bounds
         raw = generate_mesh_gmsh(blade.windio2_topology, self.element_size, with_materials=True, h_range=self.h_range, **chord)
         return raw_to_arrays(raw)
 
-    def generate(self, renumber: Optional[str] = None, verbose: bool = False):
-        """Build the ``MeshModel``; ``renumber`` (None or ``"rcm"``) as in ``BladeMesh.generate``."""
+    def generate(self, renumber: Optional[str] = None, verbose: bool = False, include_webs: bool = True):
+        """Build the ``MeshModel``; ``renumber`` (None or ``"rcm"``) as in ``BladeMesh.generate``.
+
+        ``include_webs=False`` meshes with the webs and then drops them (:func:`drop_webs`): the outer shell is identical to the
+        webbed mesh, with no web element or node set and no orphan node.
+        """
         arrays = self._arrays()
+        if not include_webs:
+            arrays = drop_webs(arrays)
         mesh, _ = mesh_from_arrays(arrays, self.skin_reference, renumber=renumber)
         self.mesh = mesh
         self.numad_mesh_data = mesh.numad_mesh_data

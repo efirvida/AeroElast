@@ -190,7 +190,7 @@ def _total_induced_velocity(
     core_radius: float,
 ) -> np.ndarray:
     velocity = np.zeros(3, dtype=float)
-    for panel_index, (gamma, panel) in enumerate(zip(circulation, panels)):
+    for panel_index, (gamma, panel) in enumerate(zip(circulation, panels, strict=False)):
         velocity += gamma * _wake_induced_velocity(
             point,
             panel,
@@ -250,7 +250,7 @@ def _correct_wake_rows_geometry(
         return _copy_wake_rows(refreshed_rows)
 
     corrected_rows: list[_WakeRow] = []
-    for predictor_row, refreshed_row in zip(predictor_rows, refreshed_rows):
+    for predictor_row, refreshed_row in zip(predictor_rows, refreshed_rows, strict=False):
         corrected_points = predictor_row.points + 0.5 * dt * (
             refreshed_row.convection_velocities - predictor_row.convection_velocities
         )
@@ -475,7 +475,7 @@ class QuasiSteadyVLMBackend:
         induced = np.zeros((len(panels), 3), dtype=float)
         for i, target in enumerate(panels):
             velocity = np.zeros(3, dtype=float)
-            for j, (gamma, source) in enumerate(zip(circulation, panels)):
+            for j, (gamma, source) in enumerate(zip(circulation, panels, strict=False)):
                 velocity += gamma * _wake_induced_velocity(
                     target.collocation_point,
                     source,
@@ -565,7 +565,7 @@ class QuasiSteadyVLMBackend:
         nodal_forces = reference_surface.assemble_global_nodal_forces(blade_panel_forces)
         integrated_force = panel_forces.sum(axis=0)
         integrated_moment = np.zeros(3, dtype=float)
-        for panel, force in zip(panels, panel_forces):
+        for panel, force in zip(panels, panel_forces, strict=False):
             integrated_moment += np.cross(panel.centroid - surface_state.rotation_center, force)
 
         metadata: dict[str, Any] = {

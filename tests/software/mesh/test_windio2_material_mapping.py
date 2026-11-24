@@ -1,7 +1,5 @@
 """Analytic material proofs for the explicit S12 adapter, not a windIO-wide rule."""
-from copy import deepcopy
-from dataclasses import replace
-from types import MappingProxyType, SimpleNamespace
+from types import MappingProxyType
 
 import numpy as np
 import pytest
@@ -9,7 +7,6 @@ import pytest
 from aeroelast.core.laminate import Laminate, Ply
 from aeroelast.core.material import OrthotropicMaterial
 from aeroelast.models.blade.numad.objects.windio2_laminate import LayerSample, LaminateCell
-from tests.software.mesh.test_windio2_web_mesh import short as short
 from tests.software.mesh.test_windio2_topology import official as official
 
 
@@ -215,102 +212,3 @@ def test_degenerate_projection_rejected_and_empty_skin_preserved():
     with pytest.raises(ValueError, match='beam-axis projection'):
         mapping(cell([sample('a', .001, 0.)]), [0., 0., 1.], [0., 0., 1.], np.eye(3))
     assert mapping(cell([]), [1., 0., 0.], [0., 0., 1.], np.eye(3)).layers == ()
-
-
-def test_raw_native_oblique_beam_projection_not_chart_tangent(short):
-    from aeroelast.models.blade.numad.mesh_gen.windio2_mesh import RawMesh, map_mesh_materials
-    definition = deepcopy(short[0]._definition)
-    # Known rigid rotation, independent of the production section-frame recipe.
-    a, b = np.deg2rad([19., 27.])
-    rotation = np.array([[np.cos(b), -np.sin(b), 0.], [np.sin(b), np.cos(b), 0.], [0., 0., 1.]]) @ np.array([
-        [1., 0., 0.], [0., np.cos(a), -np.sin(a)], [0., np.sin(a), np.cos(a)]])
-    beam = rotation[:, 2]
-    normal = rotation @ np.array([0., 1., .25])
-    normal /= np.linalg.norm(normal)
-    x = rotation[:, 0]
-    y = np.cross(normal, x)
-    basis = np.array([x, y, normal])
-    nodes = np.array([-x-y, x-y, x+y, -x+y])*.05
-    uv = np.array([[[.2, .3], [.3, .3], [.3, .4], [.2, .4]]])
-    # The native source axis has the exact analytic beam above, expressed in
-    # windIO axes, with nonzero translation and twist. Neither changes its zero.
-    windio_slope = np.array([beam[1], -beam[0], beam[2]])
-    definition.windio2_reference_axis = {axis: {'grid': [0., 1.], 'values': [i, i+v]}
-                                        for i, (axis, v) in enumerate(zip('xyz', windio_slope, strict=True))}
-    definition.windio2_outer_shape['twist'] = {'grid': [0., 1.], 'values': [23., 23.]}
-    source = sample('outer', .002, 31.)
-    raw = RawMesh(nodes, np.array([[0, 1, 2, 3]]), (cell([source]),), ('skin',), uv, basis[None], {})
-    mapped = map_mesh_materials(SimpleNamespace(_definition=definition), raw)
-    layer, = mapped.material_stacks[0].layers
-    zero = beam - (beam@normal)*normal
-    zero /= np.linalg.norm(zero)
-    angle = np.deg2rad(31.)
-    expected = np.cos(angle)*zero + np.sin(angle)*np.cross(normal, zero)
-    np.testing.assert_allclose(layer.fiber_vector, expected, atol=3e-14)
-    assert abs(expected@x) > .1  # nonzero coupling in this arbitrary chart basis
-    assert abs(zero@x) < 1e-14  # chart x is NOT the beam-axis zero
-    np.testing.assert_array_equal(mapped.nodes, nodes)
-    np.testing.assert_allclose(layer.z_bounds_m, [-.002, 0.], atol=1e-16)
-
-
-def test_official_raw_triple_mapping_keeps_reference_nodes(official):
-    from aeroelast.models.blade.numad.mesh_gen.windio2_mesh import generate_mesh
-    blade, _, _ = official
-    eta = .08163265306122448
-    geometry = generate_mesh(blade.windio2_topology, eta_bounds=(eta, eta+.0001))
-    mapped = generate_mesh(blade.windio2_topology, eta_bounds=(eta, eta+.0001), with_materials=True)
-    np.testing.assert_array_equal(mapped.nodes, geometry.nodes)
-    np.testing.assert_array_equal(mapped.elements, geometry.elements)
-    assert geometry.material_angles is None
-    assert len(mapped.material_stacks) == len(mapped.elements)
-    for source_cell, stack, basis in zip(mapped.cells, mapped.material_stacks, mapped.bases, strict=True):
-        assert {l.source.name for l in stack.layers} == {l.name for l in source_cell.layers}
-        if source_cell.surface != 'skin':
-            assert stack.reference == 'web_core_center'
-            assert len(stack.layers) == 3
-            # Source local LE direction has +x at zero twist; use the stored
-            # physical normal only to establish the signed element z-axis.
-            for layer in stack.layers:
-                lo, hi = layer.z_bounds_m
-                face_position = (lo+hi)/2 * np.dot(stack.physical_normal, basis[2])
-                if layer.source.name.endswith('skinLE'):
-                    assert face_position > 0
-                elif layer.source.name.endswith('skinTE'):
-                    assert face_position < 0
-                assert layer.source.fiber_angle_deg == 0.
-
-
-def test_raw_mapping_opt_in_preserves_geometry_and_source(short):
-    from aeroelast.models.blade.numad.mesh_gen.windio2_mesh import generate_mesh, map_mesh_materials
-    topology, _, path, before = short
-    geometry = generate_mesh(topology)
-    assert geometry.material_angles is None
-    with pytest.raises(ValueError, match='requires one orthotropic LE skin, isotropic core, orthotropic TE skin'):
-        map_mesh_materials(topology, geometry)
-    assert geometry.material_angles is None and path.read_bytes() == before
-    # This fixture intentionally has unsupported webs; use its unchanged source
-    # geometry with skin cells only to verify the production raw entry point.
-    select = np.array(geometry.surfaces) == 'skin'
-    skin = replace(geometry, elements=geometry.elements[select],
-                   cells=tuple(c for c, yes in zip(geometry.cells, select, strict=True) if yes),
-                   surfaces=tuple('skin' for _ in range(select.sum())),
-                   element_parameters=geometry.element_parameters[select], bases=geometry.bases[select])
-    mapped = map_mesh_materials(topology, skin)
-    np.testing.assert_array_equal(mapped.nodes, skin.nodes)
-    np.testing.assert_array_equal(mapped.elements, skin.elements)
-    assert mapped.cells is skin.cells
-    assert len(mapped.material_angles) == len(skin.elements)
-    assert all(s.reference == 'outer_mold_line' for s in mapped.material_stacks)
-    for stack, source_cell in zip(mapped.material_stacks, mapped.cells, strict=True):
-        assert [l.source for l in stack.layers] == list(reversed(source_cell.layers))
-        assert stack.midplane_offset_m == pytest.approx(-source_cell.thickness_m/2)
-    # Changing only the right-handed element basis must not change physical
-    # face positions or fibers in the production raw mapper either.
-    flipped_bases = skin.bases * np.array([[1.], [-1.], [-1.]])
-    flipped = map_mesh_materials(topology, replace(skin, bases=flipped_bases))
-    for direct, other in zip(mapped.material_stacks, flipped.material_stacks, strict=True):
-        assert [l.source for l in other.layers] == [l.source for l in reversed(direct.layers)]
-        for a, b in zip(direct.layers, reversed(other.layers), strict=True):
-            np.testing.assert_allclose(a.fiber_vector, b.fiber_vector, atol=2e-14)
-            np.testing.assert_allclose(a.z_bounds_m, -np.array(b.z_bounds_m)[::-1], atol=1e-16)
-    assert path.read_bytes() == before

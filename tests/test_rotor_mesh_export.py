@@ -8,6 +8,10 @@ from aeroelast.core.config import FSISimulationConfig
 from aeroelast.core.mesh import MeshModel, RotorHubMesh, RotorMesh
 from aeroelast.core.mesh.utils import detect_open_boundaries, get_open_boundary_loops
 from aeroelast.models.blade.numad.objects.definition import Definition
+from tests.support.paths import REPO_ROOT  # noqa: E402
+
+# T6c: BladeMesh/RotorMesh mesh with gmsh and need the windIO v2 yaml; chord_divisions=10 keeps the mesh cheap (13 k nodes)
+V2_YAML = str(REPO_ROOT / "tests" / "IEA15MW" / "reference" / "upstream" / "IEA-15-240-RWT.yaml")
 
 
 def _make_definition(
@@ -138,31 +142,28 @@ def test_fsisimulationconfig_parses_mesh_export_parts(tmp_path: Path):
 
 
 @pytest.fixture(scope="module")
-def coarse_rotor_mesh(iea_blade_yaml: str):
+def coarse_rotor_mesh():
     rotor = RotorMesh(
-        yaml_file=iea_blade_yaml,
+        yaml_file=V2_YAML,
         n_blades=2,
         hub_radius=None,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,
     )
     return rotor.generate(renumber=None, verbose=False)
 
 
-def test_rotor_mesh_auto_hub_radius_applies_expected_offset(iea_blade_yaml: str):
+def test_rotor_mesh_auto_hub_radius_applies_expected_offset():
     auto_rotor = RotorMesh(
-        yaml_file=iea_blade_yaml,
+        yaml_file=V2_YAML,
         n_blades=1,
         hub_radius=None,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,
     )
     zero_rotor = RotorMesh(
-        yaml_file=iea_blade_yaml,
+        yaml_file=V2_YAML,
         n_blades=1,
         hub_radius=0.0,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,
     )
 
     auto_mesh = auto_rotor.generate(renumber=None, verbose=False)
@@ -207,14 +208,13 @@ def test_rotor_mesh_write_element_sets_exports_one_file_per_blade(
 
 
 def test_rotor_mesh_write_element_sets_closes_exported_blade_end_loops(
-    tmp_path: Path, iea_blade_yaml: str
+    tmp_path: Path
 ):
     rotor = RotorMesh(
-        yaml_file=iea_blade_yaml,
+        yaml_file=V2_YAML,
         n_blades=3,
         hub_radius=None,
-        element_size=12.0,
-        n_samples=60,
+        chord_divisions=10,
     )
     mesh = rotor.generate(renumber=None, verbose=False)
     blade_set_names = [RotorMesh.blade_part_set_name(i) for i in range(3)]
@@ -245,8 +245,7 @@ def test_rotor_hub_mesh_generates_closed_surface(iea_blade_yaml: str):
 
 def test_rotor_mesh_resolves_hub_radius_from_explicit_rotor_diameter_override():
     rotor = RotorMesh(
-        excel_file="blade.xlsx",
-        airfoil_dir="airfoils",
+        yaml_file=V2_YAML,
         n_blades=3,
         rotor_diameter=242.23775645,
     )

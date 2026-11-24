@@ -32,7 +32,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 CASES_DIR = REPO / "tests" / "IEA15MW" / "ch6_prepared_cases"
 GEN_DIR = CASES_DIR  # the generated yamls live at the same level so the
-                     # relative asset paths (../../IEA-15-240-RWT.yaml etc.)
+                     # relative asset paths (../reference/upstream/IEA-15-240-RWT.yaml etc.)
                      # keep resolving exactly like the templates
 RESULTS_BASE = Path(os.environ.get("RESULTS_BASE",
                                    "/scratch/leahk/eduardo.donestevez/v006_matrix_results"))
@@ -128,7 +128,7 @@ def submit(case_id: str, solid_yaml: Path, fluid_yaml: Path) -> str:
         f"echo '[v006 {case_id}] done'"
     )
     # pace against the queue's MaxSubmitPU: retry on the submit limit
-    for attempt in range(120):
+    for _attempt in range(120):
         res = subprocess.run(
             ["sbatch", "--parsable", "-p", "sequana_cpu", "--ntasks=8",
              "-J", f"v006_{case_id}", "--time=4-00:00:00",

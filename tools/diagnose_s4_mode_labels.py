@@ -13,7 +13,7 @@ first-edgewise pick jumps out of the convergence trend of the S-x artifact
   * the legacy label and a robust integrated label.
 
 Usage:
-  python tools/diagnose_s4_mode_labels.py --sizes 0.5 0.25 0.125
+  python tools/diagnose_s4_mode_labels.py --sizes 0.25 0.177 0.125
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def _label(sx, sy, sz, factor=2.0):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sizes", type=float, nargs="+", default=[0.5, 0.25, 0.125])
+    ap.add_argument("--sizes", type=float, nargs="+", default=[0.25, 0.177, 0.125])
     ap.add_argument("--n-modes", type=int, default=8)
     ap.add_argument(
         "--csv",

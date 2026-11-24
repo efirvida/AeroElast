@@ -27,9 +27,20 @@ SOLVERS = ["corotational", "inertial"]
 
 # IEA-15 MW asset paths expected inside every YAML (relative to YAML's parent dir)
 # The canonical blade input since 2026-09-08 is the official WindIO yaml
-# (tests/IEA-15-240-RWT.yaml); the UTD excel input is retired from new work.
-EXPECTED_BLADE_YAML = "../../IEA-15-240-RWT.yaml"
-EXPECTED_AIRFOIL_DIR = "../../airfoils"
+# (tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml, windIO 2.x); the UTD excel input and the windIO 1.x file are retired.
+# Since T6b (gmsh-official-mesher, S6) the mesh generator is GmshBladeMesh on the windIO 2.x
+# upstream file; the NuMAD-only keys are gone from its params.
+EXPECTED_GENERATOR_TYPE = "GmshBladeMesh"
+UPSTREAM_V2_YAML = Path("tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml")
+NUMAD_ONLY_KEYS = (
+    "n_samples",
+    "airfoil_spacing",
+    "span_grading",
+    "airfoil_dir",
+    "refine_tip",
+    "max_bay_length",
+    "laminate_per_row",
+)
 EXPECTED_PRECICE_CONFIG = "../precice-config.xml"
 
 # Expected solver types per template
@@ -61,6 +72,24 @@ def _assert_resolves(filename: str, value: str, what: str) -> None:
     assert target.exists(), (
         f"{filename}: {what} '{value}' does not resolve (looked for {target.resolve()})"
     )
+
+
+def _assert_generator_contract(filename: str, label: str) -> None:
+    """Migrated generator block: GmshBladeMesh, v2 upstream yaml, no NuMAD-only key."""
+    generator = _yaml(filename)["mesh"]["generator"]
+    gen = generator["params"]
+    assert generator["type"] == EXPECTED_GENERATOR_TYPE, (
+        f"{label}: generator type should be '{EXPECTED_GENERATOR_TYPE}'"
+    )
+    _assert_resolves(filename, gen["yaml_file"], "yaml_file")
+    target = ((CASES_DIR / filename).parent / gen["yaml_file"]).resolve()
+    assert target == UPSTREAM_V2_YAML.resolve(), (
+        f"{label}: yaml_file should be the v2 upstream file {UPSTREAM_V2_YAML}, got {target}"
+    )
+    version = str(yaml.safe_load(target.read_text(encoding="utf-8")).get("windIO_version", ""))
+    assert version.startswith("2"), f"{label}: {target} is windIO '{version}', expected 2.x"
+    stale = [k for k in NUMAD_ONLY_KEYS if k in gen]
+    assert not stale, f"{label}: NuMAD-only keys in the generator params: {stale}"
 
 
 def _fluid_yaml_name(dlc: str) -> str:
@@ -142,17 +171,7 @@ def test_ch6_fluid_yaml_participant(dlc: str):
 
 @pytest.mark.parametrize("dlc", DLCS)
 def test_ch6_fluid_yaml_asset_paths(dlc: str):
-    cfg = _yaml(_fluid_yaml_name(dlc))
-    gen = cfg["mesh"]["generator"]["params"]
-    name = _fluid_yaml_name(dlc)
-    assert gen["yaml_file"] == EXPECTED_BLADE_YAML, (
-        f"DLC {dlc} fluid: yaml_file should be '{EXPECTED_BLADE_YAML}'"
-    )
-    assert gen["airfoil_dir"] == EXPECTED_AIRFOIL_DIR, (
-        f"DLC {dlc} fluid: airfoil_dir should be '{EXPECTED_AIRFOIL_DIR}'"
-    )
-    _assert_resolves(name, gen["yaml_file"], "yaml_file")
-    _assert_resolves(name, gen["airfoil_dir"], "airfoil_dir")
+    _assert_generator_contract(_fluid_yaml_name(dlc), f"DLC {dlc} fluid")
 
 
 @pytest.mark.parametrize("dlc", DLCS)
@@ -197,17 +216,7 @@ def test_ch6_fluid_output_folders_are_unique():
 # ── Solid YAMLs ──────────────────────────────────────────────────────────────────
 @pytest.mark.parametrize("solver,dlc", [(s, d) for s in SOLVERS for d in DLCS])
 def test_ch6_solid_yaml_asset_paths(solver: str, dlc: str):
-    cfg = _yaml(_solid_yaml_name(solver, dlc))
-    gen = cfg["mesh"]["generator"]["params"]
-    name = _solid_yaml_name(solver, dlc)
-    assert gen["yaml_file"] == EXPECTED_BLADE_YAML, (
-        f"{solver}/DLC {dlc}: yaml_file should be '{EXPECTED_BLADE_YAML}'"
-    )
-    assert gen["airfoil_dir"] == EXPECTED_AIRFOIL_DIR, (
-        f"{solver}/DLC {dlc}: airfoil_dir should be '{EXPECTED_AIRFOIL_DIR}'"
-    )
-    _assert_resolves(name, gen["yaml_file"], "yaml_file")
-    _assert_resolves(name, gen["airfoil_dir"], "airfoil_dir")
+    _assert_generator_contract(_solid_yaml_name(solver, dlc), f"{solver}/DLC {dlc}")
 
 
 @pytest.mark.parametrize("solver,dlc", [(s, d) for s in SOLVERS for d in DLCS])

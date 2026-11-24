@@ -1,0 +1,155 @@
+group: '72'
+rows:
+- id: blade_mesh_fidelity.material_fidelity_iea15
+  group: '72'
+  title: Material fidelity of the gmsh skin mesh against the IEA-15 windIO YAML (element size 0.25 (certified, gmsh-validation-15-22 L22))
+  tests:
+  - tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py::test_material_fidelity_against_the_yaml[IEA-15-h0.25]
+  validates: Skin mass the gmsh mesher assigns, in total and per material (>= 1 % of the blade mass), and the fraction of skin elements with a > 5 % areal-mass deviation, against the IEA-15 windIO YAML laminate.
+  comparisons:
+  - label: Total assigned skin mass relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-15 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:83
+      justified: true
+      justification: 'Input-fidelity bound fixed before the first number (L6 of gmsh-store-campaign.md): the mesh must carry the YAML laminate mass to 0.5 %. Not a physical residual, so the 5 % L3 ceiling does not apply.'
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: Assigned mass per material (>= 1 % of blade mass) relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-15 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:87
+      justified: true
+      justification: Same 0.5 % input-fidelity bound, applied to every material carrying at least 1 % of the blade mass.
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: Fraction of skin elements with > 5 % areal-mass deviation
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-15 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: atol
+      value: 0.01
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:88
+      justified: true
+      justification: At most 1 % of the skin elements (FRAC_GT5_MAX), fixed before the first number; an absolute bound on a fraction.
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: Added L-S85 (odd/tasks/gmsh-official-mesher.md); not_measured. The reference is the YAML definition integrated by our own helper tests/support/v2_fidelity.py, so it is a definition check of the mesher, not an independent solver. Certified size. Re-measure with `tools/validation_matrix.py regression --group 72` (mesh generation takes minutes per blade).
+- id: blade_mesh_fidelity.material_fidelity_iea22
+  group: '72'
+  title: Material fidelity of the gmsh skin mesh against the IEA-22 windIO YAML (element size 0.177 (certified))
+  tests:
+  - tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py::test_material_fidelity_against_the_yaml[IEA-22-h0.177]
+  validates: Skin mass the gmsh mesher assigns, in total and per material (>= 1 % of the blade mass), and the fraction of skin elements with a > 5 % areal-mass deviation, against the IEA-22 windIO YAML laminate.
+  comparisons:
+  - label: Total assigned skin mass relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-22 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:83
+      justified: true
+      justification: 'Input-fidelity bound fixed before the first number (L6 of gmsh-store-campaign.md): the mesh must carry the YAML laminate mass to 0.5 %. Not a physical residual, so the 5 % L3 ceiling does not apply.'
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: Assigned mass per material (>= 1 % of blade mass) relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-22 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:87
+      justified: true
+      justification: Same 0.5 % input-fidelity bound, applied to every material carrying at least 1 % of the blade mass.
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: Fraction of skin elements with > 5 % areal-mass deviation
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-22 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: atol
+      value: 0.01
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:88
+      justified: true
+      justification: At most 1 % of the skin elements (FRAC_GT5_MAX), fixed before the first number; an absolute bound on a fraction.
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: Added L-S85 (odd/tasks/gmsh-official-mesher.md); not_measured. The reference is the YAML definition integrated by our own helper tests/support/v2_fidelity.py, so it is a definition check of the mesher, not an independent solver. Certified size. Re-measure with `tools/validation_matrix.py regression --group 72` (mesh generation takes minutes per blade).
+- id: blade_mesh_fidelity.material_fidelity_iea34
+  group: '72'
+  title: 'Material fidelity of the gmsh skin mesh against the IEA-3.4 windIO YAML (element size 0.1 (NOT certified: one outlier at 0.07 of unknown cause))'
+  tests:
+  - tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py::test_material_fidelity_against_the_yaml[IEA-3.4-h0.1-not-certified]
+  validates: Skin mass the gmsh mesher assigns, in total and per material (>= 1 % of the blade mass), and the fraction of skin elements with a > 5 % areal-mass deviation, against the IEA-3.4 windIO YAML laminate.
+  comparisons:
+  - label: Total assigned skin mass relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-3.4 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:83
+      justified: true
+      justification: 'Input-fidelity bound fixed before the first number (L6 of gmsh-store-campaign.md): the mesh must carry the YAML laminate mass to 0.5 %. Not a physical residual, so the 5 % L3 ceiling does not apply.'
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: Assigned mass per material (>= 1 % of blade mass) relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-3.4 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:87
+      justified: true
+      justification: Same 0.5 % input-fidelity bound, applied to every material carrying at least 1 % of the blade mass.
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: Fraction of skin elements with > 5 % areal-mass deviation
+    asserted: true
+    reference:
+      kind: analytical
+      label: windIO YAML laminate of IEA-3.4 integrated by tests/support/v2_fidelity.py::skin_material_balance (skin mass per material, kg)
+    tolerance:
+      kind: atol
+      value: 0.01
+      source: tests/validation/blade/v2/test_v2_blades_mesh_reproducibility.py:88
+      justified: true
+      justification: At most 1 % of the skin elements (FRAC_GT5_MAX), fixed before the first number; an absolute bound on a fraction.
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: Added L-S85 (odd/tasks/gmsh-official-mesher.md); not_measured. The reference is the YAML definition integrated by our own helper tests/support/v2_fidelity.py, so it is a definition check of the mesher, not an independent solver. The IEA-3.4 mesh is not certified; its test id says so. Re-measure with `tools/validation_matrix.py regression --group 72` (mesh generation takes minutes per blade).

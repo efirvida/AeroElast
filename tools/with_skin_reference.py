@@ -1,4 +1,4 @@
-"""Run any script or pytest with BladeMesh's default skin_reference forced to oml or mid.
+"""Run any script or pytest with the BladeMesh / GmshBladeMesh default skin_reference forced to oml or mid.
 
 For before/after anchor measurements (odd/tasks/blade-midsurface-reference.md, T2): the same
 command, once per reference surface, with no test or tool edited. Only meshes built WITHOUT an
@@ -25,15 +25,18 @@ def main() -> int:
         print(__doc__)
         return 2
     from aeroelast.core.mesh import generators
+    from aeroelast.core.mesh.gmsh_blade import GmshBladeMesh
 
-    original = generators.BladeMesh.__init__
+    # both blade constructors take a skin_reference default: BladeMesh (oml, builds with gmsh) and GmshBladeMesh (mid)
+    for cls in (generators.BladeMesh, GmshBladeMesh):
+        original = cls.__init__
 
-    def patched(self, *args, **kwargs):
-        kwargs.setdefault("skin_reference", mode)
-        original(self, *args, **kwargs)
+        def patched(self, *args, _orig=original, **kwargs):
+            kwargs.setdefault("skin_reference", mode)
+            _orig(self, *args, **kwargs)
 
-    generators.BladeMesh.__init__ = patched
-    print(f"with_skin_reference: BladeMesh default skin_reference = {mode}", flush=True)
+        cls.__init__ = patched
+    print(f"with_skin_reference: BladeMesh / GmshBladeMesh default skin_reference = {mode}", flush=True)
     if rest[0] == "-m":
         sys.argv = rest[1:]
         runpy.run_module(rest[1], run_name="__main__", alter_sys=True)

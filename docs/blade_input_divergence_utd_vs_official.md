@@ -1,5 +1,7 @@
 # Divergencia entre modelos de pala: NuMAD UTD vs. definición oficial IEA 15 MW
 
+> **Superseded method (note 2026-11-20):** the UTD NuMAD xlsx input, the windIO v1 yaml and the NuMAD mesher it was compared through were retired (`odd/tasks/gmsh-official-mesher.md`, S5/S8/S9). The only blade input is the official windIO v2 yaml; this document survives as the input-sensitivity record. Numbers below are unchanged.
+
 **Fecha**: 2026-09-08 (hallazgo de layup) — ampliado 2026-09-09 (causa de la
 divergencia FSI con el blade oficial)
 **Estado**: migración completada; la divergencia FSI con el blade oficial
@@ -107,7 +109,7 @@ cuadro completo:
 
 ## 5. Experimento decisivo
 
-El blade oficial existe en formato WindIO v2 en `tests/IEA-15-240-RWT.yaml`
+El blade oficial existe en formato WindIO v2 en `tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml`
 (layup completa `internal_structure_2d_fem`, polares incluidos) y el importador
 ya existía en AeroElast (`models/blade/numad/io/yaml_to_blade.py` +
 `BladeMesh(yaml_file=...)`). Al correr S-2 con ese blade, el gap edgewise cae
