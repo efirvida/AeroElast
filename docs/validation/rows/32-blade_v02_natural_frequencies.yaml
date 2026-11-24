@@ -20,8 +20,13 @@ rows:
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 92515f2
+      date: '2026-11-23'
+      raw: 0.51844
+      margin_pct: 7.1728
+      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]: 0.51844 vs 0.5585 (error: 7.1728%, bound: 5.0000%)'
+      digest: 5ac564239756c678
   flags: []
   notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/validation/blade/test_iea15mw_v02_natural_frequencies.py::TestBladeNaturalFrequencies::test_1st_flapwise_frequency, deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 32`. Earlier note: Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.'
   history:
@@ -48,8 +53,13 @@ rows:
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 92515f2
+      date: '2026-11-23'
+      raw: 0.68469
+      margin_pct: 6.8826
+      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]: 0.68469 vs 0.6406 (error: 6.8826%, bound: 5.0000%)'
+      digest: a1c21ebd5eb05ebf
   flags: []
   notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/validation/blade/test_iea15mw_v02_natural_frequencies.py::TestBladeNaturalFrequencies::test_1st_edgewise_frequency, deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 32`. Earlier note: Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.'
   history:
