@@ -2481,7 +2481,8 @@ def test_the_real_store_status_reports_no_pending_migration() -> None:
     payload = json.loads(completed.stdout)
     groups = {row["group"]: row for row in payload["groups"]}
     assert groups["3"]["rows"] == 31
-    assert groups["10"]["rows"] == 1
+    # Group 10 (out-of-band Scordelis-Lo) was replaced by group 45 at ce87317 (2026-10-13).
+    assert groups["45"]["rows"] == 4
     assert payload["ungrouped_validation_files"] == []
 
 
@@ -2698,7 +2699,9 @@ def _aeroelast_files_imported_by(source: Path) -> set[str]:
     files: set[str] = set()
     for module in modules:
         base = REPO_ROOT / "src" / Path(*module.split("."))
-        for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        # A package directory wins over a same-named module in Python's import system
+        # (src/aeroelast/core/mesh/ shadows the stale core/mesh.py).
+        for candidate in (base / "__init__.py", base.with_suffix(".py")):
             if candidate.exists():
                 files.add(candidate.relative_to(REPO_ROOT).as_posix())
                 break

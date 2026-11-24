@@ -1340,7 +1340,7 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "tests/validation/blade/test_iea15mw_s7_torsion.py:125"
+      - "tests/validation/blade/v2/test_v2_iea15mw_s7_torsion.py:101"
       - "tools/run_s7_torsion.py:45"
     code_mentions:
       - "IEA-15-240-RWT_BeamDyn_blade.dat"
