@@ -133,9 +133,10 @@ pip install -e .[bem]
 > own. See the `bem` extra comments in `pyproject.toml` for the manual
 > two-step build, or use `make -f Makefile.sdumont ccblade` on SDumont.
 
-The SHARPy aerodynamic backend is a legacy optional extra, outside the
-validation path (BEM is the validated aerodynamic model); install it only if
-you need it:
+The SHARPy and VLM aerodynamic backends are legacy, outside the validation
+path (BEM is the validated aerodynamic model), and their removal is planned
+(`odd/tasks/aero-vlm-sharpy-removal.md`); the code and the `sharpy` extra still
+exist. Install the extra only if you need it:
 
 ```bash
 pip install -e .[sharpy]
@@ -200,7 +201,7 @@ Generate meshes with the `mesh` subcommand (see
 aeroelast mesh blade tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out blade.stl
 # --no-webs gives the CFD outer surface (the webbed mesh with the web elements and orphan nodes dropped)
 
-# Tower and nacelle body from the WindIO definition
+# Tapered tower from the WindIO definition (`nacelle` is a separate subcommand)
 aeroelast mesh tower tests/IEA15MW/reference/upstream/IEA-15-240-RWT.yaml --out tower.obj
 
 # Whole turbine, one file per component
@@ -216,7 +217,9 @@ The package provides these command-line entry points:
 - `aeroelast-bem-fsi` - run BEM-coupled FSI simulations
 - `aeroelast-monitor` - monitor rotor/FSI runs from CSV output
 - `aeroelast-reconstruct-csv` - rebuild missing rotor performance histories
-- `fem-shell-*` - legacy aliases, kept for backwards compatibility
+- `fem-shell-fsi`, `fem-shell-aero-fsi`, `fem-shell-aero-report-info`,
+  `fem-shell-bem-fsi`, `fem-shell-monitor`, `fem-shell-reconstruct-csv` -
+  deprecated aliases, kept for backwards compatibility
 
 Detailed CLI documentation is available in
 [docs/cli-reference.md](docs/cli-reference.md) for the simulation runner and
@@ -240,33 +243,37 @@ AeroElast/
 │   ├── aeroelast-solvers/ # PETSc/SLEPc-backed solvers
 │   └── aeroelast-py/      # PyO3 bindings
 ├── docs/                  # User-facing documentation
-├── examples/              # Small usage examples
+├── scripts/               # aeroenv.sh bootstrap, check.sh test gate
+├── tools/                 # Validation-store and diagnostic tools
 ├── src/aeroelast/         # Python package source
 │   ├── cli/               # CLI entry points
 │   ├── core/              # Mesh, BCs, materials, config
 │   ├── constitutive/      # Failure criteria and constitutive helpers
 │   ├── elements/          # Element implementations
-│   ├── models/            # Higher-level structural models
+│   ├── models/            # Blade model (windIO v2 reader, vendored pyNuMAD objects)
 │   ├── postprocess/       # Output and analysis utilities
-│   └── solvers/           # Static, dynamic, modal, and FSI solvers
-└── tests/                 # Unit and regression tests
+│   └── solvers/           # Static, dynamic, modal, FSI, BEM and aero solvers
+└── tests/                 # Unit, regression and validation tests (tests/validation/)
 ```
 
-## Examples and Validation
+## Tests and Validation
 
-- Example scripts live under `examples/`
-- Automated tests live under `tests/`
-- A practical test command used in development:
+- Automated tests live under `tests/`; the benchmark and reference cases are
+  under `tests/validation/` (e.g. `tests/validation/benchmarks/`)
+- Every command that imports the package needs the environment bootstrap
+  (the extension is built against GCC 14):
 
 ```bash
-python -m pytest tests/ -q --tb=short --ignore=tests/test_blade_mesh.py --ignore=tests/test_rotor_inertial.py
+scripts/aeroenv.sh python -c "import aeroelast"
+scripts/check.sh quick   # ~13 s smoke gate, says nothing about physics
+scripts/check.sh full    # the full suite (long; submit it as a SLURM job)
 ```
 
-Some benchmark cases are intentionally heavier and may not be suitable for a
-quick local smoke test. A handful of distributed-mesh MITC3/MITC4 benchmarks
-are also known to fall marginally outside the 5 % tolerance band used in the
-assertions; this reflects element accuracy limits on coarse meshes, not solver
-correctness.
+Some benchmark cases are intentionally heavier and are not suitable for a
+quick local smoke test. A few tests are documented as known-red (listed in
+`scripts/known-red-quick.txt` and `scripts/known-red-full.txt`); several of
+them are element-accuracy questions rather than solver bugs. The validation
+rules are in [docs/validation-policy.md](docs/validation-policy.md).
 
 ## Documentation
 
@@ -277,6 +284,10 @@ correctness.
 - [docs/formulations/](docs/formulations/) — theory documents: the shell element,
   the material models, the solvers, the two paper extracts, and the FSI rotor
   formulation (Spanish)
+- [docs/validation-policy.md](docs/validation-policy.md) — validation policy
+- [docs/windio2-input.md](docs/windio2-input.md) — windIO v2 blade input
+- [docs/blade_mesh_size_rule.md](docs/blade_mesh_size_rule.md) — blade mesh
+  size rule and its evidence
 
 Generic Aero-FSI runs now emit an `aero_report_schema.json` manifest alongside
 their CSV outputs. It records the report files, schema versions, and stable
@@ -286,9 +297,9 @@ first emitted row.
 See [docs/aero-fsi-report-schema.md](docs/aero-fsi-report-schema.md) for the
 quick path and field-level guidance.
 
-The `StressRecovery` class (`src/fem_shell/postprocess/stress_recovery.py`)
+The `StressRecovery` class (`src/aeroelast/postprocess/stress_recovery.py`)
 computes element-centroidal and node-averaged stress and strain fields from the
-displacement solution.  Key behaviours to be aware of:
+displacement solution.
 
 
 ## Third-Party Code and References
@@ -300,8 +311,8 @@ involved.
 ### Embedded / vendored code
 
 - **pyNuMAD** (Sandia National Laboratories) — a modified copy of its blade
-  definition objects and I/O is vendored (attribution kept; its mesher was
-  retired in favour of gmsh) under `src/aeroelast/models/blade/numad/`, under the
+  definition objects, I/O and gmsh skin-meshing helpers is vendored
+  (attribution kept; its own mesher was retired in favour of `GmshBladeMesh`) under `src/aeroelast/models/blade/numad/`, under the
   **BSD 3-Clause License**. See the [LICENSE](src/aeroelast/models/blade/numad/LICENSE)
   and [NOTICE](src/aeroelast/models/blade/numad/NOTICE) files shipped with it.
   Upstream: <https://github.com/sandialabs/pyNuMAD>
@@ -344,51 +355,29 @@ copy (`held_files`) and marks every field that still needs verification.
 
 ## Validation Summary
 
-This section summarizes the validation work performed so far, grouped by
-logical domain. Only cases with a validated error within the target tolerance
-are listed. Percentages and references are intentionally left blank here and
-are updated as results are confirmed; no unverified numbers are published.
+Validation follows a strict ladder set by the thesis plan
+(`odd/tasks/thesis-validation-plan.md`); the evidence lives in the validation
+store `docs/validation/` (levels in
+[docs/validation/levels.yaml](docs/validation/levels.yaml)), driven by
+`tools/validation_matrix.py` and governed by
+[docs/validation-policy.md](docs/validation-policy.md). The acceptance ceiling
+is 5 % relative error against an independent reference. No numbers are
+repeated here; read them in the store and in
+[docs/validation_closures.md](docs/validation_closures.md).
 
-### Shell elements
+| level | scope | status |
+|---|---|---|
+| L1 | MITC shell elements against published results | closed |
+| L2 | linear structural solver against published results and CalculiX | closed |
+| L3 | blade structure against OpenFAST/BeamDyn decks | closed 2026-11-14 with declared deck differences D1-D4; re-closure on the windIO v2 pipeline planned (`odd/tasks/l3-v2-closure.md`) |
+| L4 | built-in BEM (rigid blade) against OpenFAST AeroDyn | closed |
+| L5 | coupled FSI, one-way and two-way, against OpenFAST and Zhou | open |
+| L6 | preCICE + OpenFOAM, tower, wake | out of scope (CFD project) |
 
-- MITC4 isotropic shell against analytical/reference solutions — _error: pending_
-- MITC3 benchmarks — _error: pending_
-- Large-rotation benchmark problems — _error: pending_
-- Orthotropic shell parity — _error: pending_
-- Composite shell (laminate) validation — _error: pending_
-
-### Beam / structural validation
-
-- Beam 4-case parity — _error: pending_
-- Beam + shell 4-case parity — _error: pending_
-- Composite beam parity — _error: pending_
-- Shell analytical validation — _error: pending_
-- Shell comprehensive validation — _error: pending_
-
-### Dynamic / modal
-
-- Mass matrix validation — _error: pending_
-- Modal analysis parity (Rust vs Python) — _error: pending_
-- Stress-stiffened solver — _error: pending_
-
-### FSI / rotor
-
-- Rotor Rust parity (Rust fast-path vs Python reference) — _error: pending_
-- Rotor physical consistency — _error: pending_
-- BEM engine validation — _error: pending_
-- BEM polars / force projection — _error: pending_
-- Composite B-coupling — _error: pending_
-- FSI structural report — _error: pending_
-
-### Rust core
-
-- Rust assembler parity — _error: pending_
-- Rust composite parity — _error: pending_
-
-> Note: benchmark tests under `tests/benchmarks/` use tight tolerances and some
-> distributed-mesh MITC3/MITC4 cases fall marginally outside the 5 % band on
-> coarse meshes; those cases are element-accuracy limits, not solver
-> regressions.
+> Note: the benchmark tests under `tests/validation/benchmarks/` use tight
+> tolerances; the documented failures there are element-accuracy limits, not
+> solver regressions (see `scripts/known-red-full.txt` and
+> `docs/origin_main_integration_2026-09-30.md`).
 
 ## Limitations
 
