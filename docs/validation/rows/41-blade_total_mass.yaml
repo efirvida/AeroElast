@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: The test asserts 5 % (the L3 ceiling, maintainer rule 2026-10-16); test name and docstring now say 5 % (19ff1a3). Reference is the IEA tabular declared mass, one published numerical source; deck integrals of the same pipeline are not independent of it.
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: 67099.2
+      margin_pct: 1.2099
+      text: 'V-03 v2 assembled total blade mass [kg] vs IEA-15-240-RWT_tabular.xlsx, Overview declared mass, 67,921 kg: 67099.2 vs 67921 (error: 1.2099%, bound: 5.0000%)'
+      digest: 73ebba8de00d0b4e
     expected: 67921.0
   flags: []
   notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct, deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 41`. Earlier note: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml. Test name, docstring and assertion all say 5 % since 19ff1a3.'

@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The stale 0.08 read from the old docstring ("+4-8 %") is gone (K11.2).'
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 88f985a
+      date: '2026-11-23'
+      raw: 67099.2
+      margin_pct: 0.1527
+      text: 'V-05 v2 assembled shell mass [kg] vs BeamDyn v1.1 deck mass (integral of M11 over the 117.149 m reference axis): 67099.2 vs 66996.9 (error: 0.1527%, bound: 5.0000%)'
+      digest: 177e05dda40ae03b
     expected: 66996.9
   flags: []
   notes: 'Repointed (L-S85, odd/tasks/gmsh-official-mesher.md) from the v1 test tests/test_iea15mw_v05_structural_properties.py::TestAssembledStiffnessProperties::test_mass_matrix_total_consistent_with_reference, deleted at c70247c, to its windIO v2 + gmsh twin. measured = not_measured: the v1 values live in history only, they came from another test on another mesh. Reference, tolerance and band unchanged. Re-measure with `tools/validation_matrix.py regression --group 42`. Earlier note: Re-pointed from the xlsx 67,921 kg (now only G41''s reference) to the BeamDyn deck mass by D6/K11.2. Verdict in contract.yaml.'
