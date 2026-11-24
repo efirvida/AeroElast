@@ -397,7 +397,7 @@ references:
       authors, title, journal, volume, pages and year read off the held copy;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.01.015
     cited_by_declared:
-      - "src/aeroelast/core/assembler.py:778"
+      - "src/aeroelast/core/assembler.py:766"
       - "src/aeroelast/solvers/fsi/stress_stiffened_dynamic.py:52"
     code_mentions:
       - "Ko, Y."
@@ -1089,7 +1089,7 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "src/aeroelast/solvers/bem/engine.py:143"
+      - "src/aeroelast/solvers/bem/engine.py:257"
     code_mentions:
       - "CCBlade"
     notes: >-
@@ -1113,13 +1113,13 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "src/aeroelast/models/blade/aerodynamics.py:316"
+      - "src/aeroelast/models/blade/aerodynamics.py:315"
     notes: >-
       Apache-2.0 — neural-network airfoil aerodynamics. Upstream:
       <https://github.com/peterdsharples/NeuralFoil>. The source states no
       publication year; the repository pins version 0.3.3
       (`docs/validation-environment.md`). The code names it at
-      `src/aeroelast/models/blade/aerodynamics.py:316` (`_generate_polars_neuralfoil`);
+      `src/aeroelast/models/blade/aerodynamics.py:315` (`_generate_polars_neuralfoil`);
       the line was :319 when the prose site was recorded as stale, and moved with
       the edit of that file, so the site is now the declared one.
 
